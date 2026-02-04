@@ -1,0 +1,10 @@
+// In keymap.json
+{
+  "context": "Workspace",
+  "bindings": {
+    "ctrl-R": [
+      "task::Spawn",
+      { "task_name": "Darwin rebuild", "reveal_target": "center" },
+    ],
+  },
+}
