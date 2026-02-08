@@ -34,6 +34,9 @@
 
         # shellcheck
         shellcheck.enable = true;
+
+        # MD
+        markdownlint.enable = true;
       };
 
       # Use alternative pre-commit implementation

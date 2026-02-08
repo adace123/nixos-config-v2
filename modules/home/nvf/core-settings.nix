@@ -1,4 +1,4 @@
-{pkgs, ...}: {
+_: {
   programs.nvf.settings.vim = {
     # Vim aliases
     viAlias = true;
@@ -101,11 +101,11 @@
         enable = true;
         lsp = {
           enable = true;
-          servers = ["basedpyright"];
+          servers = [ "basedpyright" ];
         };
         format = {
           enable = true;
-          type = ["ruff"];
+          type = [ "ruff" ];
         };
       };
 
@@ -114,7 +114,11 @@
         enable = true;
         lsp = {
           enable = true;
-          servers = ["nixd"];
+          servers = [ "nixd" ];
+        };
+        format = {
+          enable = true;
+          type = [ "nixfmt" ];
         };
       };
     };
