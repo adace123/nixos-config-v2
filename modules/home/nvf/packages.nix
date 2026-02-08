@@ -8,5 +8,6 @@
     basedpyright # Python type checker
     nixd # Nix language server
     deadnix # Nix dead code remover
+    statix # Nix linter and formatter
   ];
 }

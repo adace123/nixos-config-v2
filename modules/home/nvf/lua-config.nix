@@ -168,11 +168,15 @@ _: {
           local filename = vim.api.nvim_buf_get_name(buf)
 
           -- Run deadnix on the file
-          local cmd = 'deadnix --edit "' .. filename .. '"'
-          local result = vim.fn.system(cmd)
+          local deadnix_cmd = 'deadnix --edit "' .. filename .. '"'
+          local deadnix_result = vim.fn.system(deadnix_cmd)
 
-          -- Reload the buffer if deadnix made changes
-          if vim.v.shell_error == 0 and result ~= "" then
+          -- Run statix on the file
+          local statix_cmd = 'statix fix "' .. filename .. '"'
+          local statix_result = vim.fn.system(statix_cmd)
+
+          -- Reload the buffer if either tool made changes
+          if vim.v.shell_error == 0 and (deadnix_result ~= "" or statix_result ~= "") then
             vim.cmd('edit')
           end
         end,
