@@ -3,6 +3,7 @@
   imports = [
     ./homebrew.nix
     ./fonts.nix
+    ./auto-update.nix
   ];
 
   # User configuration
@@ -82,4 +83,5 @@
 
   # Reattach to user session - fixes Touch ID in tmux/screen
   security.pam.services.sudo_local.reattach = true;
+
 }

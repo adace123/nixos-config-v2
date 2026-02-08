@@ -1,8 +1,4 @@
-{
-  config,
-  pkgs,
-  ...
-}: {
+_: {
   # Homebrew configuration
   homebrew = {
     enable = true;

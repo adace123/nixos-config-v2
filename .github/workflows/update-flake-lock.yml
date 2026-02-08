@@ -1,0 +1,46 @@
+name: Update Flake Lock
+
+on:
+  schedule:
+    # Run daily at 00:00 UTC
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: macos-latest
+    outputs:
+      pr-number: ${{ steps.update.outputs.pull-request-number }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Update flake.lock
+        id: update
+        uses: DeterminateSystems/update-flake-lock@main
+        with:
+          pr-title: "chore(flake): update flake.lock"
+          pr-labels: |
+            dependencies
+            automated
+          commit-msg: "chore(flake): update flake.lock"
+          sign-commits: true
+
+  auto-merge:
+    needs: update
+    runs-on: macos-latest
+    if: needs.update.outputs.pr-number != ''
+    steps:
+      - name: Enable auto-merge
+        run: |
+          gh pr merge ${{ needs.update.outputs.pr-number }} --auto --squash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

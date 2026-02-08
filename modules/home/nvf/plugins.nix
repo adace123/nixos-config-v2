@@ -1,4 +1,5 @@
-{pkgs, ...}: {
+{ pkgs, ... }:
+{
   # Custom plugin definitions
   # This module exports customPlugins via _module.args for use by other modules
 

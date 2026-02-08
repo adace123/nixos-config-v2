@@ -2,7 +2,8 @@
   pkgs,
   customPlugins,
   ...
-}: {
+}:
+{
   # Extra plugins and configuration
   programs.nvf.settings.vim.extraPlugins = with pkgs.vimPlugins; {
     vim-sleuth = {
@@ -171,37 +172,6 @@
     nvim-treesitter-textobjects = {
       package = nvim-treesitter-textobjects;
       setup = ""; # Configuration is done in luaConfigRC
-    };
-    sidekick-nvim = {
-      package =
-        (pkgs.vimUtils.buildVimPlugin {
-          name = "sidekick-nvim";
-          src = pkgs.fetchFromGitHub {
-            owner = "folke";
-            repo = "sidekick.nvim";
-            rev = "main";
-            sha256 = "sha256-ABuILCcKfYViZoFHaCepgIMLjvMEb/SBmGqGHUBucAM=";
-          };
-        }).overrideAttrs
-        (old: {
-          nvimRequireCheck = "sidekick";
-        });
-      setup = ''
-        require("sidekick").setup({
-          cli = {
-            mux = {
-              backend = "zellij",
-              enabled = false,
-            },
-            win = {
-              layout = "float",
-              split = {
-                width = 80,
-              },
-            },
-          },
-        })
-      '';
     };
     yazi-nvim = {
       package = yazi-nvim;

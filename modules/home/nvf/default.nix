@@ -1,8 +1,8 @@
 {
-  pkgs,
   inputs,
   ...
-}: {
+}:
+{
   # Import nvf home-manager module
   imports = [
     inputs.nvf.homeManagerModules.default

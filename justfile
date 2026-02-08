@@ -110,3 +110,40 @@ diff:
 # Setup work SSH keys and configuration
 setup-work-ssh:
     ./scripts/setup-work-ssh.sh
+
+# Run auto-update process manually
+auto-update:
+    ./scripts/auto-update.sh
+
+# Show auto-update service status
+auto-update-status:
+    #!/bin/bash
+    echo "Nix Config Auto-Update Service"
+    echo "=============================="
+    echo ""
+    echo "This service is managed by nix-darwin."
+    echo "It will be automatically installed when you run 'just switch'."
+    echo ""
+    echo "Configuration:"
+    echo "  - Runs weekdays at 9:00 AM Pacific"
+    echo "  - Only executes within 9:00-9:15 AM window"
+    echo "  - Checks for git changes from origin/main"
+    echo "  - Prompts Touch ID for 'just switch' if updates found"
+    echo "  - Sends macOS notifications on success/failure"
+    echo ""
+    echo "Schedule:"
+    echo "  - Monday-Friday at 9:00 AM (15-minute execution window)"
+    echo "  - Skips execution if outside time window (prevents wake prompts)"
+    echo ""
+    echo "Current status:"
+    launchctl list | grep nix-config-auto-update || echo "  Service not loaded (run 'just switch' to enable)"
+    echo ""
+    echo "Logs:"
+    echo "  ~/.local/share/nix-config-auto-update.log"
+    echo "  ~/.local/share/nix-config-auto-update.stdout.log"
+    echo "  ~/.local/share/nix-config-auto-update.stderr.log"
+    echo ""
+    echo "Manual commands:"
+    echo "  just auto-update                          # Run update process manually"
+    echo "  launchctl start nix-config-auto-update    # Run now (if in time window)"
+    echo "  just switch                               # Re-enable via nix"
