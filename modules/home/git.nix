@@ -3,9 +3,7 @@
   pkgs,
   lib,
   ...
-}:
-
-{
+}: {
   # Git configuration
   programs.git = {
     enable = true;
@@ -41,6 +39,12 @@
       "gpg \"ssh\"" = {
         # Use 1Password for SSH signing
         program = "/Applications/1Password.app/Contents/MacOS/op-ssh-sign";
+      };
+      credential."https://github.com" = {
+        helper = "!${pkgs.gh}/bin/gh auth git-credential";
+      };
+      credential."https://gist.github.com" = {
+        helper = "!${pkgs.gh}/bin/gh auth git-credential";
       };
     };
 

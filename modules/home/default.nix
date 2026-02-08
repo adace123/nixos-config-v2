@@ -58,6 +58,7 @@
     # Note: EDITOR is set by nixvim to "nvim"
     sessionVariables = {
       DIRENV_LOG_FORMAT = ""; # Hide direnv export output
+      EDITOR = "nvim";
     };
   };
 
