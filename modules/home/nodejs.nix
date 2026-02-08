@@ -1,55 +1,110 @@
+{ pkgs, ... }:
 {
-  config,
-  pkgs,
-  ...
-}: {
-  home.packages = with pkgs; [
-    nodejs # Provides node and npm
-    # Bun - Fast all-in-one JavaScript runtime (default)
-    bun # JavaScript runtime, bundler, test runner, package manager
+  home = {
+    packages = with pkgs; [
+      nodejs # Provides node and npm
+      # Bun - Fast all-in-one JavaScript runtime (default)
+      bun # JavaScript runtime, bundler, test runner, package manager
 
-    # Node.js for compatibility (available via node22/node20 commands)
-    # nodejs_22 is available via alias 'node22' command
-    # nodejs_20 is available via alias 'node20' command
+      # Node.js for compatibility (available via node22/node20 commands)
+      # nodejs_22 is available via alias 'node22' command
+      # nodejs_20 is available via alias 'node20' command
 
-    # Development tools (using nodePackages for LSP/tools)
-    nodePackages.typescript
-    nodePackages.typescript-language-server
-    nodePackages.vscode-langservers-extracted # HTML, CSS, JSON, ESLint LSP
-    nodePackages.prettier
-    nodePackages.eslint
-    nodePackages.npm-check-updates # Update package.json dependencies
+      # Development tools (using nodePackages for LSP/tools)
+      nodePackages.typescript
+      nodePackages.typescript-language-server
+      nodePackages.vscode-langservers-extracted # HTML, CSS, JSON, ESLint LSP
+      nodePackages.prettier
+      nodePackages.eslint
+      nodePackages.npm-check-updates # Update package.json dependencies
 
-    # Build and dev tools
-    nodePackages.nodemon
+      # Build and dev tools
+      nodePackages.nodemon
 
-    # Utilities
-    nodePackages.serve # Static file server
-    nodePackages.http-server # Simple HTTP server
-  ];
+      # Utilities
+      nodePackages.serve # Static file server
+      nodePackages.http-server # Simple HTTP server
+    ];
 
-  # Bun and JavaScript environment configuration
-  home.sessionVariables = {
-    # Bun configuration (default runtime)
-    BUN_INSTALL = "$HOME/.bun";
+    # Bun and JavaScript environment configuration
+    sessionVariables = {
+      # Bun configuration (default runtime)
+      BUN_INSTALL = "$HOME/.bun";
 
-    # Node configuration (for compatibility)
-    NODE_OPTIONS = "--max-old-space-size=4096"; # Increase memory limit
+      # Node configuration (for compatibility)
+      NODE_OPTIONS = "--max-old-space-size=4096"; # Increase memory limit
 
-    # npm configuration
-    NPM_CONFIG_FUND = "false"; # Disable npm funding messages
-    NPM_CONFIG_AUDIT = "false"; # Disable automatic audit on install
-    NPM_CONFIG_UPDATE_NOTIFIER = "false"; # Disable update notifications
+      # npm configuration
+      NPM_CONFIG_FUND = "false"; # Disable npm funding messages
+      NPM_CONFIG_AUDIT = "false"; # Disable automatic audit on install
+      NPM_CONFIG_UPDATE_NOTIFIER = "false"; # Disable update notifications
 
-    # pnpm configuration
-    PNPM_HOME = "$HOME/.local/share/pnpm";
+      # pnpm configuration
+      PNPM_HOME = "$HOME/.local/share/pnpm";
+    };
+
+    # Update PATH for package managers (Bun first for priority)
+    sessionPath = [
+      "$HOME/.bun/bin"
+      "$HOME/.local/share/pnpm"
+    ];
+
+    file = {
+      # Bun configuration (replaces .npmrc as default)
+      ".bunfig.toml".text = ''
+        # Install behavior
+        [install]
+        exact = true
+        production = false
+        optional = true
+        dev = true
+        peer = true
+        frozen = false
+
+        # Performance
+        cache = "~/.bun/install/cache"
+
+        # Registry
+        registry = "https://registry.npmjs.org"
+
+        # Lockfile
+        lockfile = true
+      '';
+
+      # npm configuration (for when using Node directly)
+      ".npmrc".text = ''
+        # Performance
+        prefer-offline=true
+        progress=false
+
+        # Security
+        audit=false
+        fund=false
+
+        # Package installation
+        save-exact=true
+        engine-strict=true
+
+        # Display
+        unicode=true
+      '';
+
+      # pnpm configuration
+      ".config/pnpm/rc".text = ''
+        # Store configuration
+        store-dir=~/.local/share/pnpm/store
+
+        # Performance
+        prefer-offline=true
+
+        # Lockfile
+        lockfile=true
+
+        # Display
+        reporter=default
+      '';
+    };
   };
-
-  # Update PATH for package managers (Bun first for priority)
-  home.sessionPath = [
-    "$HOME/.bun/bin"
-    "$HOME/.local/share/pnpm"
-  ];
 
   # Shell aliases for JavaScript development
   programs.zsh.shellAliases = {
@@ -107,58 +162,4 @@
     brd = "bun run dev";
     bx = "bunx"; # Like npx
   };
-
-  # Bun configuration (replaces .npmrc as default)
-  home.file.".bunfig.toml".text = ''
-    # Install behavior
-    [install]
-    exact = true
-    production = false
-    optional = true
-    dev = true
-    peer = true
-    frozen = false
-
-    # Performance
-    cache = "~/.bun/install/cache"
-
-    # Registry
-    registry = "https://registry.npmjs.org"
-
-    # Lockfile
-    lockfile = true
-  '';
-
-  # npm configuration (for when using Node directly)
-  home.file.".npmrc".text = ''
-    # Performance
-    prefer-offline=true
-    progress=false
-
-    # Security
-    audit=false
-    fund=false
-
-    # Package installation
-    save-exact=true
-    engine-strict=true
-
-    # Display
-    unicode=true
-  '';
-
-  # pnpm configuration
-  home.file.".config/pnpm/rc".text = ''
-    # Store configuration
-    store-dir=~/.local/share/pnpm/store
-
-    # Performance
-    prefer-offline=true
-
-    # Lockfile
-    lockfile=true
-
-    # Display
-    reporter=default
-  '';
 }

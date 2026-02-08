@@ -25,8 +25,8 @@
       inputs.nixpkgs-lib.follows = "nixpkgs";
     };
 
-    pre-commit-hooks = {
-      url = "github:cachix/pre-commit-hooks.nix";
+    git-hooks = {
+      url = "github:cachix/git-hooks.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -51,12 +51,11 @@
     flake-parts.lib.mkFlake { inherit inputs; } {
       systems = [
         "aarch64-darwin"
-        "x86_64-darwin"
       ];
 
       imports = [
         ./flake-parts/darwin.nix
-        # ./flake-parts/pre-commit.nix  # Commented out to avoid Swift build dependency
+        ./flake-parts/pre-commit.nix
       ];
 
       flake = {

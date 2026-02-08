@@ -1,4 +1,4 @@
-{pkgs, ...}: {
+_: {
   # Keybindings
   programs.nvf.settings.vim.maps = {
     insert = {
@@ -316,6 +316,12 @@
         action = "<cmd>lua require('flash').treesitter()<cr>";
         desc = "Flash treesitter";
       };
+
+      # Comments
+      "<leader>/" = {
+        action = "<cmd>lua require('Comment.api').toggle.linewise.current()<cr>";
+        desc = "Toggle comment";
+      };
     };
 
     visual = {
@@ -356,6 +362,12 @@
       "<leader>gr" = {
         action = "<cmd>Gitsigns reset_hunk<cr>";
         desc = "Reset selection";
+      };
+
+      # Comments
+      "<leader>/" = {
+        action = "<esc><cmd>lua require('Comment.api').toggle.linewise(vim.fn.visualmode())<cr>";
+        desc = "Toggle comment";
       };
     };
 

@@ -1,8 +1,5 @@
+{ pkgs, ... }:
 {
-  config,
-  pkgs,
-  ...
-}: {
   imports = [
     ./homebrew.nix
     ./fonts.nix
@@ -13,9 +10,6 @@
     name = "aaron";
     home = "/Users/aaron";
   };
-
-  # Set primary user for system defaults
-  system.primaryUser = "aaron";
 
   # Nix configuration - Disabled because using Determinate Nix installer
   # Determinate manages its own daemon and conflicts with nix-darwin's Nix management
@@ -37,11 +31,20 @@
 
   # System configuration
   system = {
+    # Set primary user for system defaults
+    primaryUser = "aaron";
+
     # Set Git commit hash for darwin-rebuild
     configurationRevision = null;
 
     # Used for backwards compatibility
     stateVersion = 4;
+
+    # Keyboard settings
+    keyboard = {
+      enableKeyMapping = true;
+      remapCapsLockToControl = true;
+    };
 
     defaults = {
       # Dock settings
@@ -69,12 +72,6 @@
         "com.apple.swipescrolldirection" = false;
       };
     };
-  };
-
-  # Keyboard settings
-  system.keyboard = {
-    enableKeyMapping = true;
-    remapCapsLockToControl = true;
   };
 
   # Shell configuration

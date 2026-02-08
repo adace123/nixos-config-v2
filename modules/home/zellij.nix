@@ -1,4 +1,9 @@
-{ config, pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 
 let
   # Zellij configuration and layouts
@@ -427,22 +432,25 @@ in
     enable = true;
   };
 
-  # Standard XDG config path
-  home.file.".config/zellij/config.kdl".text = zellijConfig;
-  home.file.".config/zellij/layouts/default.kdl".text = defaultLayout;
-  home.file.".config/zellij/layouts/dev.kdl".text = devLayout;
-  home.file.".config/zellij/layouts/split.kdl".text = splitLayout;
-  home.file.".config/zellij/layouts/.keep".text = "";
+  home.file = {
+    # Standard XDG config path
+    ".config/zellij/config.kdl".text = zellijConfig;
+    ".config/zellij/layouts/default.kdl".text = defaultLayout;
+    ".config/zellij/layouts/dev.kdl".text = devLayout;
+    ".config/zellij/layouts/split.kdl".text = splitLayout;
+    ".config/zellij/layouts/.keep".text = "";
 
-  # macOS specific config path (some versions of zellij on macOS look here)
-  home.file."Library/Application Support/org.Zellij-Contributors.Zellij/config.kdl".text = zellijConfig;
-  home.file."Library/Application Support/org.Zellij-Contributors.Zellij/layouts/default.kdl".text = defaultLayout;
-  home.file."Library/Application Support/org.Zellij-Contributors.Zellij/layouts/dev.kdl".text = devLayout;
-  home.file."Library/Application Support/org.Zellij-Contributors.Zellij/layouts/split.kdl".text = splitLayout;
-  home.file."Library/Application Support/org.Zellij-Contributors.Zellij/layouts/.keep".text = "";
+    # macOS specific config path (some versions of zellij on macOS look here)
+    "Library/Application Support/org.Zellij-Contributors.Zellij/config.kdl".text = zellijConfig;
+    "Library/Application Support/org.Zellij-Contributors.Zellij/layouts/default.kdl".text =
+      defaultLayout;
+    "Library/Application Support/org.Zellij-Contributors.Zellij/layouts/dev.kdl".text = devLayout;
+    "Library/Application Support/org.Zellij-Contributors.Zellij/layouts/split.kdl".text = splitLayout;
+    "Library/Application Support/org.Zellij-Contributors.Zellij/layouts/.keep".text = "";
+  };
 
   # Download room plugin using activation script to always get latest
-  home.activation.downloadRoomPlugin = lib.hm.dag.entryAfter ["writeBoundary"] ''
+  home.activation.downloadRoomPlugin = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     $DRY_RUN_CMD mkdir -p "$HOME/.config/zellij/plugins"
     if [ ! -f "$HOME/.config/zellij/plugins/room.wasm" ] || [ -n "''${VERBOSE:-}" ]; then
       $DRY_RUN_CMD ${pkgs.curl}/bin/curl -L -o "$HOME/.config/zellij/plugins/room.wasm" \

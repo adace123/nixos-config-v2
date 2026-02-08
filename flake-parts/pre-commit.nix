@@ -1,59 +1,43 @@
 { inputs, ... }:
-
 {
   imports = [
-    inputs.pre-commit-hooks.flakeModule
+    inputs.git-hooks.flakeModule
   ];
 
   perSystem =
-    { config, pkgs, ... }:
+    {
+      config,
+      pkgs,
+      inputs',
+      ...
+    }:
     {
       # Pre-commit hooks configuration
-      pre-commit = {
-        check.enable = true;
+      pre-commit.settings.hooks = {
+        # Format Nix code
+        nixfmt.enable = true;
 
-        settings = {
-          hooks = {
-            # Nix formatting
-            nixpkgs-fmt = {
-              enable = true;
-            };
+        # Lint Nix code
+        statix.enable = true;
 
-            # Nix linting - disabled due to build issues
-            # statix = {
-            #   enable = true;
-            # };
+        # Find dead Nix code
+        deadnix.enable = true;
 
-            # Dead code detection - disabled due to build issues
-            # deadnix = {
-            #   enable = true;
-            # };
+        # Check for merge conflicts
+        check-merge-conflicts.enable = true;
 
-            # Check for merge conflicts
-            check-merge-conflicts = {
-              enable = true;
-            };
+        # Ensure files end with newline
+        end-of-file-fixer.enable = true;
 
-            # Ensure files end with newline
-            end-of-file-fixer = {
-              enable = true;
-            };
+        # Check for case conflicts in filenames
+        check-case-conflicts.enable = true;
 
-            # Check for case conflicts in filenames
-            check-case-conflicts = {
-              enable = true;
-            };
-          };
-
-          # Exclude patterns
-          excludes = [
-            "flake.lock"
-            ".direnv/"
-            "result"
-            "result-*"
-          ];
-        };
+        # shellcheck
+        shellcheck.enable = true;
       };
+
+      # Use alternative pre-commit implementation
+      pre-commit.settings.package = pkgs.prek;
 
       # Add pre-commit hooks to devShell
       devShells.default = pkgs.mkShell {
@@ -64,10 +48,8 @@
         packages = with pkgs; [
           # Nix tools
           nil
-          nixpkgs-fmt
           nixd
-          # statix  # Disabled due to build issues
-          # deadnix # Disabled due to build issues
+          inputs'.darwin.packages.darwin-rebuild
 
           # Development utilities
           git
@@ -78,18 +60,15 @@
         ];
 
         shellHook = ''
-          ${config.pre-commit.installationScript}
-
           echo "🚀 Welcome to nixos-config-v2 development shell"
           echo ""
-          echo "✓ Pre-commit hooks are installed!"
+          echo "✓ Pre-commit hooks installed!"
           echo "  Run 'pre-commit run --all-files' to check all files"
           echo ""
           echo "Available commands:"
           echo "  just                - List all just commands"
           echo "  just check          - Run all checks"
           echo "  just switch         - Apply configuration"
-          echo "  nixpkgs-fmt <file>  - Format Nix files"
           echo ""
         '';
       };

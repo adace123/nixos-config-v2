@@ -2,7 +2,23 @@
   "permissions": {
     "allow": [
       "mcp__acp__Bash",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:ghostty.org)",
+      "Bash(nix build:*)",
+      "Bash(nix flake show:*)",
+      "Bash(darwin-rebuild build:*)",
+      "Bash(nix-prefetch-url:*)",
+      "Bash(nix hash to-sri:*)",
+      "Bash(nix log:*)",
+      "WebSearch",
+      "WebFetch(domain:notashelf.github.io)",
+      "WebFetch(domain:nvf.notashelf.dev)",
+      "Bash(wc:*)",
+      "Bash(nix flake check:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(statix check:*)",
+      "Bash(/nix/store/220pym4vsg8bs134x3lmh27dakxgdpa6-statix-0.5.8/bin/statix check:*)",
+      "Bash(nix-instantiate:*)"
     ]
   }
 }

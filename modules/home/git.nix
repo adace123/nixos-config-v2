@@ -1,9 +1,5 @@
+{ pkgs, ... }:
 {
-  config,
-  pkgs,
-  lib,
-  ...
-}: {
   # Git configuration
   programs.git = {
     enable = true;
@@ -86,118 +82,120 @@
     '';
   };
 
-  # Workaround for Zed (and its bundled npm modules) creating ~/.gitconfig as a directory
-  # This file redirects to the actual config managed by home-manager at ~/.config/git/config
-  home.file.".gitconfig".text = ''
-    [include]
-      path = ~/.config/git/config
-  '';
+  home.file = {
+    # Workaround for Zed (and its bundled npm modules) creating ~/.gitconfig as a directory
+    # This file redirects to the actual config managed by home-manager at ~/.config/git/config
+    ".gitconfig".text = ''
+      [include]
+        path = ~/.config/git/config
+    '';
 
-  # Global gitignore
-  home.file.".config/git/ignore".text = ''
-    # Python
-    __pycache__/
-    *.py[cod]
-    *$py.class
-    *.so
-    .Python
-    build/
-    develop-eggs/
-    dist/
-    downloads/
-    eggs/
-    .eggs/
-    lib/
-    lib64/
-    parts/
-    sdist/
-    var/
-    wheels/
-    *.egg-info/
-    .installed.cfg
-    *.egg
-    MANIFEST
-    .venv/
-    env/
-    venv/
-    ENV/
-    .uv/
-    .coverage
-    .pytest_cache/
-    .mypy_cache/
-    .ipynb_checkpoints
+    # Global gitignore
+    ".config/git/ignore".text = ''
+      # Python
+      __pycache__/
+      *.py[cod]
+      *$py.class
+      *.so
+      .Python
+      build/
+      develop-eggs/
+      dist/
+      downloads/
+      eggs/
+      .eggs/
+      lib/
+      lib64/
+      parts/
+      sdist/
+      var/
+      wheels/
+      *.egg-info/
+      .installed.cfg
+      *.egg
+      MANIFEST
+      .venv/
+      env/
+      venv/
+      ENV/
+      .uv/
+      .coverage
+      .pytest_cache/
+      .mypy_cache/
+      .ipynb_checkpoints
 
-    # Node.js
-    node_modules/
-    npm-debug.log*
-    yarn-debug.log*
-    yarn-error.log*
-    package-lock.json
-    yarn.lock
-    pnpm-lock.yaml
-    bun.lockb
-    .bun/
-    dist/
-    build/
-    out/
-    .next/
-    .nuxt/
-    .cache/
-    *.tsbuildinfo
-    coverage/
+      # Node.js
+      node_modules/
+      npm-debug.log*
+      yarn-debug.log*
+      yarn-error.log*
+      package-lock.json
+      yarn.lock
+      pnpm-lock.yaml
+      bun.lockb
+      .bun/
+      dist/
+      build/
+      out/
+      .next/
+      .nuxt/
+      .cache/
+      *.tsbuildinfo
+      coverage/
 
-    # Environment files
-    .env
-    .env*.local
+      # Environment files
+      .env
+      .env*.local
 
-    # OS files
-    .DS_Store
-    Thumbs.db
+      # OS files
+      .DS_Store
+      Thumbs.db
 
-    # Editor directories
-    .vscode/
-    .idea/
-    *.swp
-    *.swo
-    *~
+      # Editor directories
+      .vscode/
+      .idea/
+      *.swp
+      *.swo
+      *~
 
-    # Logs
-    logs/
-    *.log
-  '';
+      # Logs
+      logs/
+      *.log
+    '';
 
-  # Create example work config files (these won't be managed, just examples)
-  home.file.".ssh/work-config.example".text = ''
-    # Example work SSH configuration
-    # Copy this to ~/.ssh/work-config and update with your actual work git server
+    # Create example work config files (these won't be managed, just examples)
+    ".ssh/work-config.example".text = ''
+      # Example work SSH configuration
+      # Copy this to ~/.ssh/work-config and update with your actual work git server
 
-    # Example for work GitLab/GitHub Enterprise/Bitbucket
-    # When using 1Password SSH agent, identity is managed automatically
-    Host work-git gitlab-work github-enterprise
-      HostName git.yourcompany.com
-      User git
+      # Example for work GitLab/GitHub Enterprise/Bitbucket
+      # When using 1Password SSH agent, identity is managed automatically
+      Host work-git gitlab-work github-enterprise
+        HostName git.yourcompany.com
+        User git
 
-    # You can add multiple work git servers here
-    # Host another-work-git
-    #   HostName git.another.com
-    #   User git
-  '';
+      # You can add multiple work git servers here
+      # Host another-work-git
+      #   HostName git.another.com
+      #   User git
+    '';
 
-  home.file.".config/git/work-config.example".text = ''
-    # Example work git configuration
-    # Copy this to ~/.config/git/work-config and customize
+    ".config/git/work-config.example".text = ''
+      # Example work git configuration
+      # Copy this to ~/.config/git/work-config and customize
 
-    [user]
-      name = Aaron Feigenbaum
-      email = your.work.email@company.com
-      # Replace with your work public key from 1Password
-      signingkey = ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIWorkKeyHere
+      [user]
+        name = Aaron Feigenbaum
+        email = your.work.email@company.com
+        # Replace with your work public key from 1Password
+        signingkey = ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIWorkKeyHere
 
-    [core]
-      # Any other work-specific git settings
+      [core]
+        # Any other work-specific git settings
 
-    [url "git@work-git:"]
-      # Automatically use work-git host for company repos
-      insteadOf = https://git.yourcompany.com/
-  '';
+      [url "git@work-git:"]
+        # Automatically use work-git host for company repos
+        insteadOf = https://git.yourcompany.com/
+    '';
+  };
 }
