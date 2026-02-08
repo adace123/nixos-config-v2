@@ -160,7 +160,7 @@ _: {
     '';
 
     nix-format = ''
-      -- Format Nix files with deadnix on save
+      -- Format Nix files with deadnix and statix on save
       vim.api.nvim_create_autocmd('BufWritePre', {
         pattern = '*.nix',
         callback = function()
