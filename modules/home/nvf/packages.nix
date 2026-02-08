@@ -1,4 +1,5 @@
-{pkgs, ...}: {
+{ pkgs, ... }:
+{
   # Extra packages needed for plugins
   programs.nvf.settings.vim.extraPackages = with pkgs; [
     lazygit
@@ -6,5 +7,6 @@
     ruff # Python linter/formatter
     basedpyright # Python type checker
     nixd # Nix language server
+    deadnix # Nix dead code remover
   ];
 }

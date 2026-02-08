@@ -1,4 +1,4 @@
-{pkgs, ...}: {
+_: {
   # Extra Lua configuration
   programs.nvf.settings.vim.luaConfigRC = {
     clipboard = ''
@@ -76,6 +76,19 @@
       vim.keymap.set({"n", "t"}, "<leader>ap", function()
         copilot_term:toggle()
       end, { desc = "Toggle Copilot" })
+
+      local opencode_term = Terminal:new({
+        cmd = "bunx -y opencode-ai",
+        direction = "float",
+        float_opts = { border = "curved" },
+        close_on_exit = true,
+        on_open = function(term)
+          vim.cmd("startinsert")
+        end,
+      })
+      vim.keymap.set({"n", "t"}, "<leader>ao", function()
+        opencode_term:toggle()
+      end, { desc = "Toggle Opencode" })
     '';
 
     toggleterm-insert-mode = ''
@@ -143,6 +156,26 @@
             },
           },
         },
+      })
+    '';
+
+    deadnix-format = ''
+      -- Format Nix files with deadnix on save
+      vim.api.nvim_create_autocmd('BufWritePre', {
+        pattern = '*.nix',
+        callback = function()
+          local buf = vim.api.nvim_get_current_buf()
+          local filename = vim.api.nvim_buf_get_name(buf)
+
+          -- Run deadnix on the file
+          local cmd = 'deadnix --edit "' .. filename .. '"'
+          local result = vim.fn.system(cmd)
+
+          -- Reload the buffer if deadnix made changes
+          if vim.v.shell_error == 0 and result ~= "" then
+            vim.cmd('edit')
+          end
+        end,
       })
     '';
   };
