@@ -4,6 +4,9 @@
 default:
     @just --list
 
+install-nix:
+    curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+
 # Install pre-commit hooks
 install-hooks:
     pre-commit install
@@ -32,8 +35,30 @@ check:
 build:
     darwin-rebuild build --flake .
 
+install-brew:
+    #!/bin/bash
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    
+    # Add Homebrew to PATH for Apple Silicon Macs
+    if [[ $(uname -m) == "arm64" ]]; then
+        echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
+        eval "$(/opt/homebrew/bin/brew shellenv)"
+    else
+        # For Intel Macs
+        echo 'eval "$(/usr/local/bin/brew shellenv)"' >> ~/.zprofile
+        eval "$(/usr/local/bin/brew shellenv)"
+    fi
+    
+    echo "Homebrew installed successfully!"
+
 # Build and activate the Darwin configuration
 switch:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! command -v brew &> /dev/null; then
+        echo "Homebrew not installed. Installing it..."
+        just install-brew
+    fi
     sudo darwin-rebuild switch --flake .
 
 # Show available system generations

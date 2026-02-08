@@ -35,7 +35,7 @@ in
     cursor-color = c0caf5
     cursor-text = 1a1b26
     cursor-style = bar
-    cursor-style-blink = false
+    cursor-style-blink = true
 
     # Selection colors
     selection-background = 33467c
@@ -86,7 +86,7 @@ in
     # Zellij disabled - using default shell
     # command = ${zellijPath} attach --create main
     shell-integration = detect
-    shell-integration-features = no-cursor,sudo,title
+    shell-integration-features = sudo,title
 
     # Scrollback
     scrollback-limit = 10000

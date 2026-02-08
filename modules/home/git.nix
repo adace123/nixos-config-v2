@@ -65,9 +65,6 @@
       "*" = {
         serverAliveInterval = 60;
         serverAliveCountMax = 3;
-        controlMaster = "auto";
-        controlPath = "~/.ssh/sockets/%r@%h-%p";
-        controlPersist = "600";
         identityAgent = "\"~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock\"";
       };
 

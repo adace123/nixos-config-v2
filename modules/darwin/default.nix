@@ -1,6 +1,8 @@
-{ config, pkgs, ... }:
-
 {
+  config,
+  pkgs,
+  ...
+}: {
   imports = [
     ./homebrew.nix
     ./fonts.nix
@@ -64,6 +66,7 @@
         KeyRepeat = 2;
         "com.apple.mouse.tapBehavior" = 1;
         "com.apple.trackpad.enableSecondaryClick" = true;
+        "com.apple.swipescrolldirection" = false;
       };
     };
   };
@@ -82,12 +85,4 @@
 
   # Reattach to user session - fixes Touch ID in tmux/screen
   security.pam.services.sudo_local.reattach = true;
-
-  # YubiKey U2F authentication for sudo
-  # After setup, touch YubiKey OR use Touch ID for sudo
-  # Setup: mkdir -p ~/.config/Yubico && pamu2fcfg > ~/.config/Yubico/u2f_keys
-  # Add backup key: pamu2fcfg -n >> ~/.config/Yubico/u2f_keys
-  security.pam.services.sudo_local.text = ''
-    auth       sufficient     /opt/homebrew/opt/pam-u2f/lib/pam/pam_u2f.so cue
-  '';
 }

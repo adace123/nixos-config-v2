@@ -1,6 +1,8 @@
-{ config, pkgs, ... }:
-
 {
+  config,
+  pkgs,
+  ...
+}: {
   # Homebrew configuration
   homebrew = {
     enable = true;
@@ -21,6 +23,7 @@
     # Taps (additional repositories)
     taps = [
       "nikitabobko/tap" # AeroSpace window manager
+      "common-fate/granted" # AWS Granted
     ];
 
     # Formulae (command-line packages)
@@ -31,6 +34,7 @@
       "pam-u2f" # YubiKey PAM module for sudo authentication
       "pre-commit"
       "ykman" # YubiKey Manager CLI
+      "common-fate/granted/granted"
     ];
 
     # Casks (GUI applications)
@@ -44,12 +48,13 @@
       # "google-chrome"
 
       # Development
-      "claude-code"
+      "bruno"
       "codex-app"
       "docker-desktop"
       "ghostty"
       "zed@preview"
       "warp"
+      "lm-studio"
 
       # Productivity
       "nikitabobko/tap/aerospace" # Tiling window manager
@@ -57,6 +62,7 @@
       "claude"
       "raycast" # Spotlight replacement
       "obsidian" # Note-taking
+      "handy" # dictation
 
       # Communication
       "slack"

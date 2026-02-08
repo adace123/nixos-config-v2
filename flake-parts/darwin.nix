@@ -1,7 +1,7 @@
 { inputs, ... }:
 
 {
-  perSystem = { pkgs, ... }: {
+  perSystem = { pkgs, inputs', system, ... }: {
     # Development shell
     devShells.default = pkgs.mkShell {
       packages = with pkgs; [
@@ -9,6 +9,7 @@
         nil
         nixpkgs-fmt
         nixd
+	inputs'.darwin.packages.darwin-rebuild
 
         # Development utilities
         git

@@ -1,32 +1,31 @@
-{ config, pkgs, ... }:
-
 {
+  config,
+  pkgs,
+  ...
+}: {
   home.packages = with pkgs; [
+    nodejs # Provides node and npm
     # Bun - Fast all-in-one JavaScript runtime (default)
-    bun              # JavaScript runtime, bundler, test runner, package manager
+    bun # JavaScript runtime, bundler, test runner, package manager
 
     # Node.js for compatibility (available via node22/node20 commands)
     # nodejs_22 is available via alias 'node22' command
     # nodejs_20 is available via alias 'node20' command
 
-    # Package managers
-    corepack         # Node.js package manager manager (includes yarn, pnpm)
-    # yarn and pnpm are provided by corepack to avoid conflicts
-
     # Development tools (using nodePackages for LSP/tools)
     nodePackages.typescript
     nodePackages.typescript-language-server
-    nodePackages.vscode-langservers-extracted  # HTML, CSS, JSON, ESLint LSP
+    nodePackages.vscode-langservers-extracted # HTML, CSS, JSON, ESLint LSP
     nodePackages.prettier
     nodePackages.eslint
-    nodePackages.npm-check-updates  # Update package.json dependencies
+    nodePackages.npm-check-updates # Update package.json dependencies
 
     # Build and dev tools
     nodePackages.nodemon
 
     # Utilities
-    nodePackages.serve          # Static file server
-    nodePackages.http-server    # Simple HTTP server
+    nodePackages.serve # Static file server
+    nodePackages.http-server # Simple HTTP server
   ];
 
   # Bun and JavaScript environment configuration
@@ -35,11 +34,11 @@
     BUN_INSTALL = "$HOME/.bun";
 
     # Node configuration (for compatibility)
-    NODE_OPTIONS = "--max-old-space-size=4096";  # Increase memory limit
+    NODE_OPTIONS = "--max-old-space-size=4096"; # Increase memory limit
 
     # npm configuration
-    NPM_CONFIG_FUND = "false";           # Disable npm funding messages
-    NPM_CONFIG_AUDIT = "false";          # Disable automatic audit on install
+    NPM_CONFIG_FUND = "false"; # Disable npm funding messages
+    NPM_CONFIG_AUDIT = "false"; # Disable automatic audit on install
     NPM_CONFIG_UPDATE_NOTIFIER = "false"; # Disable update notifications
 
     # pnpm configuration
@@ -55,10 +54,10 @@
   # Shell aliases for JavaScript development
   programs.zsh.shellAliases = {
     # Node version management (use bun as default, node via explicit versions)
-    node = "bun";  # Bun can run Node.js code
+    node = "bun"; # Bun can run Node.js code
     node22 = "${pkgs.nodejs_22}/bin/node";
     node20 = "${pkgs.nodejs_20}/bin/node";
-    npm = "bun";   # Bun replaces npm
+    npm = "bun"; # Bun replaces npm
     npm22 = "${pkgs.nodejs_22}/bin/npm";
     npm20 = "${pkgs.nodejs_20}/bin/npm";
 
@@ -106,7 +105,7 @@
     brb = "bun run build";
     brt = "bun test";
     brd = "bun run dev";
-    bx = "bunx";  # Like npx
+    bx = "bunx"; # Like npx
   };
 
   # Bun configuration (replaces .npmrc as default)
@@ -162,6 +161,4 @@
     # Display
     reporter=default
   '';
-
-
 }

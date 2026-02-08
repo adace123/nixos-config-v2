@@ -1,11 +1,8 @@
 {
   config,
   pkgs,
-  inputs,
   ...
-}:
-
-{
+}: {
   imports = [
     ./python.nix
     ./nodejs.nix
@@ -13,7 +10,7 @@
     ./aerospace.nix
     ./ghostty.nix
     ./fastfetch.nix
-    ./nvf.nix
+    ./nvf
     ./zellij.nix
   ];
 
@@ -34,11 +31,13 @@
       htop
       btop # Better htop with more features
       k9s # Kubernetes CLI manager
+      kubectx
       yazi # Modern terminal file manager
       tree
       direnv # Automatic environment loading
       just # Command runner
       zoxide # Smart directory jumping
+      glab
 
       # Modern CLI replacements
       bat # cat replacement
@@ -196,7 +195,7 @@
       ll = "ls -la";
       ls = "${pkgs.eza}/bin/eza --color=always --icons=always";
       update = "darwin-rebuild switch --flake ~/Projects/nixos-config-v2";
-      python = "ipython"; # Use ipython as default
+      python = "python3"; # Use ipython as default
       py = "ipython";
       cat = "bat";
       gemini = "bunx -y @google/gemini-cli";
@@ -224,6 +223,10 @@
         eval "$(/opt/homebrew/bin/brew shellenv)"
       elif [[ -f "/usr/local/bin/brew" ]]; then
         eval "$(/usr/local/bin/brew shellenv)"
+      fi
+
+      if [[ -f "~/.config/op/plugins.sh" ]]; then
+        source ~/.config/op/plugins.sh
       fi
 
       # Direnv integration
@@ -379,13 +382,13 @@
           ".node-version"
           ".nvmrc"
         ];
-        detect_folders = [ "node_modules" ];
+        detect_folders = ["node_modules"];
       };
 
       python = {
         symbol = " ";
         format = "[$symbol($version)]($style) ";
-        detect_extensions = [ "py" ];
+        detect_extensions = ["py"];
         detect_files = [
           "requirements.txt"
           ".python-version"
@@ -397,8 +400,8 @@
       rust = {
         symbol = " ";
         format = "[$symbol($version)]($style) ";
-        detect_extensions = [ "rs" ];
-        detect_files = [ "Cargo.toml" ];
+        detect_extensions = ["rs"];
+        detect_files = ["Cargo.toml"];
       };
 
       bun = {
