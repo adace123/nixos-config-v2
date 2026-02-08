@@ -48,3 +48,6 @@ secrets/
 
 # Local development
 .direnv/
+
+# pre-commit
+.pre-commit-config.yaml
