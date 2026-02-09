@@ -36,7 +36,16 @@
         shellcheck.enable = true;
 
         # MD
-        markdownlint.enable = true;
+        markdownlint = {
+          enable = true;
+          entry = "${pkgs.markdownlint-cli2}/bin/markdownlint-cli2";
+          types = [ "markdown" ];
+          args = [
+            "--fix"
+            "--config"
+            "./.markdownlint.json"
+          ];
+        };
 
         # yaml
         yamlfmt.enable = true;
