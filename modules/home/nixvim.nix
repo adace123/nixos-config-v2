@@ -1,4 +1,8 @@
-{ config, pkgs, inputs, ... }:
+{
+  pkgs,
+  inputs,
+  ...
+}:
 
 {
   imports = [
@@ -311,19 +315,25 @@
         mode = "n";
         key = "<leader>w";
         action = "<cmd>w<cr>";
-        options = { desc = "Save file"; };
+        options = {
+          desc = "Save file";
+        };
       }
       {
         mode = "n";
         key = "<leader>q";
         action = "<cmd>q<cr>";
-        options = { desc = "Quit"; };
+        options = {
+          desc = "Quit";
+        };
       }
       {
         mode = "n";
         key = "<Esc>";
         action = "<cmd>nohlsearch<cr>";
-        options = { desc = "Clear search highlight"; };
+        options = {
+          desc = "Clear search highlight";
+        };
       }
 
       # Better window navigation
@@ -331,25 +341,33 @@
         mode = "n";
         key = "<C-h>";
         action = "<C-w>h";
-        options = { desc = "Go to left window"; };
+        options = {
+          desc = "Go to left window";
+        };
       }
       {
         mode = "n";
         key = "<C-j>";
         action = "<C-w>j";
-        options = { desc = "Go to lower window"; };
+        options = {
+          desc = "Go to lower window";
+        };
       }
       {
         mode = "n";
         key = "<C-k>";
         action = "<C-w>k";
-        options = { desc = "Go to upper window"; };
+        options = {
+          desc = "Go to upper window";
+        };
       }
       {
         mode = "n";
         key = "<C-l>";
         action = "<C-w>l";
-        options = { desc = "Go to right window"; };
+        options = {
+          desc = "Go to right window";
+        };
       }
 
       # Resize windows
@@ -357,25 +375,33 @@
         mode = "n";
         key = "<C-Up>";
         action = "<cmd>resize +2<cr>";
-        options = { desc = "Increase window height"; };
+        options = {
+          desc = "Increase window height";
+        };
       }
       {
         mode = "n";
         key = "<C-Down>";
         action = "<cmd>resize -2<cr>";
-        options = { desc = "Decrease window height"; };
+        options = {
+          desc = "Decrease window height";
+        };
       }
       {
         mode = "n";
         key = "<C-Left>";
         action = "<cmd>vertical resize -2<cr>";
-        options = { desc = "Decrease window width"; };
+        options = {
+          desc = "Decrease window width";
+        };
       }
       {
         mode = "n";
         key = "<C-Right>";
         action = "<cmd>vertical resize +2<cr>";
-        options = { desc = "Increase window width"; };
+        options = {
+          desc = "Increase window width";
+        };
       }
 
       # Buffer navigation
@@ -383,19 +409,25 @@
         mode = "n";
         key = "<S-h>";
         action = "<cmd>bprevious<cr>";
-        options = { desc = "Previous buffer"; };
+        options = {
+          desc = "Previous buffer";
+        };
       }
       {
         mode = "n";
         key = "<S-l>";
         action = "<cmd>bnext<cr>";
-        options = { desc = "Next buffer"; };
+        options = {
+          desc = "Next buffer";
+        };
       }
       {
         mode = "n";
         key = "<leader>bd";
         action = "<cmd>bdelete<cr>";
-        options = { desc = "Delete buffer"; };
+        options = {
+          desc = "Delete buffer";
+        };
       }
 
       # Move lines
@@ -403,25 +435,33 @@
         mode = "n";
         key = "<A-j>";
         action = "<cmd>m .+1<cr>==";
-        options = { desc = "Move line down"; };
+        options = {
+          desc = "Move line down";
+        };
       }
       {
         mode = "n";
         key = "<A-k>";
         action = "<cmd>m .-2<cr>==";
-        options = { desc = "Move line up"; };
+        options = {
+          desc = "Move line up";
+        };
       }
       {
         mode = "v";
         key = "<A-j>";
         action = ":m '>+1<cr>gv=gv";
-        options = { desc = "Move selection down"; };
+        options = {
+          desc = "Move selection down";
+        };
       }
       {
         mode = "v";
         key = "<A-k>";
         action = ":m '<-2<cr>gv=gv";
-        options = { desc = "Move selection up"; };
+        options = {
+          desc = "Move selection up";
+        };
       }
 
       # Stay in indent mode
@@ -429,13 +469,17 @@
         mode = "v";
         key = "<";
         action = "<gv";
-        options = { desc = "Indent left"; };
+        options = {
+          desc = "Indent left";
+        };
       }
       {
         mode = "v";
         key = ">";
         action = ">gv";
-        options = { desc = "Indent right"; };
+        options = {
+          desc = "Indent right";
+        };
       }
 
       # Neo-tree
@@ -443,7 +487,9 @@
         mode = "n";
         key = "<leader>e";
         action = "<cmd>Neotree toggle<cr>";
-        options = { desc = "Toggle file explorer"; };
+        options = {
+          desc = "Toggle file explorer";
+        };
       }
 
       # Terminal
@@ -451,19 +497,25 @@
         mode = "n";
         key = "<leader>tf";
         action = "<cmd>ToggleTerm direction=float<cr>";
-        options = { desc = "Toggle floating terminal"; };
+        options = {
+          desc = "Toggle floating terminal";
+        };
       }
       {
         mode = "n";
         key = "<leader>th";
         action = "<cmd>ToggleTerm direction=horizontal<cr>";
-        options = { desc = "Toggle horizontal terminal"; };
+        options = {
+          desc = "Toggle horizontal terminal";
+        };
       }
       {
         mode = "n";
         key = "<leader>tv";
         action = "<cmd>ToggleTerm direction=vertical<cr>";
-        options = { desc = "Toggle vertical terminal"; };
+        options = {
+          desc = "Toggle vertical terminal";
+        };
       }
 
       # Git
@@ -471,25 +523,33 @@
         mode = "n";
         key = "<leader>gg";
         action = "<cmd>LazyGit<cr>";
-        options = { desc = "Open LazyGit"; };
+        options = {
+          desc = "Open LazyGit";
+        };
       }
       {
         mode = "n";
         key = "<leader>gb";
         action = "<cmd>Gitsigns blame_line<cr>";
-        options = { desc = "Git blame line"; };
+        options = {
+          desc = "Git blame line";
+        };
       }
       {
         mode = "n";
         key = "<leader>gp";
         action = "<cmd>Gitsigns preview_hunk<cr>";
-        options = { desc = "Preview hunk"; };
+        options = {
+          desc = "Preview hunk";
+        };
       }
       {
         mode = "n";
         key = "<leader>gr";
         action = "<cmd>Gitsigns reset_hunk<cr>";
-        options = { desc = "Reset hunk"; };
+        options = {
+          desc = "Reset hunk";
+        };
       }
     ];
 
@@ -518,7 +578,15 @@
       # Auto-format on save for specific filetypes
       {
         event = "BufWritePre";
-        pattern = [ "*.nix" "*.lua" "*.py" "*.js" "*.ts" "*.json" "*.md" ];
+        pattern = [
+          "*.nix"
+          "*.lua"
+          "*.py"
+          "*.js"
+          "*.ts"
+          "*.json"
+          "*.md"
+        ];
         callback = {
           __raw = ''
             function()
@@ -531,7 +599,7 @@
 
     # Extra plugins (not in nixvim)
     extraPlugins = with pkgs.vimPlugins; [
-      vim-sleuth  # Auto-detect indentation
+      vim-sleuth # Auto-detect indentation
     ];
 
     # Extra configuration (raw Lua)

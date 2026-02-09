@@ -1,10 +1,12 @@
 # Neovim Configuration (nvf)
 
-This directory contains a modular Neovim configuration using the [nvf](https://github.com/notashelf/nvf) framework. The configuration has been split into logical modules for easier maintenance and navigation.
+This directory contains a modular Neovim configuration using the
+[nvf](https://github.com/notashelf/nvf) framework. The configuration has
+been split into logical modules for easier maintenance and navigation.
 
 ## Structure
 
-```
+```text
 modules/home/nvf/
 ├── README.md              # This file
 ├── default.nix            # Main entry point, imports all submodules
@@ -21,20 +23,26 @@ modules/home/nvf/
 ## Module Overview
 
 ### default.nix
+
 Main entry point that:
+
 - Imports the nvf home-manager module
 - Imports all submodules in the correct order
 - Enables the nvf program
 - Defines shell aliases for nvim
 
 ### plugins.nix
+
 Defines custom plugins that aren't available in nixpkgs:
+
 - `telescope-tabs` - Tab picker for Telescope
 
 Exports these via `_module.args.customPlugins` for use by other modules.
 
 ### core-settings.nix
+
 Core Neovim configuration:
+
 - Leader key (space)
 - Basic settings (line numbers, search, splits, etc.)
 - Theme and statusline (lualine)
@@ -47,14 +55,18 @@ Core Neovim configuration:
   - Nix: nixd
 
 ### completion.nix
+
 Autocompletion using blink-cmp:
+
 - Keybindings for completion menu
 - Sources (LSP, path, buffer)
 - Command line completion
 - Menu and documentation settings
 
 ### ui.nix
+
 Visual and UI configuration:
+
 - Comments (comment-nvim)
 - UI settings (illuminate, borders)
 - Visuals (web-devicons, indent-blankline)
@@ -63,7 +75,9 @@ Visual and UI configuration:
 - Flash.nvim for quick navigation
 
 ### keybindings.nix
+
 All keybindings organized by mode:
+
 - **Insert mode**: jk/kj to escape
 - **Normal mode**:
   - General editing (quit, save, redo, copy)
@@ -86,7 +100,9 @@ All keybindings organized by mode:
 - **Terminal mode**: Toggle terminal
 
 ### extra-plugins.nix
+
 Additional plugins with custom Lua configuration:
+
 - **vim-sleuth**: Auto-detect indentation
 - **nvim-autopairs**: Auto-close brackets/quotes
 - **lazygit-nvim**: LazyGit integration
@@ -101,7 +117,9 @@ Additional plugins with custom Lua configuration:
 - **yazi-nvim**: Yazi file manager integration
 
 ### lua-config.nix
+
 Raw Lua configuration snippets:
+
 - Clipboard integration (system clipboard)
 - Highlight on yank
 - Trim trailing whitespace on save
@@ -113,7 +131,9 @@ Raw Lua configuration snippets:
 - Auto-reload files on change
 
 ### packages.nix
+
 External packages needed for plugins:
+
 - lazygit
 - yazi (file manager)
 - ruff (Python formatter)
@@ -125,27 +145,31 @@ External packages needed for plugins:
 ### Add a New Plugin
 
 1. If it's a standard nixpkgs plugin, add it to `extra-plugins.nix`:
-```nix
-my-plugin = {
-  package = my-plugin;
-  setup = ''
-    require("my-plugin").setup({})
-  '';
-};
-```
+
+   ```nix
+   my-plugin = {
+     package = my-plugin;
+     setup = ''
+       require("my-plugin").setup({})
+     '';
+   };
+   ```
 
 2. If it's a custom plugin not in nixpkgs, add it to `plugins.nix`:
-```nix
-my-custom-plugin = pkgs.vimUtils.buildVimPlugin {
-  name = "my-custom-plugin";
-  src = pkgs.fetchFromGitHub { ... };
-};
-```
-Then use it in `extra-plugins.nix` via `customPlugins.my-custom-plugin`.
+
+   ```nix
+   my-custom-plugin = pkgs.vimUtils.buildVimPlugin {
+     name = "my-custom-plugin";
+     src = pkgs.fetchFromGitHub { ... };
+   };
+   ```
+
+   Then use it in `extra-plugins.nix` via `customPlugins.my-custom-plugin`.
 
 ### Add a New Keybinding
 
 Edit `keybindings.nix` and add to the appropriate mode section:
+
 ```nix
 "<leader>x" = {
   action = "<cmd>MyCommand<cr>";
@@ -156,6 +180,7 @@ Edit `keybindings.nix` and add to the appropriate mode section:
 ### Change Core Settings
 
 Edit `core-settings.nix` for:
+
 - Vim options and behavior
 - LSP settings
 - Language server configuration
@@ -165,6 +190,7 @@ Edit `core-settings.nix` for:
 ### Modify UI/Appearance
 
 Edit `ui.nix` for:
+
 - Visual elements (borders, icons, indent guides)
 - Terminal configuration
 - Which-key labels
@@ -173,6 +199,7 @@ Edit `ui.nix` for:
 ### Add Lua Configuration
 
 Edit `lua-config.nix` to add new Lua snippets:
+
 ```nix
 my-config = ''
   -- Your Lua code here
@@ -183,6 +210,7 @@ my-config = ''
 ### Change Completion Behavior
 
 Edit `completion.nix` to modify:
+
 - Completion keybindings
 - Sources
 - Menu appearance
@@ -191,6 +219,7 @@ Edit `completion.nix` to modify:
 ### Add External Packages
 
 Edit `packages.nix` to add tools needed by your plugins:
+
 ```nix
 extraPackages = with pkgs; [
   existing-package
@@ -216,17 +245,22 @@ extraPackages = with pkgs; [
 ## Building and Testing
 
 To rebuild with your changes:
+
 ```bash
 darwin-rebuild switch --flake .
 ```
 
 Or to test without switching:
+
 ```bash
 darwin-rebuild build --flake .
 ```
 
 ## Architecture Notes
 
-- **Module Merging**: NixOS automatically deep-merges all `programs.nvf.settings.vim.*` across imported modules
-- **Import Order**: `plugins.nix` must be imported first as it exports `customPlugins` via `_module.args`
-- **No Duplication**: Each concern is in its own file - no settings are duplicated across modules
+- **Module Merging**: NixOS automatically deep-merges all
+  `programs.nvf.settings.vim.*` across imported modules
+- **Import Order**: `plugins.nix` must be imported first as it exports
+  `customPlugins` via `_module.args`
+- **No Duplication**: Each concern is in its own file - no settings are
+  duplicated across modules

@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ pkgs, ... }:
 
 {
   # Font configuration for macOS
@@ -31,28 +31,28 @@
     # Install fonts system-wide
     packages = with pkgs; [
       # Nerd Fonts - Individual font packages
-      nerd-fonts.fira-code          # Popular monospace with ligatures
-      nerd-fonts.jetbrains-mono     # JetBrains IDE font
-      nerd-fonts.meslo-lg           # Apple's Menlo with powerline glyphs
-      nerd-fonts.hack               # Clean, readable monospace
-      nerd-fonts.sauce-code-pro     # Adobe's Source Code Pro
-      nerd-fonts.droid-sans-mono    # Google's Android font
-      nerd-fonts.ubuntu-mono        # Ubuntu's monospace font
-      nerd-fonts.caskaydia-cove     # Microsoft's Cascadia Code
-      nerd-fonts.iosevka            # Slender monospace font
-      nerd-fonts.roboto-mono        # Google's Roboto family
+      nerd-fonts.fira-code # Popular monospace with ligatures
+      nerd-fonts.jetbrains-mono # JetBrains IDE font
+      nerd-fonts.meslo-lg # Apple's Menlo with powerline glyphs
+      nerd-fonts.hack # Clean, readable monospace
+      nerd-fonts.sauce-code-pro # Adobe's Source Code Pro
+      nerd-fonts.droid-sans-mono # Google's Android font
+      nerd-fonts.ubuntu-mono # Ubuntu's monospace font
+      nerd-fonts.caskaydia-cove # Microsoft's Cascadia Code
+      nerd-fonts.iosevka # Slender monospace font
+      nerd-fonts.roboto-mono # Google's Roboto family
 
       # Apple SF Pro (System Fonts) - Already installed on macOS
       # But available via Homebrew casks if needed
 
       # Additional programming fonts
-      fira-code           # Non-patched FiraCode (for comparison)
-      jetbrains-mono      # Non-patched JetBrains Mono
-      source-code-pro     # Non-patched Source Code Pro
+      fira-code # Non-patched FiraCode (for comparison)
+      jetbrains-mono # Non-patched JetBrains Mono
+      source-code-pro # Non-patched Source Code Pro
 
       # Icon fonts for terminal and UI
-      font-awesome        # Popular icon font
-      material-icons      # Google Material Design icons
+      font-awesome # Popular icon font
+      material-icons # Google Material Design icons
       material-design-icons
     ];
   };

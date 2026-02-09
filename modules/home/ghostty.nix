@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ pkgs, ... }:
 
 let
   zellijPath = "${pkgs.zellij}/bin/zellij";

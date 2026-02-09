@@ -35,7 +35,7 @@ if [[ -f "$KEYS_FILE" ]]; then
     echo "  2) Replace all keys (start fresh)"
     echo "  3) Exit"
     echo
-    read -p "Choose [1-3]: " choice
+    read -r -p "Choose [1-3]: " choice
 
     case $choice in
         1)
@@ -54,7 +54,7 @@ if [[ -f "$KEYS_FILE" ]]; then
             pamu2fcfg > "$KEYS_FILE"
             echo "Keys replaced. Primary key registered."
             echo
-            read -p "Add a backup key now? [y/N]: " backup
+            read -r -p "Add a backup key now? [y/N]: " backup
             if [[ "$backup" =~ ^[Yy] ]]; then
                 echo "Insert your backup YubiKey and press Enter..."
                 read -r
@@ -81,7 +81,7 @@ else
     pamu2fcfg > "$KEYS_FILE"
     echo "Primary key registered successfully!"
     echo
-    read -p "Add a backup key now? [y/N]: " backup
+    read -r -p "Add a backup key now? [y/N]: " backup
     if [[ "$backup" =~ ^[Yy] ]]; then
         echo "Insert your backup YubiKey and press Enter..."
         read -r

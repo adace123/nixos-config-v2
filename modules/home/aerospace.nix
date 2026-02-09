@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+_:
 
 {
   # AeroSpace window manager configuration

@@ -1,18 +1,22 @@
 # macOS Nix Configuration
 
-A Nix flake-based configuration for managing macOS systems using nix-darwin and home-manager.
+A Nix flake-based configuration for managing macOS systems using
+nix-darwin and home-manager.
 
 ## Prerequisites
 
 1. Install Nix with flakes support:
+
    ```bash
-   curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+   curl --proto '=https' --tlsv1.2 -sSf -L \
+     https://install.determinate.systems/nix | sh -s -- install
    ```
 
    Or use the official installer with flakes enabled:
+
    ```bash
    sh <(curl -L https://nixos.org/nix/install)
-   
+
    # Then enable flakes
    mkdir -p ~/.config/nix
    echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
@@ -30,6 +34,7 @@ cd nixos-config-v2
 ```
 
 This will:
+
 - Check that Nix is installed
 - Detect your hostname automatically
 - Build and activate the nix-darwin configuration
@@ -49,6 +54,7 @@ If you prefer to set things up manually or the bootstrap script doesn't work:
    - Customize packages and shell configuration as needed
 
 3. Build and activate the configuration:
+
    ```bash
    # First time setup (installs nix-darwin)
    nix build .#darwinConfigurations.<your-hostname>.system
@@ -92,18 +98,26 @@ nix flake lock --update-input nixpkgs
 ### Adding Packages
 
 #### System-wide packages
-Add packages to `modules/darwin/default.nix` in the `environment.systemPackages` list.
+
+Add packages to `modules/darwin/default.nix` in the
+`environment.systemPackages` list.
 
 #### User packages
+
 Add packages to `modules/home/default.nix` in the `home.packages` list.
 
 #### Homebrew packages
-Add formulae (CLI tools), casks (GUI apps), or Mac App Store apps to `modules/darwin/homebrew.nix`:
+
+Add formulae (CLI tools), casks (GUI apps), or Mac App Store apps to
+`modules/darwin/homebrew.nix`:
+
 - **Formulae**: Add to the `brews` list
-- **Casks**: Add to the `casks` list  
-- **Mac App Store**: Add to the `masApps` attribute set (requires app ID from `mas search "App Name"`)
+- **Casks**: Add to the `casks` list
+- **Mac App Store**: Add to the `masApps` attribute set (requires app ID
+  from `mas search "App Name"`)
 
 Example:
+
 ```nix
 brews = [
   "ffmpeg"
@@ -131,7 +145,7 @@ darwin-rebuild --rollback
 
 ## Structure
 
-```
+```text
 .
 ├── flake.nix              # Main flake configuration
 ├── flake.lock             # Locked dependency versions
@@ -147,6 +161,7 @@ darwin-rebuild --rollback
 ## What's Included
 
 ### System Configuration (nix-darwin)
+
 - Nix daemon with flakes enabled
 - Auto-optimization of Nix store
 - macOS system defaults (Dock, Finder, keyboard)
@@ -156,6 +171,7 @@ darwin-rebuild --rollback
 - Homebrew integration with automatic cleanup
 
 ### User Configuration (home-manager)
+
 - **Python**: Python 3.13/3.12/3.11, UV package manager, Ruff, Mypy, Poetry, IPython
 - **Node.js**: Node 22, Bun, npm, yarn, pnpm, TypeScript, ESLint, Prettier
 - **Git**: Configured with comprehensive .gitignore
@@ -166,29 +182,35 @@ darwin-rebuild --rollback
 - **System Info**: Fastfetch with creative boxed output
 
 ### Optional (Currently Disabled)
+
 - **Nixvim**: Full Neovim configuration with LSP, Treesitter, Telescope, Neo-tree
   - *Note: Temporarily disabled to avoid Swift build dependency issues*
   - To enable: uncomment `./nixvim.nix` in `modules/home/default.nix`
 
 ## Work SSH Keys Setup
 
-This configuration supports separate SSH keys for personal (GitHub) and work repositories. All work repositories in `~/Projects/work/` will automatically use your work SSH key.
+This configuration supports separate SSH keys for personal (GitHub) and
+work repositories. All work repositories in `~/Projects/work/` will
+automatically use your work SSH key.
 
 ### Initial Setup
 
 1. **Run the setup script:**
+
    ```bash
    ./scripts/setup-work-ssh.sh
    ```
-   
+
    This will:
    - Generate a work SSH key if needed (`~/.ssh/id_ed25519_work`)
    - Create example configuration files
    - Guide you through the setup process
 
 2. **Configure your work git server:**
-   
-   Edit `~/.ssh/work-config` (not tracked in git) and add your work server details:
+
+   Edit `~/.ssh/work-config` (not tracked in git) and add your work server
+   details:
+
    ```ssh
    Host work-git gitlab-work
      HostName git.yourcompany.com
@@ -198,35 +220,40 @@ This configuration supports separate SSH keys for personal (GitHub) and work rep
    ```
 
 3. **Configure work git settings:**
-   
+
    Edit `~/.config/git/work-config` (not tracked in git):
+
    ```gitconfig
    [user]
      name = Aaron Feigenbaum
      email = aaron.feigenbaum@yourcompany.com
-   
+
    [url "git@work-git:"]
      insteadOf = https://git.yourcompany.com/
    ```
 
 4. **Add your work public key to your work git server:**
+
    ```bash
    cat ~/.ssh/id_ed25519_work.pub
    ```
 
-### Usage
+### Work SSH Usage
 
 - **Personal repos (anywhere):** Use your personal key automatically
-  ```bash
-  git clone git@github.com:username/repo.git
-  ```
+
+   ```bash
+   git clone git@github.com:username/repo.git
+   ```
 
 - **Work repos (in ~/Projects/work/):** Use your work key automatically
-  ```bash
-  git clone git@work-git:company/repo.git ~/Projects/work/repo
-  ```
+
+   ```bash
+   git clone git@work-git:company/repo.git ~/Projects/work/repo
+   ```
 
 The configuration will automatically:
+
 - Use your work SSH key for all repositories in `~/Projects/work/`
 - Use your work email for commits in `~/Projects/work/`
 - Use your personal SSH key and email everywhere else
@@ -234,12 +261,14 @@ The configuration will automatically:
 ### Files Not Tracked in Git
 
 These files stay private on your laptop:
+
 - `~/.ssh/work-config` - Your work git server hostname
 - `~/.config/git/work-config` - Your work git email and settings
 - `~/.ssh/id_ed25519_work` - Your work private key
 - `~/.ssh/id_ed25519_work.pub` - Your work public key
 
 Example files are created by home-manager at:
+
 - `~/.ssh/work-config.example`
 - `~/.config/git/work-config.example`
 
@@ -255,13 +284,18 @@ Feel free to customize any part of the configuration:
 ## Known Issues
 
 ### Swift Build Dependency
-Some packages (notably nixvim with all treesitter grammars) trigger Swift builds from source, which can take a very long time or fail. To avoid this:
+
+Some packages (notably nixvim with all treesitter grammars) trigger Swift
+builds from source, which can take a very long time or fail. To avoid this:
+
 - Nixvim is currently disabled by default
 - If you want to enable it, uncomment it in `modules/home/default.nix`
 - Consider using a binary cache or accepting the long build time
 
 ### Deprecated Options
+
 Recent nixpkgs versions have renamed several options:
+
 - `nerdfonts` → `nerd-fonts` (now individual packages)
 - `ruff-lsp` → `ruff` (LSP now built-in)
 - Various home-manager Git options now use `settings` namespace
@@ -271,22 +305,31 @@ These have all been fixed in this configuration.
 ## Troubleshooting
 
 ### Bootstrap script fails
+
 If the bootstrap script fails, try the manual setup steps in the README.
 
 ### Nix daemon issues
+
 If you encounter issues with the Nix daemon, restart it:
+
 ```bash
 sudo launchctl kickstart -k system/org.nixos.nix-daemon
 ```
 
 ### Path issues
-Make sure `/run/current-system/sw/bin` is in your PATH. This should be handled automatically by nix-darwin.
+
+Make sure `/run/current-system/sw/bin` is in your PATH. This should be
+handled automatically by nix-darwin.
 
 ### Home-manager conflicts
-If home-manager complains about existing files, you may need to backup and remove conflicting dotfiles.
+
+If home-manager complains about existing files, you may need to backup and
+remove conflicting dotfiles.
 
 ### "darwin-rebuild: command not found"
-This means nix-darwin isn't installed yet. Run the `bootstrap.sh` script to install it.
+
+This means nix-darwin isn't installed yet. Run the `bootstrap.sh` script to
+install it.
 
 ## Resources
 
@@ -297,4 +340,5 @@ This means nix-darwin isn't installed yet. Run the `bootstrap.sh` script to inst
 
 ## License
 
-This configuration is provided as-is for personal use. Modify as needed for your own setup.
+This configuration is provided as-is for personal use. Modify as needed for
+your own setup.
