@@ -37,6 +37,9 @@
 
         # MD
         markdownlint.enable = true;
+
+        # yaml
+        yamlfmt.enable = true;
       };
 
       # Use alternative pre-commit implementation
