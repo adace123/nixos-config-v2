@@ -20,7 +20,7 @@ jobs:
         run: nix flake check --all-systems
       - name: Check flake.lock is up to date
         run: |
-          nix flake update --no-lock-file
+          nix flake update --no-write-lock-file
           if ! git diff --quiet flake.lock; then
             echo "::error::flake.lock is out of date. Run 'nix flake update' and commit the changes."
             exit 1
