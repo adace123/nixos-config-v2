@@ -121,6 +121,35 @@ _: {
           type = [ "nixfmt" ];
         };
       };
+
+      # YAML
+      yaml = {
+        enable = true;
+        lsp = {
+          enable = true;
+          servers = [ "yaml-language-server" ];
+        };
+      };
+    };
+
+    # Formatter for YAML (and other languages)
+    formatter.conform-nvim = {
+      enable = true;
+      setupOpts = {
+        formatters_by_ft = {
+          yaml = {
+            "yamlfmt" = {
+              __unkeyed-1 = "yamlfmt";
+            };
+          };
+        };
+        formatters = {
+          yamlfmt = {
+            command = "yamlfmt";
+            args = [ "-" ];
+          };
+        };
+      };
     };
   };
 }
