@@ -38,7 +38,7 @@ build:
 install-brew:
     #!/bin/bash
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    
+
     # Add Homebrew to PATH for Apple Silicon Macs
     if [[ $(uname -m) == "arm64" ]]; then
         echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
@@ -48,7 +48,7 @@ install-brew:
         echo 'eval "$(/usr/local/bin/brew shellenv)"' >> ~/.zprofile
         eval "$(/usr/local/bin/brew shellenv)"
     fi
-    
+
     echo "Homebrew installed successfully!"
 
 # Build and activate the Darwin configuration
@@ -75,7 +75,7 @@ update:
 
 # Update a specific input (e.g., just update-input nixpkgs)
 update-input INPUT:
-    nix flake lock --update-input {{INPUT}}
+    nix flake lock --update-input {{ INPUT }}
 
 # Show flake info
 info:
@@ -112,8 +112,23 @@ setup-work-ssh:
     ./scripts/setup-work-ssh.sh
 
 # Run auto-update process manually
-auto-update:
-    ./scripts/auto-update.sh
+# Usage: just auto-update [force] [dry-run] [debug]
+#   just auto-update              # Run normally (only in 9:00-9:15 AM window)
+#   just auto-update force        # Force run outside time window
+
+# just auto-update force dry-run # Force run in dry-run mode
+auto-update *FLAGS:
+    #!/bin/bash
+    args=()
+    for flag in {{ FLAGS }}; do
+        case "$flag" in
+            force) args+=("--force") ;;
+            dry-run) args+=("--dry-run") ;;
+            debug) args+=("--debug") ;;
+            *) echo "Unknown flag: $flag"; exit 1 ;;
+        esac
+    done
+    ./scripts/auto-update.sh "${args[@]}"
 
 # Show auto-update service status
 auto-update-status:
@@ -145,5 +160,7 @@ auto-update-status:
     echo ""
     echo "Manual commands:"
     echo "  just auto-update                          # Run update process manually"
+    echo "  just auto-update force                    # Force run outside time window"
+    echo "  just auto-update force dry-run            # Force run in dry-run mode"
     echo "  launchctl start nix-config-auto-update    # Run now (if in time window)"
     echo "  just switch                               # Re-enable via nix"

@@ -15,8 +15,8 @@ if [ -f "$CONFIG_FILE" ]; then
 fi
 
 # Configuration with defaults (can be overridden by environment variables)
-# Configuration with defaults (can be overridden by environment variables)
-CURRENT_LOG_LEVEL=$(log_level_to_number "${LOG_LEVEL:-INFO}")
+# Note: CURRENT_LOG_LEVEL will be set after log_level_to_number function is defined
+CURRENT_LOG_LEVEL=""
 DEFAULT_TIMEOUT_FETCH="${TIMEOUT_FETCH:-30}"
 DEFAULT_TIMEOUT_PULL="${TIMEOUT_PULL:-60}"
 DEFAULT_TIMEOUT_BUILD="${TIMEOUT_BUILD:-300}"
@@ -33,6 +33,40 @@ DEFAULT_GIT_REMOTE="${GIT_REMOTE:-origin}"
 DEFAULT_GIT_BRANCH="${GIT_BRANCH:-main}"
 DEFAULT_DRY_RUN="${DRY_RUN:-false}"
 DEFAULT_DEBUG_MODE="${DEBUG_MODE:-false}"
+
+# Parse command line arguments
+FORCE_RUN=false
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --force)
+      FORCE_RUN=true
+      shift
+      ;;
+    --dry-run)
+      DEFAULT_DRY_RUN=true
+      shift
+      ;;
+    --debug)
+      DEFAULT_DEBUG_MODE=true
+      shift
+      ;;
+    -h|--help)
+      echo "Usage: $0 [OPTIONS]"
+      echo ""
+      echo "Options:"
+      echo "  --force     Force run outside of scheduled time window"
+      echo "  --dry-run   Simulate update without applying changes"
+      echo "  --debug     Enable debug logging"
+      echo "  -h, --help  Show this help message"
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1"
+      echo "Use --help for usage information"
+      exit 1
+      ;;
+  esac
+done
 
 # Debug mode: set log level to DEBUG if enabled
 if [ "$DEFAULT_DEBUG_MODE" = "true" ]; then
@@ -88,6 +122,9 @@ log_error() { log "ERROR" "$1"; }
 log_warn() { log "WARN" "$1"; }
 log_info() { log "INFO" "$1"; }
 log_debug() { log "DEBUG" "$1"; }
+
+# Initialize CURRENT_LOG_LEVEL based on configuration
+CURRENT_LOG_LEVEL=$(log_level_to_number "${LOG_LEVEL:-INFO}")
 
 send_notification() {
   local title="$1"
@@ -262,18 +299,23 @@ verify_git_signature() {
 }
 
 # Time window check - only run within configured time window of 9:00 AM on weekdays
+# Can be overridden with --force flag
 current_hour=$(date +%H)
 current_minute=$(date +%M)
 current_weekday=$(date +%u)  # 1=Monday, 5=Friday
 
-if [ "$current_weekday" -gt 5 ] || [ "$current_weekday" -lt 1 ]; then
-  log_info "Skipping: Weekend (weekday $current_weekday)"
-  exit 0
-fi
+if [ "$FORCE_RUN" = "true" ]; then
+  log_warn "Force run enabled: Skipping time window check"
+else
+  if [ "$current_weekday" -gt 5 ] || [ "$current_weekday" -lt 1 ]; then
+    log_info "Skipping: Weekend (weekday $current_weekday)"
+    exit 0
+  fi
 
-if [ "$current_hour" -ne 9 ] || [ "$current_minute" -gt "$DEFAULT_TIME_WINDOW_MINUTES" ]; then
-  log_info "Skipping: Not in 9:00-9:${DEFAULT_TIME_WINDOW_MINUTES} AM window (current: $current_hour:$current_minute, weekday: $current_weekday)"
-  exit 0
+  if [ "$current_hour" -ne 9 ] || [ "$current_minute" -gt "$DEFAULT_TIME_WINDOW_MINUTES" ]; then
+    log_info "Skipping: Not in 9:00-9:${DEFAULT_TIME_WINDOW_MINUTES} AM window (current: $current_hour:$current_minute, weekday: $current_weekday)"
+    exit 0
+  fi
 fi
 
 log_info "Time window check passed: $current_hour:$current_minute on weekday $current_weekday"
