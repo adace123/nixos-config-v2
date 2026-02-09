@@ -1,30 +1,23 @@
 name: Flake Check
-
 on:
   push:
     branches: [main, master]
   pull_request:
     branches: [main, master]
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
 jobs:
   check:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
-
       - name: Cache Nix store
         uses: DeterminateSystems/magic-nix-cache-action@main
-
       - name: Check Nix flake
         run: nix flake check --all-systems
-
       - name: Check flake.lock is up to date
         run: |
           nix flake update --no-lock-file

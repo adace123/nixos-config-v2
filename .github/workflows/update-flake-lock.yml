@@ -1,15 +1,12 @@
 name: Update Flake Lock
-
 on:
   schedule:
     # Run daily at 00:00 UTC
     - cron: "0 0 * * *"
   workflow_dispatch:
-
 permissions:
   contents: write
   pull-requests: write
-
 jobs:
   update:
     runs-on: macos-latest
@@ -19,10 +16,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
-
       - name: Update flake.lock
         id: update
         uses: DeterminateSystems/update-flake-lock@main
@@ -33,7 +28,6 @@ jobs:
             automated
           commit-msg: "chore(flake): update flake.lock"
           sign-commits: true
-
   auto-merge:
     needs: update
     runs-on: macos-latest
