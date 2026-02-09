@@ -27,7 +27,6 @@ jobs:
             dependencies
             automated
           commit-msg: "chore(flake): update flake.lock"
-          sign-commits: true
   auto-merge:
     needs: update
     runs-on: macos-latest
