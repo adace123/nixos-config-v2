@@ -32,6 +32,9 @@ jobs:
     runs-on: macos-latest
     if: needs.update.outputs.pr-number != ''
     steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Enable auto-merge
         run: |
           gh pr merge ${{ needs.update.outputs.pr-number }} --auto --squash
