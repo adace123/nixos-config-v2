@@ -1,4 +1,4 @@
-{pkgs, ...}: {
+_: {
   # Completion - using blink.cmp
   programs.nvf.settings.vim.autocomplete.blink-cmp = {
     enable = true;
@@ -10,7 +10,7 @@
           "show_documentation"
           "hide_documentation"
         ];
-        "<C-e>" = ["hide"];
+        "<C-e>" = [ "hide" ];
         "<CR>" = [
           "accept"
           "fallback"
@@ -42,7 +42,7 @@
       cmdline = {
         keymap = {
           preset = "inherit";
-          "<CR>" = ["fallback"];
+          "<CR>" = [ "fallback" ];
         };
         completion = {
           menu = {
@@ -67,12 +67,12 @@
           auto_show = true;
           draw = {
             columns = [
-              ["kind_icon"]
+              [ "kind_icon" ]
               [
                 "label"
                 "label_description"
               ]
-              ["source_name"]
+              [ "source_name" ]
             ];
           };
         };
