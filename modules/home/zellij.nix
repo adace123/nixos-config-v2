@@ -151,7 +151,6 @@ let
             // Mode switching
             bind "Ctrl p" { SwitchToMode "Pane"; }
             bind "Ctrl t" { SwitchToMode "Tab"; }
-            bind "Ctrl s" { SwitchToMode "Scroll"; }
             bind "Ctrl o" { SwitchToMode "Session"; }
             bind "Ctrl g" { SwitchToMode "Locked"; }
         }

@@ -17,8 +17,11 @@
         # Format Nix code
         nixfmt.enable = true;
 
-        # Lint Nix code
-        statix.enable = true;
+        # Lint Nix code with auto-fix
+        statix = {
+          enable = true;
+          args = [ "fix" ]; # Enable auto-fixing of issues
+        };
 
         # Find dead Nix code
         deadnix.enable = true;
@@ -32,8 +35,17 @@
         # Check for case conflicts in filenames
         check-case-conflicts.enable = true;
 
-        # shellcheck
-        shellcheck.enable = true;
+        # shellcheck for shell script analysis
+        shellcheck = {
+          enable = true;
+          types = [ "shell" ]; # Check shell script files
+        };
+
+        # Shell script formatter
+        shfmt = {
+          enable = true;
+          types = [ "shell" ]; # Format shell script files
+        };
 
         # MD
         markdownlint = {
