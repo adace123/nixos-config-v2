@@ -27,8 +27,52 @@ jobs:
             dependencies
             automated
           commit-msg: "chore(flake): update flake.lock"
-  auto-merge:
+  # Build and show diff of what would change
+  build-and-diff:
     needs: update
+    runs-on: macos-latest
+    if: needs.update.outputs.pr-number != ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.ref }}
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+      - name: Build and show diff
+        id: diff
+        run: |
+          # Build the new configuration
+          nix build .#darwinConfigurations.$(hostname -s).system -o ./result-new
+
+          # Get current system path (if available)
+          CURRENT_SYSTEM="/run/current-system"
+          if [ -d "$CURRENT_SYSTEM" ]; then
+            # Use nvd to show diff between current and new
+            echo "## Package Changes" > diff.md
+            echo "" >> diff.md
+            echo '```' >> diff.md
+            nix run nixpkgs#nvd -- diff "$CURRENT_SYSTEM" ./result-new >> diff.md 2>&1 || echo "Unable to diff against current system" >> diff.md
+            echo '```' >> diff.md
+          else
+            echo "## Build Status" > diff.md
+            echo "" >> diff.md
+            echo "✅ Configuration builds successfully" >> diff.md
+            echo "" >> diff.md
+            echo "Note: Cannot show package diff (no current system available in CI)" >> diff.md
+          fi
+
+          echo "diff-content<<EOF" >> "$GITHUB_OUTPUT"
+          cat diff.md >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+      - name: Comment PR with diff
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ needs.update.outputs.pr-number }}
+          body: ${{ steps.diff.outputs.diff-content }}
+          edit-mode: replace
+  auto-merge:
+    needs: [update, build-and-diff]
     runs-on: macos-latest
     if: needs.update.outputs.pr-number != ''
     steps:
