@@ -326,6 +326,17 @@ fi
 
 log_info "Time window check passed: $current_hour:$current_minute on weekday $current_weekday"
 
+# Check if lid is closed (skip if closed - Touch ID won't work)
+if [ "$FORCE_RUN" != "true" ]; then
+  if command -v ioreg >/dev/null 2>&1; then
+    lid_closed=$(ioreg -r -k AppleClamshellState -d 4 | grep AppleClamshellState | head -1 | grep -c "Yes" || echo "0")
+    if [ "$lid_closed" -eq 1 ]; then
+      log_info "Skipping: Laptop lid is closed (Touch ID unavailable)"
+      exit 0
+    fi
+  fi
+fi
+
 # Run pre-flight checks
 if ! run_preflight_checks; then
   send_notification "Nix Config Update" "Pre-flight checks failed" "Basso"
