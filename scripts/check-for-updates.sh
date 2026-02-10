@@ -72,17 +72,63 @@ echo ""
 echo "Pulling latest changes..."
 git pull origin main
 
+# Function to get password using AppleScript with timeout
+get_sudo_password() {
+	osascript -e 'display notification "Password required for sudo" with title "Authentication"' \
+		-e 'delay 1' \
+		-e 'try' \
+		-e 'set pwd to text returned of (display dialog "Enter your password to apply NixOS updates:" default answer "" with hidden answer buttons {"Cancel", "OK"} default button "OK" giving up after 300)' \
+		-e 'on error number -128' \
+		-e 'return "CANCELLED"' \
+		-e 'end try' \
+		-e 'return pwd'
+}
+
+# Function to run command with password
+run_with_password() {
+	local cmd="$1"
+	password=$(get_sudo_password)
+	if [ "$password" = "CANCELLED" ]; then
+		echo "Password dialog cancelled. Exiting."
+		exit 1
+	fi
+
+	# Test the password first
+	if echo "$password" | sudo -S -v 2>/dev/null; then
+		# Password is valid, run the command
+		echo "$password" | sudo -S "$cmd"
+	else
+		echo "Incorrect password entered. Please try again."
+		return 1
+	fi
+}
+
 if [ "$AUTO_MODE" = true ]; then
 	if [ "$APPLY_UPDATES" = true ]; then
 		# Auto mode with auto apply - apply updates without user interaction
-		just switch
+		# Show notification before password dialog
+		if command -v terminal-notifier >/dev/null 2>&1; then
+			terminal-notifier -title "❄️ NixOS Update" -message "Applying system updates..." -timeout 0
+		fi
+
+		# Retry up to 3 times if password is incorrect
+		for i in {1..3}; do
+			if run_with_password "just switch"; then
+				break
+			elif [ "$i" -lt 3 ]; then
+				echo "Retrying... ($i/3)"
+			else
+				echo "Failed to authenticate after 3 attempts. Exiting."
+				exit 1
+			fi
+		done
 	else
 		# Auto mode without auto apply - just notify
 		echo "Updates pulled. Run 'just switch' to apply."
 
 		# Notify if terminal-notifier available (for automated systems)
 		if command -v terminal-notifier >/dev/null 2>&1; then
-			terminal-notifier -title "❄️ Nix Update Available" -message "Updates available. Run: just switch" -timeout 0
+			terminal-notifier -title "❄️ NixOS Update Available" -message "System updates are ready to be applied. Run: just switch" -timeout 0
 		fi
 	fi
 else
@@ -90,7 +136,22 @@ else
 	read -p "Do you want to run 'just switch' to apply updates? (y/n) " -n 1 -r
 	echo
 	if [[ $REPLY =~ ^[Yy]$ ]]; then
-		just switch
+		# Show notification before password dialog
+		if command -v terminal-notifier >/dev/null 2>&1; then
+			terminal-notifier -title "❄️ NixOS Update" -message "Preparing to apply system updates..." -timeout 0
+		fi
+
+		# Retry up to 3 times if password is incorrect
+		for i in {1..3}; do
+			if run_with_password "just switch"; then
+				break
+			elif [ "$i" -lt 3 ]; then
+				echo "Retrying... ($i/3)"
+			else
+				echo "Failed to authenticate after 3 attempts. Exiting."
+				exit 1
+			fi
+		done
 	else
 		echo "Skipping update. Run 'just switch' manually when ready."
 	fi
