@@ -31,6 +31,7 @@ _: {
       "pre-commit"
       "ykman" # YubiKey Manager CLI
       "common-fate/granted/granted"
+      "terminal-notifier"
     ];
 
     # Casks (GUI applications)
@@ -44,6 +45,7 @@ _: {
       # "google-chrome"
 
       # Development
+      "antigravity"
       "bruno"
       "codex-app"
       "docker-desktop"
@@ -51,6 +53,7 @@ _: {
       "zed@preview"
       "warp"
       "lm-studio"
+      "yaak@beta"
 
       # Productivity
       "nikitabobko/tap/aerospace" # Tiling window manager
