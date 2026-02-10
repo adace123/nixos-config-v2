@@ -125,18 +125,31 @@ log_debug() { log "DEBUG" "$1"; }
 # Initialize CURRENT_LOG_LEVEL based on configuration
 CURRENT_LOG_LEVEL=$(log_level_to_number "${LOG_LEVEL:-INFO}")
 
+# Path to Nix logo for notifications
+NIX_LOGO_PATH="${HOME}/.local/share/nix-config-auto-update/nix-logo.png"
+
 send_notification() {
   local title="$1"
   local message="$2"
   local sound="${3:-$DEFAULT_NOTIFICATION_SOUND}"
-  
+
   if [ "$DEFAULT_ENABLE_NOTIFICATIONS" != "true" ]; then
     log_debug "Notifications disabled, skipping: $title - $message"
     return 0
   fi
-  
+
   log_debug "Sending notification: $title - $message"
-  osascript -e "display notification \"$message\" with title \"$title\" sound name \"$sound\"" 2>/dev/null || true
+
+  # Prepend Nix snowflake emoji to title for visual identification
+  local nix_title="❄️ $title"
+
+  # Use Nix logo if available via terminal-notifier (if installed)
+  if command -v terminal-notifier >/dev/null 2>&1 && [ -f "$NIX_LOGO_PATH" ]; then
+    terminal-notifier -title "$nix_title" -message "$message" -appIcon "$NIX_LOGO_PATH" -sound "$sound" 2>/dev/null || \
+    osascript -e "display notification \"$message\" with title \"$nix_title\" sound name \"$sound\"" 2>/dev/null || true
+  else
+    osascript -e "display notification \"$message\" with title \"$nix_title\" sound name \"$sound\"" 2>/dev/null || true
+  fi
 }
 
 # Cleanup function for trap
