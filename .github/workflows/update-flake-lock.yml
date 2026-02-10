@@ -42,25 +42,17 @@ jobs:
       - name: Build and show diff
         id: diff
         run: |
-          # Build the new configuration
-          nix build .#darwinConfigurations.$(hostname -s).system -o ./result-new
+          # Build the new configuration using the predictable configuration name
+          nix build .#darwinConfigurations.endor.system -o ./result-new
 
-          # Get current system path (if available)
-          CURRENT_SYSTEM="/run/current-system"
-          if [ -d "$CURRENT_SYSTEM" ]; then
-            # Use nvd to show diff between current and new
-            echo "## Package Changes" > diff.md
-            echo "" >> diff.md
-            echo '```' >> diff.md
-            nix run nixpkgs#nvd -- diff "$CURRENT_SYSTEM" ./result-new >> diff.md 2>&1 || echo "Unable to diff against current system" >> diff.md
-            echo '```' >> diff.md
-          else
-            echo "## Build Status" > diff.md
-            echo "" >> diff.md
-            echo "✅ Configuration builds successfully" >> diff.md
-            echo "" >> diff.md
-            echo "Note: Cannot show package diff (no current system available in CI)" >> diff.md
-          fi
+          # Show basic build success
+          echo "## Build Status" > diff.md
+          echo "" >> diff.md
+          echo "✅ Configuration builds successfully" >> diff.md
+          echo "" >> diff.md
+          echo "Configuration: endor" >> diff.md
+          echo "" >> diff.md
+          echo "Note: Cannot show package diff (no current system available in CI)" >> diff.md
 
           echo "diff-content<<EOF" >> "$GITHUB_OUTPUT"
           cat diff.md >> "$GITHUB_OUTPUT"

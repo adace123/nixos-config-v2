@@ -1,10 +1,8 @@
 { inputs, ... }:
 {
   flake.darwinConfigurations = {
-    # Hostname: enervee-ltqcw2y7pv
-    # You can find it by running: scutil --get LocalHostName
-    enervee-ltqcw2y7pv = inputs.darwin.lib.darwinSystem {
-      system = "aarch64-darwin"; # or "x86_64-darwin" for Intel Macs
+    endor = inputs.darwin.lib.darwinSystem {
+      system = "aarch64-darwin";
       specialArgs = { inherit inputs; };
       modules = [
         ../modules/darwin

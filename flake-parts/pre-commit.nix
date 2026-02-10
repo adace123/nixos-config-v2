@@ -59,8 +59,13 @@
           ];
         };
 
-        # yaml
-        yamlfmt.enable = true;
+        # yaml - auto-formats yaml files
+        yamlfmt = {
+          enable = true;
+          types = [ "yaml" ]; # Format YAML files
+          files = ''.*\.(yaml|yml)$''; # Regex to match both .yaml and .yml files
+          args = [ ]; # Default args, yamlfmt should format by default
+        };
       };
 
       # Use alternative pre-commit implementation
