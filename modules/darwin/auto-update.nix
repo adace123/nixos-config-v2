@@ -15,7 +15,7 @@ in
     services.nix-config-auto-update = lib.mkOption {
       type = lib.types.bool;
       default = true;
-      description = "Enable automatic Nix config updates";
+      description = "Enable automatic Nix config update notifications";
     };
   };
 
@@ -35,7 +35,7 @@ in
         StandardOutPath = "/tmp/nix-darwin-update.log";
 
         # Ensures the process doesn't hang forever
-        ExitTimeOut = 600;
+        ExitTimeOut = 60;
 
         EnvironmentVariables = {
           PATH = "/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:/usr/bin:/bin:/usr/sbin:/sbin";
@@ -43,16 +43,7 @@ in
       };
 
       script = ''
-        echo "--- Update Started: $(date) ---"
-
-        # Check if lid is closed (skip if closed - Touch ID won't work)
-        if command -v ioreg >/dev/null 2>&1; then
-          lid_closed=$(ioreg -r -k AppleClamshellState -d 4 | grep AppleClamshellState | head -1 | grep -c "Yes" || echo "0")
-          if [ "$lid_closed" -eq 1 ]; then
-            echo "Lid is closed, skipping update (Touch ID unavailable)"
-            exit 0
-          fi
-        fi
+        echo "--- Check Started: $(date) ---"
 
         # Wait for network availability
         until /usr/bin/curl -s --head --request GET http://www.google.com | grep "200 OK" > /dev/null; do
@@ -74,19 +65,10 @@ in
 
         echo "Updates available: ''${LOCAL:0:7} -> ''${REMOTE:0:7}"
 
-        # Update flake.lock and rebuild
-        /run/current-system/sw/bin/nix flake update --commit-lock-file
+        # Notify user to manually run just switch
+        /usr/bin/osascript -e 'display notification "Updates available. Run: just switch" with title "❄️ Nix Update Available"'
 
-        # Run darwin-rebuild (this will prompt for Touch ID if needed)
-        if /run/current-system/sw/bin/darwin-rebuild switch --flake .; then
-          echo "Update completed successfully"
-          /usr/bin/osascript -e 'display notification "Nix-Darwin updated successfully!" with title "❄️ Nix Update"'
-        else
-          echo "Update FAILED"
-          /usr/bin/osascript -e 'display notification "Nix-Darwin update FAILED. Check logs at /tmp/nix-darwin-update.log" with title "❄️ Nix Update Error"'
-        fi
-
-        echo "--- Update Finished: $(date) ---"
+        echo "--- Check Finished: $(date) ---"
       '';
     };
   };
