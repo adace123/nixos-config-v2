@@ -65,7 +65,7 @@ switch:
         just install-brew
     fi
     if command -v nh &> /dev/null; then
-        nh darwin switch
+        nh darwin switch .
     else
         sudo darwin-rebuild switch --flake .
     fi
