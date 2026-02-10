@@ -111,26 +111,7 @@ diff:
 setup-work-ssh:
     ./scripts/setup-work-ssh.sh
 
-# Run auto-update process manually
-# Usage: just auto-update [force] [dry-run] [debug]
-#   just auto-update              # Run normally (only in 9:00-9:15 AM window)
-#   just auto-update force        # Force run outside time window
-
-# just auto-update force dry-run # Force run in dry-run mode
-auto-update *FLAGS:
-    #!/bin/bash
-    args=()
-    for flag in {{ FLAGS }}; do
-        case "$flag" in
-            force) args+=("--force") ;;
-            dry-run) args+=("--dry-run") ;;
-            debug) args+=("--debug") ;;
-            *) echo "Unknown flag: $flag"; exit 1 ;;
-        esac
-    done
-    ./scripts/auto-update.sh "${args[@]}"
-
-# Show auto-update service status
+# Show auto-update service status and trigger manual check
 auto-update-status:
     #!/bin/bash
     echo "Nix Config Auto-Update Service"
@@ -140,27 +121,24 @@ auto-update-status:
     echo "It will be automatically installed when you run 'just switch'."
     echo ""
     echo "Configuration:"
-    echo "  - Runs weekdays at 9:00 AM Pacific"
-    echo "  - Only executes within 9:00-9:15 AM window"
-    echo "  - Checks for git changes from origin/main"
-    echo "  - Prompts Touch ID for 'just switch' if updates found"
-    echo "  - Sends macOS notifications on success/failure"
-    echo ""
-    echo "Schedule:"
-    echo "  - Monday-Friday at 9:00 AM (15-minute execution window)"
-    echo "  - Skips execution if outside time window (prevents wake prompts)"
+    echo "  - Runs daily at 10:00 AM"
+    echo "  - Checks for flake.lock changes on origin/main"
+    echo "  - Notifies you when updates are available"
+    echo "  - You manually run 'just switch' to apply updates"
     echo ""
     echo "Current status:"
     launchctl list | grep nix-config-auto-update || echo "  Service not loaded (run 'just switch' to enable)"
     echo ""
     echo "Logs:"
-    echo "  ~/.local/share/nix-config-auto-update.log"
-    echo "  ~/.local/share/nix-config-auto-update.stdout.log"
-    echo "  ~/.local/share/nix-config-auto-update.stderr.log"
+    echo "  /tmp/nix-darwin-update.log"
     echo ""
     echo "Manual commands:"
-    echo "  just auto-update                          # Run update process manually"
-    echo "  just auto-update force                    # Force run outside time window"
-    echo "  just auto-update force dry-run            # Force run in dry-run mode"
-    echo "  launchctl start nix-config-auto-update    # Run now (if in time window)"
-    echo "  just switch                               # Re-enable via nix"
+    echo "  launchctl start nix-config-auto-update    # Trigger check now"
+    echo "  just switch                               # Apply updates"
+    echo ""
+    read -p "Trigger update check now? (y/n) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        launchctl start nix-config-auto-update
+        echo "Update check triggered. Check notifications and logs."
+    fi
