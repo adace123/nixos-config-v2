@@ -247,10 +247,11 @@ run_preflight_checks() {
   fi
   
   # Check if we can access required commands
-  local required_commands=("git" "timeout" "sudo")
+  local required_commands=("git" "sudo")
   if [ "$DEFAULT_ENABLE_FLAKE_CHECK" = "true" ]; then
     required_commands+=("nix")
   fi
+  # Note: timeout is optional - script has fallback for macOS
   for cmd in "${required_commands[@]}"; do
     if ! command -v "$cmd" >/dev/null 2>&1; then
       log_error "Required command not found: $cmd"
