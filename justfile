@@ -111,6 +111,41 @@ diff:
 setup-work-ssh:
     ./scripts/setup-work-ssh.sh
 
+# Check for available updates manually (like the service does)
+check-updates:
+    #!/bin/bash
+    echo "Checking for updates..."
+    
+    # Fetch latest from origin
+    git fetch origin main
+    
+    LOCAL=$(git rev-parse HEAD)
+    REMOTE=$(git rev-parse origin/main)
+    
+    if [ "$LOCAL" = "$REMOTE" ]; then
+        echo "✓ Already up to date"
+        exit 0
+    fi
+    
+    # Check if flake.lock changed
+    if ! git diff --name-only "$LOCAL" "$REMOTE" | grep -q "flake.lock"; then
+        echo "ℹ Changes available but no updates to flake.lock"
+        echo "  Local:  ''${LOCAL:0:7}"
+        echo "  Remote: ''${REMOTE:0:7}"
+        exit 0
+    fi
+    
+    echo "❄️ Updates available to flake.lock!"
+    echo "  Local:  ''${LOCAL:0:7}"
+    echo "  Remote: ''${REMOTE:0:7}"
+    echo ""
+    echo "Run 'just switch' to apply updates"
+    
+    # Notify if terminal-notifier available
+    if command -v terminal-notifier >/dev/null 2>&1; then
+        terminal-notifier -title "❄️ Nix Update Available" -message "Updates available. Run: just switch" -timeout 0
+    fi
+
 # Show auto-update service status and trigger manual check
 auto-update-status:
     #!/bin/bash

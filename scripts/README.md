@@ -1,135 +1,75 @@
-# Auto-Update Script Configuration
+# Scripts Directory
 
-This directory contains the Nix configuration auto-update system.
+This directory contains utility scripts for the Nix configuration.
 
 ## Files
 
-- `auto-update.sh` - Main auto-update script
-- `auto-update.conf` - Configuration file with all settings and defaults
+- `setup-work-ssh.sh` - Configure separate SSH keys for work repositories
+- `setup-yubikey-sudo.sh` - Configure YubiKey for sudo authentication
+- `README.md` - This file
 
-## Configuration
+## Auto-Update Service
 
-The script can be configured in three ways (in order of precedence):
+The automatic update functionality has been moved to `modules/darwin/auto-update.nix` as a nix-darwin launchd service.
 
-1. **Environment variables** - Highest priority
-2. **Configuration file** (`auto-update.conf`) - Medium priority
-3. **Hardcoded defaults** - Lowest priority
+### How It Works
 
-### Environment Variables
+- **Schedule**: Runs daily at 10:00 AM
+- **Function**: Checks if `flake.lock` has changes on `origin/main`
+- **Notification**: Sends persistent macOS notification when updates are available
+- **Action Required**: You manually run `just switch` to apply updates
 
-You can override any configuration setting by setting environment variables:
-
-```bash
-export LOG_LEVEL=DEBUG
-export TIMEOUT_BUILD=600
-export DRY_RUN=true
-./auto-update.sh
-```
-
-### Configuration File
-
-Edit `auto-update.conf` to change default settings. The file includes comments explaining each option.
-
-## Key Improvements Made
-
-### Security
-
-- **Consistent Git Signature Verification** - Fixed inconsistent verification, now properly verifies all remote commits
-- **Flake Check Integration** - Runs `nix flake check --all-systems` before building (configurable)
-- **Pre-flight Security Checks** - Validates environment and dependencies
-
-### Reliability
-
-- **Structured Logging** - Multiple log levels (ERROR, WARN, INFO, DEBUG) with timestamps
-- **Trap-based Cleanup** - Automatic rollback on script failure or interruption
-- **Improved Rollback** - Better error handling and backup restoration
-- **Pre-flight Checks** - Disk space, network, and command availability validation
-
-### Performance & Maintainability
-
-- **Configurable Timeouts** - Appropriate timeouts for different operations
-- **Backup Management** - Automatic cleanup of old backups
-- **Log Rotation** - Prevents log files from growing too large
-- **Dry Run Mode** - Test mode that simulates operations without making changes
-
-### Configuration Management
-
-- **External Config File** - All settings can be modified without editing the script
-- **Environment Variable Support** - Runtime overrides for testing and customization
-- **Default Values** - Sensible defaults that work out of the box
-
-## Usage
-
-### Basic Usage
+### Checking Service Status
 
 ```bash
-./scripts/auto-update.sh
+just auto-update-status
 ```
 
-### Dry Run (Test Mode)
+### Manual Trigger
 
 ```bash
-DRY_RUN=true ./scripts/auto-update.sh
+launchctl start nix-config-auto-update
 ```
 
-### Debug Mode
+### View Logs
 
 ```bash
-DEBUG_MODE=true ./scripts/auto-update.sh
+tail -f /tmp/nix-darwin-update.log
 ```
 
-### Custom Configuration
+### Features
+
+- Only notifies on `flake.lock` changes (dependency updates)
+- Waits for network availability
+- Persistent notifications (stay until clicked)
+- Click notification to open Terminal
+- No automatic rebuild (avoids sudo/Touch ID issues)
+
+## SSH Configuration
+
+### Work SSH Setup
+
+To use separate SSH keys for work repositories:
 
 ```bash
-CONFIG_FILE=/path/to/custom.conf ./scripts/auto-update.sh
+just setup-work-ssh
 ```
 
-## Log Files
+This configures automatic SSH key selection based on repository path.
 
-- **Main log**: `~/.local/share/nix-config-auto-update.log`
-- **stdout**: `~/.local/share/nix-config-auto-update.stdout.log` (from launchd)
-- **stderr**: `~/.local/share/nix-config-auto-update.stderr.log` (from launchd)
+### YubiKey Sudo Setup
 
-## Backup Management
-
-- Backups are stored in `~/.local/share/nix-config-backups/`
-- Format: `YYYYMMDD_HHMMSS_COMMIT.nix`
-- Automatic cleanup of backups older than 7 days (configurable)
-- Rollback automatically attempted on failure
-
-## Security Notes
-
-- Git signature verification is enabled by default
-- Flake validation runs before building
-- Privilege escalation is properly validated
-- All operations are logged for audit purposes
-
-## Troubleshooting
-
-### Enable Debug Logging
+To enable YubiKey for sudo authentication:
 
 ```bash
-LOG_LEVEL=DEBUG ./scripts/auto-update.sh
+./scripts/setup-yubikey-sudo.sh
 ```
 
-### Check Recent Logs
+## Legacy Auto-Update
 
-```bash
-tail -f ~/.local/share/nix-config-auto-update.log
-```
+The previous standalone auto-update scripts have been removed in favor of the nix-darwin managed service. The old implementation included:
 
-### Manual Rollback
+- `auto-update.sh` - Complex bash script with backup/rollback
+- `auto-update.conf` - Configuration file
 
-```bash
-cd ~/.local/share/nix-config-backups
-# Find the backup you want to restore
-sudo /run/current-system/sw/bin/darwin-rebuild switch --flake ./20241209_090000_abc1234.nix
-```
-
-## Service Status
-
-Check the launchd service status:
-
-```bash
-launchctl list | grep nix-config-auto-update
-```
+These have been replaced with a simpler, more reliable notification-only approach.
