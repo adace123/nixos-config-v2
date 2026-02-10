@@ -23,7 +23,6 @@ DEFAULT_TIMEOUT_BUILD="${TIMEOUT_BUILD:-300}"
 DEFAULT_TIMEOUT_FLAKE_CHECK="${TIMEOUT_FLAKE_CHECK:-120}"
 DEFAULT_TIME_WINDOW_MINUTES="${TIME_WINDOW_MINUTES:-15}"
 DEFAULT_MIN_DISK_SPACE_MB="${MIN_DISK_SPACE_MB:-1024}"
-DEFAULT_REQUIRE_SIGNATURE="${REQUIRE_SIGNATURE:-true}"
 DEFAULT_ENABLE_FLAKE_CHECK="${ENABLE_FLAKE_CHECK:-true}"
 DEFAULT_ENABLE_BACKUP="${ENABLE_BACKUP:-true}"
 DEFAULT_ENABLE_NOTIFICATIONS="${ENABLE_NOTIFICATIONS:-true}"
@@ -290,31 +289,6 @@ run_with_timeout() {
   fi
 }
 
-# Verify git signature
-verify_git_signature() {
-  local commit="$1"
-  local require_signature="${2:-$DEFAULT_REQUIRE_SIGNATURE}"
-  
-  log_debug "Verifying signature for commit: $commit"
-  
-  if [ "$require_signature" != "true" ]; then
-    log_debug "Signature verification disabled by configuration"
-    return 0
-  fi
-  
-  if git verify-commit "$commit" >/dev/null 2>&1; then
-    log_info "Git signature verified for commit $commit"
-    return 0
-  else
-    log_warn "No valid git signature for commit $commit"
-    if [ "$require_signature" = "true" ]; then
-      log_error "Rejecting unsigned commit $commit"
-      return 1
-    fi
-    return 0
-  fi
-}
-
 # Time window check - only run within configured time window of 9:00 AM on weekdays
 # Can be overridden with --force flag
 current_hour=$(date +%H)
@@ -376,13 +350,6 @@ log_debug "Remote commit: $REMOTE"
 if [ "$LOCAL" = "$REMOTE" ]; then
   log_info "Already up to date"
   exit 0
-fi
-
-# Verify signature of remote commit before pulling
-if ! verify_git_signature "$REMOTE"; then
-  log_error "Remote commit signature verification failed"
-  send_notification "Nix Config Update" "Commit signature verification failed" "Basso"
-  exit 1
 fi
 
 log_info "Updates available: ${LOCAL:0:7} -> ${REMOTE:0:7}"
