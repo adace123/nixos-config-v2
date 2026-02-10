@@ -1,6 +1,5 @@
 {
   pkgs,
-  customPlugins,
   ...
 }:
 {
@@ -108,67 +107,7 @@
         })
       '';
     };
-    tabby-nvim = {
-      package = tabby-nvim;
-      setup = ''
-        local theme = {
-          fill = 'TabLineFill',
-          head = 'TabLine',
-          current_tab = 'TabLineSel',
-          tab = 'TabLine',
-          win = 'TabLine',
-          tail = 'TabLine',
-        }
-        require('tabby.tabline').set(function(line)
-          return {
-            {
-              { '  ', hl = theme.head },
-            },
-            line.tabs().foreach(function(tab)
-              local hl = tab.is_current() and theme.current_tab or theme.tab
-              return {
-                line.sep(' ', hl, theme.fill),
-                tab.is_current() and '●' or '○',
-                ' ',
-                tab.name(),
-                ' ',
-                tab.close_btn('✕'),
-                line.sep(' ', hl, theme.fill),
-                hl = hl,
-                margin = ' ',
-              }
-            end),
-            line.spacer(),
-            hl = theme.fill,
-          }
-        end)
-      '';
-    };
-    telescope-tabs = {
-      package = customPlugins.telescope-tabs;
-      setup = ''
-        require("telescope-tabs").setup({
-          entry_formatter = function(tab_id, buffer_ids, file_names, file_paths, is_current)
-            -- Get tabby's custom tab name
-            local ok, tab_name_module = pcall(require, 'tabby.feature.tab_name')
-            local tab_name
 
-            if ok then
-              -- Use tabby's get() function to retrieve custom tab name
-              tab_name = tab_name_module.get(tab_id)
-            end
-
-            -- Fallback to buffer name if no custom name is set
-            if not tab_name or tab_name == "" then
-              tab_name = file_names[1] or "[No Name]"
-            end
-
-            local entry_string = string.format("%d: %s", tab_id, tab_name)
-            return entry_string
-          end,
-        })
-      '';
-    };
     nvim-treesitter-textobjects = {
       package = nvim-treesitter-textobjects;
       setup = ""; # Configuration is done in luaConfigRC

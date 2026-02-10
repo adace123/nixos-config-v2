@@ -40,8 +40,8 @@ _: {
       globalStatus = true;
     };
 
-    # Tab line (using tabby.nvim via extraPlugins)
-    tabline.nvimBufferline.enable = false;
+    # Tab line
+    tabline.nvimBufferline.enable = true;
 
     # File tree
     filetree.neo-tree = {

@@ -83,8 +83,8 @@ let
             bind "PageUp" { PageScrollUp; }
             bind "PageDown" { PageScrollDown; }
 
-            // Search
-            bind "Ctrl f" { SwitchToMode "Search"; SearchInput 0; }
+            // Search (moved to Ctrl+Shift+f)
+            bind "Ctrl Shift f" { SwitchToMode "Search"; SearchInput 0; }
 
             // Tab switcher (floating with room plugin)
             bind "Ctrl Space" {
@@ -99,40 +99,40 @@ let
                 Run "${pkgs.btop}/bin/btop" {
                     floating true
                     close_on_exit true
-                    x "10%"
-                    y "10%"
-                    width "80%"
-                    height "80%"
+                    x "25%"
+                    y "25%"
+                    width "50%"
+                    height "50%"
                 }
             }
             bind "Alt k" {
                 Run "${pkgs.k9s}/bin/k9s" {
                     floating true
                     close_on_exit true
-                    x "10%"
-                    y "10%"
-                    width "80%"
-                    height "80%"
+                    x "25%"
+                    y "25%"
+                    width "50%"
+                    height "50%"
                 }
             }
             bind "Alt y" {
                 Run "${pkgs.yazi}/bin/yazi" {
                     floating true
                     close_on_exit true
-                    x "10%"
-                    y "10%"
-                    width "80%"
-                    height "80%"
+                    x "25%"
+                    y "25%"
+                    width "50%"
+                    height "50%"
                 }
             }
             bind "Alt a" {
                 Run "${config.home.homeDirectory}/.local/bin/ai-selector" {
                     floating true
                     close_on_exit false
-                    x "10%"
-                    y "10%"
-                    width "80%"
-                    height "80%"
+                    x "25%"
+                    y "25%"
+                    width "50%"
+                    height "50%"
                 }
             }
 
@@ -141,10 +141,10 @@ let
             bind "Alt F" {
                 NewPane {
                     floating true
-                    x "10%"
-                    y "10%"
-                    width "80%"
-                    height "80%"
+                    x "25%"
+                    y "25%"
+                    width "50%"
+                    height "50%"
                 }
             }
 
@@ -176,10 +176,10 @@ let
             bind "f" {
                 NewPane {
                     floating true
-                    x "10%"
-                    y "10%"
-                    width "80%"
-                    height "80%"
+                    x "25%"
+                    y "25%"
+                    width "50%"
+                    height "50%"
                 }
                 SwitchToMode "Normal";
             }

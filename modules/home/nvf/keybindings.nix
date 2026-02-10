@@ -56,12 +56,8 @@ _: {
         desc = "Scroll up and center";
       };
 
-      # Toggle terminal
+      # Toggle terminal (Ctrl+f reserved for zellij)
       "<C-a>" = {
-        action = "<cmd>ToggleTerm direction=float<cr>";
-        desc = "Toggle floating terminal";
-      };
-      "<C-f>" = {
         action = "<cmd>ToggleTerm direction=float<cr>";
         desc = "Toggle floating terminal";
       };
@@ -229,15 +225,8 @@ _: {
         desc = "Pick tab";
       };
 
-      # Tab cycling
-      "<C-]>" = {
-        action = "<cmd>tabnext<cr>";
-        desc = "Next tab";
-      };
-      "<C-[>" = {
-        action = "<cmd>tabprevious<cr>";
-        desc = "Previous tab";
-      };
+      # Tab cycling (Ctrl+[ and Ctrl+] reserved for zellij)
+      # Use leader+ft and leader+tn instead
       "<leader>tr" = {
         action = ":Tabby rename_tab ";
         desc = "Rename tab";
@@ -372,12 +361,8 @@ _: {
     };
 
     terminal = {
-      # Toggle terminal in terminal mode
+      # Toggle terminal in terminal mode (Ctrl+f reserved for zellij)
       "<C-a>" = {
-        action = "<C-\\><C-n><cmd>ToggleTerm<cr>";
-        desc = "Toggle terminal";
-      };
-      "<C-f>" = {
         action = "<C-\\><C-n><cmd>ToggleTerm<cr>";
         desc = "Toggle terminal";
       };
