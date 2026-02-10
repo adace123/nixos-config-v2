@@ -45,7 +45,6 @@ This will:
 If you prefer to set things up manually or the bootstrap script doesn't work:
 
 1. Update the hostname in `flake-parts/darwin.nix`:
-   - Replace `enervee-ltqcw2y7pv` with your actual hostname (run `scutil --get LocalHostName`)
    - Update the username from `aaron` to your username
    - Change `aarch64-darwin` to `x86_64-darwin` if you're on an Intel Mac
 
