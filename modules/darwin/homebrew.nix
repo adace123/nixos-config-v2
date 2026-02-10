@@ -54,6 +54,7 @@ _: {
       "warp"
       "lm-studio"
       "yaak@beta"
+      "session-manager-plugin"
 
       # Productivity
       "nikitabobko/tap/aerospace" # Tiling window manager
