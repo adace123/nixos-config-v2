@@ -143,9 +143,12 @@ send_notification() {
 
   # Use Nix logo if available via terminal-notifier (if installed)
   if command -v terminal-notifier >/dev/null 2>&1 && [ -f "$NIX_LOGO_PATH" ]; then
-    terminal-notifier -title "$title" -message "$message" -appIcon "$NIX_LOGO_PATH" -sound "$sound" 2>/dev/null || \
+    log_debug "Using terminal-notifier with logo: $NIX_LOGO_PATH"
+    # Use contentImage to show logo within notification (more reliable than appIcon)
+    terminal-notifier -title "$title" -message "$message" -contentImage "$NIX_LOGO_PATH" -sound "$sound" 2>/dev/null || \
     osascript -e "display notification \"$message\" with title \"$nix_title\" sound name \"$sound\"" 2>/dev/null || true
   else
+    log_debug "Using osascript for notification"
     osascript -e "display notification \"$message\" with title \"$nix_title\" sound name \"$sound\"" 2>/dev/null || true
   fi
 }
