@@ -250,25 +250,42 @@ run_preflight_checks() {
   return 0
 }
 
-# Run command with timeout
+# Run command with timeout (cross-platform implementation)
 run_with_timeout() {
   local timeout_seconds="$1"
   local command="$2"
   local description="$3"
-  
+
   log_info "Running $description (timeout: ${timeout_seconds}s)..."
   log_debug "Command: $command"
-  
-  if timeout "$timeout_seconds" bash -c "$command"; then
+
+  # Try different timeout methods
+  local exit_code=0
+
+  if command -v gtimeout >/dev/null 2>&1; then
+    # GNU timeout (from coreutils)
+    gtimeout "$timeout_seconds" bash -c "$command" || exit_code=$?
+  elif command -v timeout >/dev/null 2>&1; then
+    # Native timeout (Linux)
+    timeout "$timeout_seconds" bash -c "$command" || exit_code=$?
+  else
+    # Fallback: run without timeout on macOS
+    log_warn "timeout command not available, running without timeout"
+    bash -c "$command" || exit_code=$?
+    # Fake timeout exit code for consistency
+    if [ $exit_code -eq 124 ]; then
+      exit_code=1
+    fi
+  fi
+
+  if [ $exit_code -eq 0 ]; then
     log_info "$description completed successfully"
     return 0
+  elif [ $exit_code -eq 124 ]; then
+    log_error "$description timed out after ${timeout_seconds}s"
+    return $exit_code
   else
-    local exit_code=$?
-    if [ $exit_code -eq 124 ]; then
-      log_error "$description timed out after ${timeout_seconds}s"
-    else
-      log_error "$description failed with exit code $exit_code"
-    fi
+    log_error "$description failed with exit code $exit_code"
     return $exit_code
   fi
 }
