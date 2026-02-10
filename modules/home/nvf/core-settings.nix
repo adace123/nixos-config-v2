@@ -38,6 +38,31 @@ _: {
       enable = true;
       theme = "auto";
       globalStatus = true;
+      activeSection.b = [
+        ''
+          {
+            "filetype",
+            colored = true,
+            icon_only = true,
+            icon = { align = 'left' }
+          }
+        ''
+        ''
+          {
+            "filename",
+            path = 1,
+            symbols = {modified = ' ', readonly = ' '},
+            separator = {right = ''}
+          }
+        ''
+        ''
+          {
+            "",
+            draw_empty = true,
+            separator = { left = '', right = '' }
+          }
+        ''
+      ];
     };
 
     # Tab line
