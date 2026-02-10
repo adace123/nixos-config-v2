@@ -35,9 +35,9 @@ check:
 build:
     #!/usr/bin/env bash
     if command -v nh &> /dev/null; then
-        nh darwin build
+        nh darwin build .#darwinConfigurations.endor
     else
-        darwin-rebuild build --flake .
+        darwin-rebuild build --flake .#darwinConfigurations.endor
     fi
 
 install-brew:
@@ -65,9 +65,16 @@ switch:
         just install-brew
     fi
     if command -v nh &> /dev/null; then
-        nh darwin switch .
+        nh darwin switch .#darwinConfigurations.endor
     else
-        sudo darwin-rebuild switch --flake .
+        sudo darwin-rebuild switch --flake .#darwinConfigurations.endor
+    fi
+    
+    # Send system notification on successful completion
+    if command -v terminal-notifier &> /dev/null; then
+        terminal-notifier -title "✅ Nix-Darwin Switch Complete" -message "System configuration updated successfully!" -timeout 5
+    elif command -v osascript &> /dev/null; then
+        osascript -e 'display notification "System configuration updated successfully!" with title "✅ Nix-Darwin Switch Complete"'
     fi
 
 # Show available system generations
@@ -135,9 +142,9 @@ check-flake:
 diff:
     #!/usr/bin/env bash
     if command -v nh &> /dev/null; then
-        nh darwin switch --dry-run
+        nh darwin switch --dry-run .#darwinConfigurations.endor
     else
-        darwin-rebuild build --flake .
+        darwin-rebuild build --flake .#darwinConfigurations.endor
         nvd diff /run/current-system ./result
     fi
 
@@ -149,18 +156,18 @@ setup-work-ssh:
 check-updates:
     #!/bin/bash
     echo "Checking for updates..."
-    
+
     # Fetch latest from origin
     git fetch origin main
-    
+
     LOCAL=$(git rev-parse HEAD)
     REMOTE=$(git rev-parse origin/main)
-    
+
     if [ "$LOCAL" = "$REMOTE" ]; then
         echo "✓ Already up to date"
         exit 0
     fi
-    
+
     # Check if flake.lock changed
     if ! git diff --name-only "$LOCAL" "$REMOTE" | grep -q "flake.lock"; then
         echo "ℹ Changes available but no updates to flake.lock"
@@ -168,13 +175,21 @@ check-updates:
         echo "  Remote: ''${REMOTE:0:7}"
         exit 0
     fi
-    
+
     echo "❄️ Updates available to flake.lock!"
-    echo "  Local:  ''${LOCAL:0:7}"
-    echo "  Remote: ''${REMOTE:0:7}"
+    echo "  Local:  ${LOCAL:0:7}"
+    echo "  Remote: ${REMOTE:0:7}"
     echo ""
-    echo "Run 'just switch' to apply updates"
-    
+
+    read -p "Do you want to run 'just switch' to apply updates? (y/n) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        just switch
+        exit 0
+    else
+        echo "Skipping update. Run 'just switch' manually when ready."
+    fi
+
     # Notify if terminal-notifier available
     if command -v terminal-notifier >/dev/null 2>&1; then
         terminal-notifier -title "❄️ Nix Update Available" -message "Updates available. Run: just switch" -timeout 0
