@@ -66,7 +66,12 @@ in
         echo "Updates available: ''${LOCAL:0:7} -> ''${REMOTE:0:7}"
 
         # Notify user to manually run just switch
-        /usr/bin/osascript -e 'display notification "Updates available. Run: just switch" with title "❄️ Nix Update Available"'
+        # Use terminal-notifier if available for persistent notification (0 = never timeout)
+        if command -v terminal-notifier >/dev/null 2>&1; then
+          terminal-notifier -title "❄️ Nix Update Available" -message "Updates available. Click to open Terminal and run: just switch" -contentImage "${repoDir}/assets/nix-logo.png" -timeout 0 -execute "open -a Terminal"
+        else
+          /usr/bin/osascript -e 'display notification "Updates available. Run: just switch" with title "❄️ Nix Update Available"'
+        fi
 
         echo "--- Check Finished: $(date) ---"
       '';
