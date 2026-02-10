@@ -158,6 +158,7 @@
         opencode = "bunx -y opencode-ai";
         copilot = "bunx -y @github/copilot";
         ts = "tailscale";
+        assume = "source assume";
         # Note: zoxide commands available:
         # - 'z <query>' - Jump to directory (with tab completion)
         # - 'zi' or 'cdi' - Interactive directory picker with fzf
