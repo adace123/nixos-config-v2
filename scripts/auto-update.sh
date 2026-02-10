@@ -77,6 +77,7 @@ REPO_DIR="$(cd "$(dirname "$(realpath "${0%/*}")")" && pwd)"
 LOG_FILE="${HOME}/.local/share/nix-config-auto-update.log"
 BACKUP_DIR="${HOME}/.local/share/nix-config-backups"
 CURRENT_COMMIT_FILE="${HOME}/.local/share/nix-config-current-commit"
+NIX_LOGO_PATH="${REPO_DIR}/assets/nix-logo.png"
 
 # State tracking
 BACKUP_FILE=""
@@ -125,9 +126,6 @@ log_debug() { log "DEBUG" "$1"; }
 # Initialize CURRENT_LOG_LEVEL based on configuration
 CURRENT_LOG_LEVEL=$(log_level_to_number "${LOG_LEVEL:-INFO}")
 
-# Path to Nix logo for notifications
-NIX_LOGO_PATH="${HOME}/.local/share/nix-config-auto-update/nix-logo.png"
-
 send_notification() {
   local title="$1"
   local message="$2"
@@ -145,7 +143,7 @@ send_notification() {
 
   # Use Nix logo if available via terminal-notifier (if installed)
   if command -v terminal-notifier >/dev/null 2>&1 && [ -f "$NIX_LOGO_PATH" ]; then
-    terminal-notifier -title "$nix_title" -message "$message" -appIcon "$NIX_LOGO_PATH" -sound "$sound" 2>/dev/null || \
+    terminal-notifier -title "$title" -message "$message" -appIcon "$NIX_LOGO_PATH" -sound "$sound" 2>/dev/null || \
     osascript -e "display notification \"$message\" with title \"$nix_title\" sound name \"$sound\"" 2>/dev/null || true
   else
     osascript -e "display notification \"$message\" with title \"$nix_title\" sound name \"$sound\"" 2>/dev/null || true
