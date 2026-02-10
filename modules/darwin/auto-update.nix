@@ -53,7 +53,7 @@ in
 
         cd ${repoDir}
 
-        # Check if there are updates
+        # Check if there are updates to flake.lock specifically
         ${pkgs.git}/bin/git fetch origin main
         LOCAL=$(${pkgs.git}/bin/git rev-parse HEAD)
         REMOTE=$(${pkgs.git}/bin/git rev-parse origin/main)
@@ -63,7 +63,13 @@ in
           exit 0
         fi
 
-        echo "Updates available: ''${LOCAL:0:7} -> ''${REMOTE:0:7}"
+        # Check if flake.lock changed between commits
+        if ! ${pkgs.git}/bin/git diff --name-only "$LOCAL" "$REMOTE" | grep -q "flake.lock"; then
+          echo "No changes to flake.lock"
+          exit 0
+        fi
+
+        echo "flake.lock updates available: ''${LOCAL:0:7} -> ''${REMOTE:0:7}"
 
         # Notify user to manually run just switch
         # Use terminal-notifier if available for persistent notification (0 = never timeout)
