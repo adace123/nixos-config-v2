@@ -12,8 +12,10 @@ This is a Nix flake-based configuration for managing macOS systems using nix-dar
 
 - `just check` - Run all checks (flake check, format, lint, pre-commit)
 - `nix flake check --all-systems` - Check flake for errors across all systems
-- `darwin-rebuild switch --flake .` - Build and activate configuration
-- `darwin-rebuild build --flake .` - Build without activating
+- `nh darwin switch` - Build and activate configuration (using nh helper)
+- `nh darwin build` - Build without activating (using nh helper)
+- `nh clean` - Enhanced garbage collection with better UX
+- `nh search <pkg>` - Fast package search via Elasticsearch
 
 ### Formatting Commands
 
@@ -44,7 +46,7 @@ This is a Nix flake-based configuration for managing macOS systems using nix-dar
 ### Testing
 
 - No traditional test suite - validation done via `nix flake check`
-- Configuration tested by building/activating with `darwin-rebuild`
+- Configuration tested by building/activating with `nh darwin`
 
 ## Code Style Guidelines
 
@@ -93,7 +95,7 @@ programs = {
     enable = true;
     shellAliases = {
       ll = "ls -la";
-      update = "darwin-rebuild switch --flake .";
+      update = "nh darwin switch";
     };
   };
 };
@@ -137,7 +139,7 @@ home.sessionVariables = {
 
 ### Directory Structure
 
-```
+```text
 modules/
 ├── darwin/           # System-level configuration
 │   ├── default.nix   # Main system config
@@ -167,8 +169,8 @@ modules/
 1. Edit configuration files
 2. Run `just fmt` to format Nix files
 3. Run `just check` to validate changes
-4. Test with `darwin-rebuild build --flake .`
-5. Apply with `darwin-rebuild switch --flake .`
+4. Test with `nh darwin build`
+5. Apply with `nh darwin switch`
 
 ### Adding New Packages
 
@@ -203,7 +205,7 @@ modules/
 - Work repos in `~/Projects/work/` use work SSH key automatically
 - Configuration files not tracked in git for security
 
-### Pre-commit Hooks
+### Pre-commit Integration
 
 - Comprehensive hook suite configured in `flake-parts/pre-commit.nix`
 - Uses `prek` as pre-commit implementation
@@ -265,13 +267,13 @@ systemd.user.services = {
 
 - Use `nix build .#darwinConfigurations.<hostname>.system` for detailed errors
 - Check `/var/log/system.log` for nix-darwin issues
-- Use `darwin-rebuild --list-generations` to view history
+- Use `nh darwin generations` to view history
 
 ### Configuration Validation
 
 - Run `nix flake show` to inspect outputs
 - Use `nix flake metadata` to check inputs
-- Test with `darwin-rebuild build` before switching
+- Test with `nh darwin build` before switching
 
 ### Common Problems
 

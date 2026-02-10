@@ -39,6 +39,7 @@
       just # Command runner
       zoxide # Smart directory jumping
       glab
+      nh # Nix helper for better rebuild/clean/search UX
 
       # Modern CLI replacements
       bat # cat replacement
@@ -59,6 +60,7 @@
     sessionVariables = {
       DIRENV_LOG_FORMAT = ""; # Hide direnv export output
       EDITOR = "nvim";
+      NH_FLAKE = "${config.home.homeDirectory}/Projects/nixos-config-v2"; # Enable nh commands without specifying flake path
     };
   };
 
@@ -197,7 +199,7 @@
       shellAliases = {
         ll = "ls -la";
         ls = "${pkgs.eza}/bin/eza --color=always --icons=always";
-        update = "darwin-rebuild switch --flake ~/Projects/nixos-config-v2";
+        update = "nh darwin switch";
         python = "python3"; # Use ipython as default
         py = "ipython";
         cat = "bat";

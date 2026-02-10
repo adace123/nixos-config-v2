@@ -33,7 +33,12 @@ check:
 
 # Build the Darwin configuration without activating
 build:
-    darwin-rebuild build --flake .
+    #!/usr/bin/env bash
+    if command -v nh &> /dev/null; then
+        nh darwin build
+    else
+        darwin-rebuild build --flake .
+    fi
 
 install-brew:
     #!/bin/bash
@@ -59,15 +64,29 @@ switch:
         echo "Homebrew not installed. Installing it..."
         just install-brew
     fi
-    sudo darwin-rebuild switch --flake .
+    if command -v nh &> /dev/null; then
+        nh darwin switch
+    else
+        sudo darwin-rebuild switch --flake .
+    fi
 
 # Show available system generations
 generations:
-    darwin-rebuild --list-generations
+    #!/usr/bin/env bash
+    if command -v nh &> /dev/null; then
+        nh darwin generations
+    else
+        darwin-rebuild --list-generations
+    fi
 
 # Rollback to previous generation
 rollback:
-    darwin-rebuild --rollback
+    #!/usr/bin/env bash
+    if command -v nh &> /dev/null; then
+        nh darwin rollback
+    else
+        darwin-rebuild --rollback
+    fi
 
 # Update flake inputs
 update:
@@ -91,11 +110,21 @@ dev:
 
 # Clean up old generations older than 30 days
 clean:
-    sudo nix-collect-garbage --delete-older-than 30d
+    #!/usr/bin/env bash
+    if command -v nh &> /dev/null; then
+        nh clean all --keep-since 30d
+    else
+        sudo nix-collect-garbage --delete-older-than 30d
+    fi
 
 # Clean up and optimize the Nix store
 clean-full:
-    sudo nix-collect-garbage -d
+    #!/usr/bin/env bash
+    if command -v nh &> /dev/null; then
+        nh clean all
+    else
+        sudo nix-collect-garbage -d
+    fi
     nix-store --optimize
 
 # Check flake for errors
@@ -104,8 +133,13 @@ check-flake:
 
 # Diff current and new configuration
 diff:
-    darwin-rebuild build --flake .
-    nvd diff /run/current-system ./result
+    #!/usr/bin/env bash
+    if command -v nh &> /dev/null; then
+        nh darwin switch --dry-run
+    else
+        darwin-rebuild build --flake .
+        nvd diff /run/current-system ./result
+    fi
 
 # Setup work SSH keys and configuration
 setup-work-ssh:

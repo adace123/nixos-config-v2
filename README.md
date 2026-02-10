@@ -60,8 +60,8 @@ If you prefer to set things up manually or the bootstrap script doesn't work:
    nix build .#darwinConfigurations.<your-hostname>.system
    ./result/sw/bin/darwin-rebuild switch --flake .
    
-   # After first time, you can use:
-   darwin-rebuild switch --flake .
+   # After first time, you can use nh for better UX:
+   nh darwin switch
    ```
 
 ## Usage
@@ -71,7 +71,7 @@ If you prefer to set things up manually or the bootstrap script doesn't work:
 After making changes to your configuration:
 
 ```bash
-darwin-rebuild switch --flake ~/.config/nixos-config-v2
+nh darwin switch
 ```
 
 Or use the convenient alias (configured in home-manager):
@@ -86,7 +86,7 @@ To update all flake inputs (nixpkgs, nix-darwin, home-manager):
 
 ```bash
 nix flake update
-darwin-rebuild switch --flake ~/.config/nixos-config-v2
+nh darwin switch
 ```
 
 To update a specific input:
@@ -139,8 +139,8 @@ masApps = {
 If something goes wrong, you can rollback to a previous generation:
 
 ```bash
-darwin-rebuild --list-generations
-darwin-rebuild --rollback
+nh darwin generations  # List available generations
+nh darwin rollback     # Rollback to previous generation
 ```
 
 ## Structure
@@ -176,7 +176,7 @@ darwin-rebuild --rollback
 - **Node.js**: Node 22, Bun, npm, yarn, pnpm, TypeScript, ESLint, Prettier
 - **Git**: Configured with comprehensive .gitignore
 - **Shell**: Zsh with Oh-My-Zsh, Starship prompt, autosuggestions, syntax highlighting
-- **CLI Tools**: ripgrep, fd, bat, eza, fzf, jq, htop, tree, direnv, just
+- **CLI Tools**: ripgrep, fd, bat, eza, fzf, jq, htop, tree, direnv, just, nh
 - **Window Manager**: AeroSpace (i3-like tiling for macOS)
 - **Terminal**: Ghostty with custom configuration
 - **System Info**: Fastfetch with creative boxed output
@@ -326,10 +326,10 @@ handled automatically by nix-darwin.
 If home-manager complains about existing files, you may need to backup and
 remove conflicting dotfiles.
 
-### "darwin-rebuild: command not found"
+### "nh: command not found"
 
-This means nix-darwin isn't installed yet. Run the `bootstrap.sh` script to
-install it.
+This usually means you need to reload your shell or the package isn't installed yet.
+If nix-darwin isn't installed yet, run the `bootstrap.sh` script to install it.
 
 ## Resources
 
