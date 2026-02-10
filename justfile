@@ -69,7 +69,7 @@ switch:
     else
         sudo darwin-rebuild switch --flake .#darwinConfigurations.endor
     fi
-    
+
     # Send system notification on successful completion
     if command -v terminal-notifier &> /dev/null; then
         terminal-notifier -title "✅ Nix-Darwin Switch Complete" -message "System configuration updated successfully!" -timeout 5
@@ -193,3 +193,32 @@ auto-update-status:
         launchctl start nix-config-auto-update
         echo "Update check triggered. Check notifications and logs."
     fi
+
+# Trigger the update-flake-lock workflow via GitHub CLI and follow logs
+trigger-update-flake-lock:
+    #!/usr/bin/env bash
+    if ! command -v gh &> /dev/null; then
+        echo "❌ Error: GitHub CLI (gh) is not installed. Please install it first."
+        exit 1
+    fi
+    echo "Triggering update-flake-lock workflow..."
+    gh workflow run "Update Flake Lock" --ref main
+    echo "✅ update-flake-lock workflow triggered successfully!"
+    echo "Waiting for workflow run to start..."
+    for i in {1..30}; do
+        sleep 3
+        echo "Checking for workflow run... ($i/30)"
+        RUN_ID=$(gh run list --workflow="Update Flake Lock" --limit=1 --json databaseId --jq '.[0].databaseId')
+        if [ -n "$RUN_ID" ]; then
+            STATUS=$(gh run view $RUN_ID --json status --jq '.status')
+            if [ "$STATUS" != "queued" ] && [ "$STATUS" != "requested" ] && [ "$STATUS" != "waiting" ]; then
+                echo "Workflow run $RUN_ID is active with status: $STATUS"
+                echo "Following logs for workflow run ID: $RUN_ID"
+                gh run watch $RUN_ID
+                exit 0
+            else
+                echo "Workflow run $RUN_ID is still in queue with status: $STATUS"
+            fi
+        fi
+    done
+    echo "❌ Could not get the workflow run ID or workflow is still queued after timeout"
