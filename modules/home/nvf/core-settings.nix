@@ -170,11 +170,20 @@ _: {
               __unkeyed-1 = "yamlfmt";
             };
           };
+          json = {
+            "jq" = {
+              __unkeyed-1 = "jq";
+            };
+          };
         };
         formatters = {
           yamlfmt = {
             command = "yamlfmt";
             args = [ "-" ];
+          };
+          jq = {
+            command = "jq";
+            args = [ "." ];
           };
         };
       };

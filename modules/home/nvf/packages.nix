@@ -10,5 +10,6 @@
     deadnix # Nix dead code remover
     statix # Nix linter and formatter
     yamlfmt # YAML formatter
+    jq # JSON formatter
   ];
 }
