@@ -49,8 +49,11 @@ _: {
         ''
         ''
           {
-            "filename",
-            path = 1,
+            function()
+              local cwd_basename = vim.fn.fnamemodify(vim.fn.getcwd(), ":t")
+              local relative_path = vim.fn.expand("%:.")
+              return cwd_basename .. "/" .. relative_path
+            end,
             symbols = {modified = ' ', readonly = ' '},
             separator = {right = ''}
           }
