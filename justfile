@@ -152,15 +152,9 @@ diff:
 setup-work-ssh:
     ./scripts/setup-work-ssh.sh
 
-# Check for available updates manually (with user interaction)
+# Check for available updates (pulls if flake.lock changed, notifies via macOS)
 check-updates:
-    #!/bin/bash
     ./scripts/check-for-updates.sh
-
-# Check for updates without user interaction (for automated systems)
-check-updates-no-prompt:
-    #!/bin/bash
-    ./scripts/check-for-updates.sh --auto
 
 # Show auto-update service status and trigger manual check
 auto-update-status:

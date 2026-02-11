@@ -29,7 +29,7 @@ jobs:
             dependencies
             automated
           commit-msg: "chore(flake): update flake.lock"
-  # Build and show diff of what would change
+  # Build both main and PR to show what packages actually changed
   build-and-diff:
     needs: update
     runs-on: macos-latest
@@ -38,24 +38,36 @@ jobs:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          ref: ${{ github.ref }}
+          fetch-depth: 0
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
-      - name: Build and show diff
+      - name: Cache Nix store
+        uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: Install nvd
+        run: nix profile install nixpkgs#nvd
+      - name: Build main branch (baseline)
+        run: |
+          git checkout origin/main
+          nix build .#darwinConfigurations.endor.system -o ./result-main
+      - name: Build PR branch (new)
+        run: |
+          git checkout -
+          nix build .#darwinConfigurations.endor.system -o ./result-pr
+      - name: Generate package diff
         id: diff
         run: |
-          # Build the new configuration using the predictable configuration name
-          nix build .#darwinConfigurations.endor.system -o ./result-new
+          echo "## Package Changes" > diff.md
+          echo "" >> diff.md
+          echo "Comparing current system (main) with updated flake.lock:" >> diff.md
+          echo "" >> diff.md
+          echo '```' >> diff.md
+          nvd diff ./result-main ./result-pr >> diff.md 2>&1 || true
+          echo '```' >> diff.md
+          echo "" >> diff.md
+          echo "### Build Status" >> diff.md
+          echo "✅ Configuration builds successfully with updated flake.lock" >> diff.md
 
-          # Show basic build success
-          echo "## Build Status" > diff.md
-          echo "" >> diff.md
-          echo "✅ Configuration builds successfully" >> diff.md
-          echo "" >> diff.md
-          echo "Configuration: endor" >> diff.md
-          echo "" >> diff.md
-          echo "Note: Cannot show package diff (no current system available in CI)" >> diff.md
-
+          # Output for GitHub Actions
           echo "diff-content<<EOF" >> "$GITHUB_OUTPUT"
           cat diff.md >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
@@ -65,10 +77,11 @@ jobs:
           issue-number: ${{ needs.update.outputs.pr-number }}
           body: ${{ steps.diff.outputs.diff-content }}
           edit-mode: replace
+  # Auto-merge after build-and-diff succeeds
   auto-merge:
     needs: [update, build-and-diff]
     runs-on: macos-latest
-    if: needs.update.outputs.pr-number != ''
+    if: needs.update.outputs.pr-number != '' && needs.build-and-diff.result == 'success'
     steps:
       - uses: actions/checkout@v4
         with:
