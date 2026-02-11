@@ -18,6 +18,8 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
+      - name: Cache Nix store
+        uses: DeterminateSystems/magic-nix-cache-action@main
       - name: Update flake.lock
         id: update
         uses: DeterminateSystems/update-flake-lock@main
