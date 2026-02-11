@@ -1,9 +1,12 @@
 name: Update Flake Lock
 on:
   schedule:
-    # Run daily at 9:00 AM Pacific Time (17:00 UTC)
-    - cron: "0 17 * * *"
+    # Run weekdays at 9:00 AM Pacific Time (17:00 UTC)
+    - cron: "0 17 * * 1-5"
   workflow_dispatch:
+concurrency:
+  group: update-flake-lock
+  cancel-in-progress: true
 permissions:
   contents: write
   pull-requests: write
@@ -29,7 +32,6 @@ jobs:
             dependencies
             automated
           commit-msg: "chore(flake): update flake.lock"
-  # Build both main and PR to show what packages actually changed
   build-and-diff:
     needs: update
     runs-on: macos-latest
@@ -45,7 +47,19 @@ jobs:
         uses: DeterminateSystems/magic-nix-cache-action@main
       - name: Install nvd
         run: nix profile install nixpkgs#nvd
+      - name: Get main flake.lock hash
+        id: main-hash
+        run: |
+          git checkout origin/main
+          echo "hash=$(sha256sum flake.lock | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - name: Restore cached main build
+        id: cache-main
+        uses: actions/cache@v4
+        with:
+          path: ./result-main
+          key: nix-darwin-main-${{ steps.main-hash.outputs.hash }}
       - name: Build main branch (baseline)
+        if: steps.cache-main.outputs.cache-hit != 'true'
         run: |
           git checkout origin/main
           nix build .#darwinConfigurations.endor.system -o ./result-main
@@ -66,8 +80,6 @@ jobs:
           echo "" >> diff.md
           echo "### Build Status" >> diff.md
           echo "✅ Configuration builds successfully with updated flake.lock" >> diff.md
-
-          # Output for GitHub Actions
           echo "diff-content<<EOF" >> "$GITHUB_OUTPUT"
           cat diff.md >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
@@ -77,7 +89,6 @@ jobs:
           issue-number: ${{ needs.update.outputs.pr-number }}
           body: ${{ steps.diff.outputs.diff-content }}
           edit-mode: replace
-  # Auto-merge after build-and-diff succeeds
   auto-merge:
     needs: [update, build-and-diff]
     runs-on: macos-latest
