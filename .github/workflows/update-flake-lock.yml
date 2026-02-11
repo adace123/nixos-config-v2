@@ -1,8 +1,8 @@
 name: Update Flake Lock
 on:
   schedule:
-    # Run daily at 00:00 UTC
-    - cron: "0 0 * * *"
+    # Run daily at 9:00 AM Pacific Time (17:00 UTC)
+    - cron: "0 17 * * *"
   workflow_dispatch:
 permissions:
   contents: write
