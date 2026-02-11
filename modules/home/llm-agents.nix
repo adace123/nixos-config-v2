@@ -44,10 +44,4 @@
     file.".config/claude-code/.keep".text = "";
     file.".config/opencode/.keep".text = "";
   };
-
-  # Optional: Add shell aliases for commonly used tools
-  programs.zsh.shellAliases = {
-    cc = "claude-code";
-    oc = "opencode";
-  };
 }

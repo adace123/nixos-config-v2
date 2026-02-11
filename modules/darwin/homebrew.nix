@@ -50,7 +50,6 @@ _: {
       "codex-app"
       "docker-desktop"
       "ghostty"
-      "zed@preview"
       "warp"
       "lm-studio"
       "yaak@beta"
@@ -63,6 +62,7 @@ _: {
       "raycast" # Spotlight replacement
       "obsidian" # Note-taking
       "handy" # dictation
+      "localsend" # file sharing
 
       # Communication
       "slack"

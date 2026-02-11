@@ -14,6 +14,7 @@
     ./nvf
     ./zellij.nix
     ./ai
+    ./zed.nix
   ];
 
   # Home Manager needs a bit of information about you and the paths it should
@@ -154,9 +155,6 @@
         python = "python3"; # Use ipython as default
         py = "ipython";
         cat = "bat";
-        gemini = "bunx -y @google/gemini-cli";
-        opencode = "bunx -y opencode-ai";
-        copilot = "bunx -y @github/copilot";
         ts = "tailscale";
         assume = "source assume";
         # Note: zoxide commands available:
