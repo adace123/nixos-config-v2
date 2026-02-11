@@ -34,7 +34,7 @@ echo "  Remote: ${REMOTE:0:7}"
 echo ""
 
 echo "Pulling latest changes..."
-git pull origin main
+git pull origin main --ff-only
 
 # Notify user
 if command -v terminal-notifier >/dev/null 2>&1; then
