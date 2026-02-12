@@ -1,5 +1,6 @@
 {
   pkgs,
+  customPlugins,
   ...
 }:
 {
@@ -111,6 +112,15 @@
     nvim-treesitter-textobjects = {
       package = nvim-treesitter-textobjects;
       setup = ""; # Configuration is done in luaConfigRC
+    };
+    incr-nvim = {
+      package = customPlugins.incr-nvim;
+      setup = ''
+        require("incr").setup({
+          incr_key = "<CR>",      -- Enter to expand selection
+          decr_key = "<BS>",      -- Backspace to shrink selection
+        })
+      '';
     };
     yazi-nvim = {
       package = yazi-nvim;

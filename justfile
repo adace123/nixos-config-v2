@@ -27,9 +27,10 @@ fmt:
 deadnix:
     deadnix .
 
-# Run all checks (format, lint, deadnix, pre-commit)
+# Run pre-commit and validate configuration (deep evaluation, catches type errors in home-manager)
 check:
     nix flake check --all-systems
+    nh darwin build --dry .#darwinConfigurations.endor
 
 # Build the Darwin configuration without activating
 build:

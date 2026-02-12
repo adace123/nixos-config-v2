@@ -116,6 +116,27 @@ _: {
       lightbulb.enable = false;
       lspSignature.enable = false;
       trouble.enable = false;
+      mappings = {
+        goToDefinition = "gd";
+        goToDeclaration = "gD";
+        goToType = "gt";
+        listReferences = "gr";
+        listImplementations = "gi";
+        hover = "K";
+        renameSymbol = "<leader>rn";
+        codeAction = "<leader>ca";
+        format = "<leader>gf";
+        nextDiagnostic = "]d";
+        previousDiagnostic = "[d";
+        openDiagnosticFloat = "<leader>e";
+      };
+    };
+
+    # Treesitter
+    treesitter = {
+      enable = true;
+      addDefaultGrammars = true;
+      fold = true;
     };
 
     # Language servers
@@ -156,6 +177,58 @@ _: {
         lsp = {
           enable = true;
           servers = [ "yaml-language-server" ];
+        };
+      };
+
+      # JSON
+      json = {
+        enable = true;
+        lsp = {
+          enable = true;
+          servers = [ "jsonls" ];
+        };
+        format = {
+          enable = true;
+          type = [ "jsonfmt" ];
+        };
+      };
+
+      # JavaScript/TypeScript
+      ts = {
+        enable = true;
+        lsp = {
+          enable = true;
+          servers = [ "ts_ls" ];
+        };
+        format = {
+          enable = true;
+          type = [ "prettierd" ];
+        };
+      };
+
+      # Just (justfile)
+      just = {
+        enable = true;
+        lsp = {
+          enable = true;
+          servers = [ "just-lsp" ];
+        };
+      };
+
+      # Bash/Shell
+      bash = {
+        enable = true;
+        lsp = {
+          enable = true;
+          servers = [ "bash-ls" ];
+        };
+        format = {
+          enable = true;
+          type = [ "shfmt" ];
+        };
+        extraDiagnostics = {
+          enable = true;
+          types = [ "shellcheck" ];
         };
       };
     };

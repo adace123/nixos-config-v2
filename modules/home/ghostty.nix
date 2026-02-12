@@ -86,7 +86,7 @@ in
     # Zellij disabled - using default shell
     # command = ${zellijPath} attach --create main
     shell-integration = detect
-    shell-integration-features = sudo,title
+    shell-integration-features = sudo,title,no-cursor
 
     # Scrollback
     scrollback-limit = 10000

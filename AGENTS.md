@@ -11,8 +11,9 @@ This is a Nix flake-based configuration for managing macOS systems using nix-dar
 ### Primary Commands
 
 - `just check` - Run all checks (flake check, format, lint, pre-commit)
+- `just validate` - Deep validation including home-manager type checking
 - `nix flake check --all-systems` - Check flake for errors across all systems
-- `nh darwin switch` - Build and activate configuration (using nh helper)
+- `just switch` - Build and activate configuration
 - `nh darwin build` - Build without activating (using nh helper)
 - `nh clean` - Enhanced garbage collection with better UX
 - `nh search <pkg>` - Fast package search via Elasticsearch
@@ -67,7 +68,7 @@ This is a Nix flake-based configuration for managing macOS systems using nix-dar
     # Local modules first
     ./module1.nix
     ./module2.nix
-    
+
     # External inputs
     inputs.nvf.homeManagerModules.default
   ];
@@ -169,8 +170,7 @@ modules/
 1. Edit configuration files
 2. Run `just fmt` to format Nix files
 3. Run `just check` to validate changes
-4. Test with `nh darwin build`
-5. Apply with `nh darwin switch`
+4. Apply with `just switch`
 
 ### Adding New Packages
 
@@ -258,7 +258,7 @@ programs = {
       ll = "ls -la";
     };
   };
-  
+
   starship = {
     enable = true;
     settings = { ... };
@@ -288,9 +288,7 @@ systemd.user.services = {
 
 ### Configuration Validation
 
-- Run `nix flake show` to inspect outputs
-- Use `nix flake metadata` to check inputs
-- Test with `nh darwin build` before switching
+- Run `just check` to validate config
 
 ### Common Problems
 
