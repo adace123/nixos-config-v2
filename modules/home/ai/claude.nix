@@ -104,11 +104,11 @@ in
     commands.commit = shared.commands.commit.claude-code;
 
     rules = {
-      code-quality = shared.rules.code-quality;
-      best-practices = shared.rules.best-practices;
+      inherit (shared.rules) code-quality;
+      inherit (shared.rules) best-practices;
     };
 
-    skills = shared.skills;
+    inherit (shared) skills;
   };
 
   home = {
@@ -119,6 +119,6 @@ in
   };
 
   programs.zsh.shellAliases = {
-    cc = "claude-code";
+    cc = "claude";
   };
 }

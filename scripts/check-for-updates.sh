@@ -39,7 +39,18 @@ echo "  Remote: ${REMOTE:0:7}"
 echo ""
 
 echo "Pulling latest changes..."
-git pull origin main --ff-only
+if ! git pull --rebase origin main 2>/dev/null; then
+	echo "⚠️ Merge conflict - manual intervention needed"
+	git rebase --abort 2>/dev/null || true
+	if command -v terminal-notifier >/dev/null 2>&1; then
+		terminal-notifier -title "❄️ Nix Config Update Failed" \
+			-message "Merge conflict - manual intervention needed" \
+			-timeout 0
+	elif command -v osascript >/dev/null 2>&1; then
+		osascript -e 'display notification "Merge conflict - manual intervention needed" with title "❄️ Nix Config Update Failed"'
+	fi
+	exit 1
+fi
 
 # Notify user (skip in auto mode, e.g., when running from launchd)
 if [[ $AUTO_MODE == false ]]; then

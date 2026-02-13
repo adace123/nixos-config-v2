@@ -13,8 +13,32 @@ in
 
     settings = {
       theme = "catppuccin";
+      model = "opencode/minimax-m2.5-free";
       autoupdate = true;
-      autoshare = false;
+      share = "disabled";
+      permission = {
+        "*" = "ask";
+        read = {
+          "*" = "allow";
+          "*.env" = "deny";
+          "*.env.*" = "deny";
+          "*.env.example" = "allow";
+        };
+        edit = "allow";
+        bash = {
+          "*" = "ask";
+          "git status*" = "allow";
+          "git diff*" = "allow";
+          "grep*" = "allow";
+          "rg*" = "allow";
+          "rm*" = "deny";
+          "unlink*" = "deny";
+          "dd*" = "deny";
+        };
+        external_directory = {
+          "~/Projects/personal/**" = "allow";
+        };
+      };
     };
 
     rules = ''
@@ -33,7 +57,7 @@ in
     commands.changelog = shared.commands.changelog.opencode;
     commands.commit = shared.commands.commit.opencode;
 
-    skills = shared.skills;
+    inherit (shared) skills;
   };
 
   programs.zsh.shellAliases = {
