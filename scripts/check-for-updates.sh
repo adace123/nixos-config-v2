@@ -12,7 +12,7 @@ cd "$PROJECT_ROOT"
 # Fetch latest from origin
 git fetch origin main
 
-LOCAL=$(git rev-parse HEAD)
+LOCAL=$(git rev-parse main)
 REMOTE=$(git rev-parse origin/main)
 
 if [ "$LOCAL" = "$REMOTE" ]; then
