@@ -15,16 +15,9 @@ git fetch origin main
 LOCAL=$(git rev-parse main)
 REMOTE=$(git rev-parse origin/main)
 
-if [ "$LOCAL" = "$REMOTE" ]; then
-	echo "✓ Already up to date"
-	exit 0
-fi
-
-# Check if flake.lock changed
+# Only check for flake.lock changes, ignore all other changes
 if ! git diff --name-only "$LOCAL" "$REMOTE" | grep -q "flake.lock"; then
-	echo "ℹ Changes available but no updates to flake.lock"
-	echo "  Local:  ${LOCAL:0:7}"
-	echo "  Remote: ${REMOTE:0:7}"
+	echo "✓ Already up to date"
 	exit 0
 fi
 
