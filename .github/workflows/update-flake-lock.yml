@@ -1,8 +1,8 @@
 name: Update Flake Lock
 on:
   schedule:
-    # Run weekdays at 9:00 AM Pacific Time (17:00 UTC)
-    - cron: "0 17 * * 1-5"
+    # Run weekdays at 8:00 AM Pacific Time (16:00 UTC)
+    - cron: "0 16 * * 1-5"
   workflow_dispatch:
 concurrency:
   group: update-flake-lock
