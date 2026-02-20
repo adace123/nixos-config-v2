@@ -29,11 +29,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1771371916,
-        "narHash": "sha256-G14VTfmzzRYxAhtEBNanQgCNA++Cv0/9iV4h/lkqX9U=",
+        "lastModified": 1771520882,
+        "narHash": "sha256-9SeTZ4Pwr730YfT7V8Azb8GFbwk1ZwiQDAwft3qAD+o=",
         "owner": "LnL7",
         "repo": "nix-darwin",
-        "rev": "aff4c008cec17d6a6760949df641ca0ea9179cac",
+        "rev": "6a7fdcd5839ec8b135821179eea3b58092171bcf",
         "type": "github"
       },
       "original": {
@@ -165,11 +165,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1771519029,
-        "narHash": "sha256-H59Qf82wv5kBXVoyXsmUKW+9J3o8FqgY4uKaLdsLdLg=",
+        "lastModified": 1771531206,
+        "narHash": "sha256-1R3Wx6KUkMb4x4E5UOhW9p6rqiexzSGGWxZqSHqW5n0=",
         "owner": "nix-community",
         "repo": "home-manager",
-        "rev": "167e0b6837115e672ec5f58e2b0ea39093abe807",
+        "rev": "91be7cce763fa4022c7cf025a71b0c366d1b6e77",
         "type": "github"
       },
       "original": {
@@ -187,11 +187,11 @@
         "treefmt-nix": "treefmt-nix"
       },
       "locked": {
-        "lastModified": 1771512095,
-        "narHash": "sha256-OzcIFLbaY6BXZKKUq+NOSR43ixR5Ul9NP+xDYsxVAqw=",
+        "lastModified": 1771598023,
+        "narHash": "sha256-OfEOXiwtt49IJSpGbQJ40Xe7JaSjpGWZ527GGGif3TA=",
         "owner": "numtide",
         "repo": "llm-agents.nix",
-        "rev": "b0450365f22aad65d3ab7dce0b43cb301bad855a",
+        "rev": "4844fc996b7853d2556bad744489f3ae88741f03",
         "type": "github"
       },
       "original": {
@@ -348,11 +348,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1771166946,
-        "narHash": "sha256-UFc4lfGBr+wJmwgDGJDn1cVD6DTr0/8TdronNUiyXlU=",
+        "lastModified": 1771524872,
+        "narHash": "sha256-eksVUcUsfS9mQx4D9DrYu88u9w70bAf+n6KmTDuIGEE=",
         "owner": "Mic92",
         "repo": "sops-nix",
-        "rev": "2d0cf89b4404529778bc82de7e42b5754e0fe4fa",
+        "rev": "e85540ffe97322dc1fea14dd11cdc2f59d540ac7",
         "type": "github"
       },
       "original": {
@@ -421,11 +421,11 @@
         "rust-overlay": "rust-overlay"
       },
       "locked": {
-        "lastModified": 1771473158,
-        "narHash": "sha256-QVMdFOaFy3ca/KYG6sxeHMpMWtqpd8LNtIgjZJKc7tU=",
+        "lastModified": 1771559462,
+        "narHash": "sha256-NIEnKdp/QMXWFrLz0NNTNDODkhaJJ4NudxeR1DStZuc=",
         "owner": "DuskSystems",
         "repo": "nix-zed-extensions",
-        "rev": "b7ac9e697de659af64a73d0b02a191fc9170b136",
+        "rev": "2e8df39b7f57a174791ed2c09befadd2b8392107",
         "type": "github"
       },
       "original": {
