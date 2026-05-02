@@ -1,4 +1,4 @@
-name: Flake Check
+name: Flake Checks
 on:
   push:
     branches: [main, master]
@@ -8,7 +8,18 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  check:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+      - name: Cache Nix store
+        uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: Flake eval smoke check
+        run: nix flake show
+
+  darwin-check:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,5 +27,5 @@ jobs:
         uses: DeterminateSystems/nix-installer-action@main
       - name: Cache Nix store
         uses: DeterminateSystems/magic-nix-cache-action@main
-      - name: Check Nix flake
+      - name: Check Nix flake (Darwin)
         run: nix flake check --all-systems

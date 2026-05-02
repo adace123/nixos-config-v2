@@ -60,7 +60,38 @@ If you prefer to set things up manually or the bootstrap script doesn't work:
    ./result/sw/bin/darwin-rebuild switch --flake .
    
    # After first time, you can use nh for better UX:
-   nh darwin switch
+   just switch HOST=<your-hostname>
+   ```
+
+## Minimum Bootstrap Path
+
+If you are setting up on a fresh machine, use this minimum sequence:
+
+1. Install Nix (Determinate installer is recommended):
+
+   ```bash
+   curl --proto '=https' --tlsv1.2 -sSf -L \
+     https://install.determinate.systems/nix | sh -s -- install
+   ```
+
+2. Enter the repo and install `just` (if missing):
+
+   ```bash
+   cd nixos-config-v2
+   nix profile install nixpkgs#just
+   ```
+
+3. Run checks and build for your host (replace `<hostname>`):
+
+   ```bash
+   just check HOST=<hostname>
+   just switch HOST=<hostname>
+   ```
+
+4. Optional deep validation alias:
+
+   ```bash
+   just validate HOST=<hostname>
    ```
 
 ## Usage
@@ -70,7 +101,7 @@ If you prefer to set things up manually or the bootstrap script doesn't work:
 After making changes to your configuration:
 
 ```bash
-nh darwin switch
+just switch HOST=<your-hostname>
 ```
 
 Or use the convenient alias (configured in home-manager):
@@ -85,7 +116,7 @@ To update all flake inputs (nixpkgs, nix-darwin, home-manager):
 
 ```bash
 nix flake update
-nh darwin switch
+just switch HOST=<your-hostname>
 ```
 
 To update a specific input:
@@ -138,8 +169,8 @@ masApps = {
 If something goes wrong, you can rollback to a previous generation:
 
 ```bash
-nh darwin generations  # List available generations
-nh darwin rollback     # Rollback to previous generation
+just generations
+just rollback
 ```
 
 ## Structure

@@ -4,6 +4,9 @@
 default:
     @just --list
 
+# Default Darwin configuration hostname (override with: just <recipe> HOST=<name>)
+HOST := "endor"
+
 install-nix:
     curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
 
@@ -29,16 +32,25 @@ deadnix:
 
 # Run pre-commit and validate configuration (deep evaluation, catches type errors in home-manager)
 check:
+    #!/usr/bin/env bash
+    set -euo pipefail
     nix flake check --all-systems
-    nh darwin build --dry .#darwinConfigurations.endor
+    if command -v nh &> /dev/null; then
+        nh darwin build --dry .#darwinConfigurations.{{ HOST }}
+    else
+        darwin-rebuild build --flake .#darwinConfigurations.{{ HOST }}
+    fi
+
+# Deep validation helper (alias for check)
+validate: check
 
 # Build the Darwin configuration without activating
 build:
     #!/usr/bin/env bash
     if command -v nh &> /dev/null; then
-        nh darwin build .#darwinConfigurations.endor
+        nh darwin build .#darwinConfigurations.{{ HOST }}
     else
-        darwin-rebuild build --flake .#darwinConfigurations.endor
+        darwin-rebuild build --flake .#darwinConfigurations.{{ HOST }}
     fi
 
 install-brew:
@@ -66,9 +78,9 @@ switch:
         just install-brew
     fi
     if command -v nh &> /dev/null; then
-        nh darwin switch .#darwinConfigurations.endor
+        nh darwin switch .#darwinConfigurations.{{ HOST }}
     else
-        sudo darwin-rebuild switch --flake .#darwinConfigurations.endor
+        sudo darwin-rebuild switch --flake .#darwinConfigurations.{{ HOST }}
     fi
 
     # Send system notification on successful completion
@@ -143,9 +155,9 @@ check-flake:
 diff:
     #!/usr/bin/env bash
     if command -v nh &> /dev/null; then
-        nh darwin switch --dry-run .#darwinConfigurations.endor
+        nh darwin switch --dry-run .#darwinConfigurations.{{ HOST }}
     else
-        darwin-rebuild build --flake .#darwinConfigurations.endor
+        darwin-rebuild build --flake .#darwinConfigurations.{{ HOST }}
         nvd diff /run/current-system ./result
     fi
 
