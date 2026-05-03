@@ -24,3 +24,7 @@ updates:
       - "automated"
     commit-message:
       prefix: "chore(flake)"
+    groups:
+      flake-input-updates:
+        patterns:
+          - "*"
