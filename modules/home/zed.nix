@@ -138,10 +138,22 @@
       {
         context = "Dock || Terminal || Editor";
         bindings = {
-          "ctrl-h" = "workspace::ActivatePaneLeft";
-          "ctrl-l" = "workspace::ActivatePaneRight";
-          "ctrl-k" = "workspace::ActivatePaneUp";
-          "ctrl-j" = "workspace::ActivatePaneDown";
+          "ctrl-h" = [
+            "workspace::ActivatePaneInDirection"
+            "Left"
+          ];
+          "ctrl-l" = [
+            "workspace::ActivatePaneInDirection"
+            "Right"
+          ];
+          "ctrl-k" = [
+            "workspace::ActivatePaneInDirection"
+            "Up"
+          ];
+          "ctrl-j" = [
+            "workspace::ActivatePaneInDirection"
+            "Down"
+          ];
         };
       }
 
@@ -150,6 +162,15 @@
         context = "GitPanel";
         bindings = {
           "q" = "git_panel::Close";
+        };
+      }
+
+      # Project search result navigation
+      {
+        context = "ProjectSearchView";
+        bindings = {
+          "tab" = "editor::MoveToStartOfNextExcerpt";
+          "shift-tab" = "editor::MoveToEndOfPreviousExcerpt";
         };
       }
 
@@ -179,17 +200,17 @@
           ":" = "command_palette::Toggle";
           "%" = "project_panel::NewFile";
           "/" = "project_panel::NewSearchInDirectory";
-          "enter" = "project_panel::OpenPermanent";
+          "o" = "project_panel::OpenPermanent";
           "escape" = "project_panel::ToggleFocus";
           "h" = "project_panel::CollapseSelectedEntry";
           "j" = "menu::SelectNext";
           "k" = "menu::SelectPrevious";
           "l" = "project_panel::ExpandSelectedEntry";
-          "o" = "project_panel::OpenPermanent";
-          "shift-d" = "project_panel::Delete";
-          "shift-r" = "project_panel::Rename";
+          "enter" = "project_panel::OpenPermanent";
           "t" = "project_panel::OpenPermanent";
           "v" = "project_panel::OpenPermanent";
+          "shift-d" = "project_panel::Delete";
+          "shift-r" = "project_panel::Rename";
           "shift-g" = "menu::SelectLast";
           "g g" = "menu::SelectFirst";
           "-" = "project_panel::SelectParent";
@@ -238,6 +259,7 @@
               "reveal_target" = "center";
             }
           ];
+          "space g r" = "git::Restore";
           "space g h d" = "editor::ExpandAllDiffHunks";
           "space g h D" = "git::Diff";
           "space g h r" = "git::Restore";
