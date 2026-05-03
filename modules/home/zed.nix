@@ -16,6 +16,11 @@
 
     userSettings = {
       # Theme settings
+      which_key = {
+        enabled = true;
+        # Zed's default is 1000ms, which races the 1s multi-stroke timeout.
+        delay_ms = 300;
+      };
       theme = {
         mode = "system";
         dark = "Catppuccin Mocha";
@@ -84,13 +89,9 @@
       agent = {
         enabled = true;
         version = "2";
-        default_model = {
-          provider = "openrouter";
-          model = "minimax/minimax-m2.5:free";
-        };
         commit_message_model = {
-          provider = "openrouter";
-          model = "minimax/minimax-m2.5:free";
+          provider = "copilot_chat";
+          model = "gpt-5-mini";
         };
       };
 
