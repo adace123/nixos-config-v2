@@ -86,11 +86,11 @@
         version = "2";
         default_model = {
           provider = "openrouter";
-          model = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free";
+          model = "minimax/minimax-m2.5:free";
         };
         commit_message_model = {
           provider = "openrouter";
-          model = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free";
+          model = "minimax/minimax-m2.5:free";
         };
       };
 
@@ -494,6 +494,7 @@
       opencode
       catppuccin
       catppuccin-icons
+      just
     ];
   };
 
