@@ -68,7 +68,7 @@ in
           if ${lib.getExe pkgs.nh} darwin switch ${repoDir}#darwinConfigurations.${config.networking.hostName}; then
             ${pkgs.terminal-notifier}/bin/terminal-notifier \
               -title "✅ Nix Config Auto-Applied" \
-              -message "Applied latest nixos-config changes"
+              -message "Applied latest nix-config changes"
           else
             ${pkgs.terminal-notifier}/bin/terminal-notifier \
               -title "⚠️ Nix Config Update Failed" \
