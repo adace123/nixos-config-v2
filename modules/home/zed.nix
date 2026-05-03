@@ -198,6 +198,10 @@
       {
         context = "Editor && VimControl && !VimWaiting && !menu";
         bindings = {
+          # Undo/Redo
+          "u" = "editor::Undo";
+          "U" = "editor::Redo";
+
           # Refactoring
           "space c r" = "editor::Rename";
 
@@ -356,6 +360,7 @@
         bindings = {
           "j k" = "vim::NormalBefore";
           "k j" = "vim::NormalBefore";
+          "ctrl-w" = "project_panel::NewSearchInDirectory";
         };
       }
 
