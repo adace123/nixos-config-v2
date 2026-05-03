@@ -15,6 +15,7 @@
     ./zellij.nix
     ./ai
     ./zed.nix
+    ./1password-agent.nix
   ];
 
   # Home Manager needs a bit of information about you and the paths it should
