@@ -43,6 +43,7 @@
       zoxide # Smart directory jumping
       glab
       nh # Nix helper for better rebuild/clean/search UX
+      lazygit
 
       # Modern CLI replacements
       bat # cat replacement
@@ -151,6 +152,7 @@
       shellAliases = {
         ll = "ls -la";
         ls = "${pkgs.eza}/bin/eza --color=always --icons=always";
+        lg = "${pkgs.lazygit}/bin/lazygit";
         update = "nh darwin switch";
         python = "python3"; # Use ipython as default
         py = "ipython";
