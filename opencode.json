@@ -1,0 +1,60 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "shell": "zsh",
+  "watcher": {
+    "ignore": ["result", "*.lock", ".nix-profile", "*.drv"]
+  },
+  "command": {
+    "check": {
+      "template": "Run all configuration checks including flake check, format validation, and pre-commit hooks",
+      "agent": "general"
+    },
+    "switch": {
+      "template": "Build and activate the nix-darwin configuration",
+      "agent": "general"
+    },
+    "fmt": {
+      "template": "Format all Nix files using nixpkgs-fmt",
+      "agent": "general"
+    },
+    "update": {
+      "template": "Update all flake inputs to their latest versions",
+      "agent": "general"
+    },
+    "clean": {
+      "template": "Clean nix store and garbage collect unused paths",
+      "agent": "general"
+    }
+  },
+  "snapshot": true,
+  "autoupdate": "notify",
+  "permission": {
+    "read": "allow",
+    "edit": {
+      "/Users/aaron/Projects/personal/nixos-config-v2/**": "ask"
+    },
+    "glob": "allow",
+    "grep": "allow",
+    "bash": {
+      "just *": "allow",
+      "nix *": "allow",
+      "git *": "allow",
+      "darwin-rebuild *": "allow",
+      "nh *": "allow",
+      "pre-commit *": "allow",
+      "nixpkgs-fmt *": "allow",
+      "deadnix .": "allow",
+      "home-manager *": "allow",
+      "statix *": "allow",
+      "terminal-notifier *": "allow"
+    },
+    "task": "allow",
+    "question": "allow",
+    "todowrite": "allow",
+    "webfetch": "allow",
+    "websearch": "allow",
+    "external_directory": "deny",
+    "lsp": "allow"
+  },
+  "default_agent": "build"
+}
