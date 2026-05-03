@@ -26,5 +26,6 @@ updates:
       prefix: "chore(flake)"
     groups:
       flake-input-updates:
+        applies-to: version-updates
         patterns:
           - "*"
