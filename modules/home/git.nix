@@ -4,10 +4,6 @@
   programs.git = {
     enable = true;
 
-    signing = {
-      format = "ssh";
-    };
-
     settings = {
       user = {
         name = "aaron.feigenbaum";
