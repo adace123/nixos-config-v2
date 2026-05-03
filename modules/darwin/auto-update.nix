@@ -34,7 +34,12 @@ in
       autoSwitch = lib.mkOption {
         type = lib.types.bool;
         default = true;
-        description = "Automatically run darwin switch when updates are detected";
+        description = "Automatically run `nh darwin switch` when updates are detected";
+      };
+
+      darwinConfigName = lib.mkOption {
+        type = lib.types.str;
+        description = "Name of the darwinConfiguration output in the flake (e.g. the key under flake.darwinConfigurations)";
       };
     };
   };
@@ -65,14 +70,14 @@ in
         AFTER=$(git rev-parse HEAD)
 
         if [ "$BEFORE" != "$AFTER" ] && [ "${lib.boolToString config.services.nix-config-auto-update.autoSwitch}" = "true" ]; then
-          if ${lib.getExe pkgs.nh} darwin switch ${repoDir}#darwinConfigurations.${config.networking.hostName}; then
+          if ${lib.getExe pkgs.nh} darwin switch ${repoDir}#darwinConfigurations.${config.services.nix-config-auto-update.darwinConfigName}; then
             ${pkgs.terminal-notifier}/bin/terminal-notifier \
               -title "✅ Nix Config Auto-Applied" \
               -message "Applied latest nix-config changes"
           else
             ${pkgs.terminal-notifier}/bin/terminal-notifier \
               -title "⚠️ Nix Config Update Failed" \
-              -message "Pulled changes but failed to switch. Run just switch manually."
+              -message "Pulled changes but failed to switch. Run: nh darwin switch ${repoDir}#darwinConfigurations.${config.services.nix-config-auto-update.darwinConfigName}"
             exit 1
           fi
         elif [ "$BEFORE" != "$AFTER" ]; then
