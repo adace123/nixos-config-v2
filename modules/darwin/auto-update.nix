@@ -16,7 +16,7 @@ in
       enable = lib.mkOption {
         type = lib.types.bool;
         default = true;
-        description = "Enable automatic Nix config update notifications";
+        description = "Enable automatic Nix config updates";
       };
 
       hour = lib.mkOption {
@@ -37,40 +37,32 @@ in
     launchd.user.agents.nix-config-auto-update = {
       serviceConfig = {
         Label = "org.nix-community.darwin.auto-update";
-        # Runs daily at configured time
         StartCalendarInterval = [
           {
             Hour = config.services.nix-config-auto-update.hour;
             Minute = config.services.nix-config-auto-update.minute;
           }
         ];
-
         StandardErrorPath = "/tmp/nix-darwin-update.log";
         StandardOutPath = "/tmp/nix-darwin-update.log";
-
-        # Ensures the process doesn't hang forever
-        ExitTimeOut = 60;
-
+        ExitTimeOut = 300;
         EnvironmentVariables = {
           PATH = "/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:/usr/bin:/bin:/usr/sbin:/sbin";
         };
       };
 
       script = ''
-        set -e
+        cd ${repoDir} || exit 1
 
-        echo "--- Check Started: $(date) ---"
+        BEFORE=$(git rev-parse HEAD)
+        git pull --rebase origin main
+        AFTER=$(git rev-parse HEAD)
 
-        cd ${repoDir} || {
-          echo "ERROR: Failed to change to repo directory: ${repoDir}"
-          exit 1
-        }
-
-        # Run the check-for-updates.sh script which will detect updates and notify user
-        # but won't prompt for user input or run just switch automatically
-        ${pkgs.bash}/bin/bash ./scripts/check-for-updates.sh --auto
-
-        echo "--- Check Finished: $(date) ---"
+        if [ "$BEFORE" != "$AFTER" ]; then
+          ${pkgs.terminal-notifier}/bin/terminal-notifier \
+            -title "❄️ Nix Config Updated" \
+            -message "Run 'just switch' to apply changes"
+        fi
       '';
     };
   };

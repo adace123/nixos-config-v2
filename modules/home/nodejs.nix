@@ -10,20 +10,20 @@
       # nodejs_22 is available via alias 'node22' command
       # nodejs_20 is available via alias 'node20' command
 
-      # Development tools (using nodePackages for LSP/tools)
-      nodePackages.typescript
-      nodePackages.typescript-language-server
-      nodePackages.vscode-langservers-extracted # HTML, CSS, JSON, ESLint LSP
-      nodePackages.prettier
-      nodePackages.eslint
-      nodePackages.npm-check-updates # Update package.json dependencies
+      # Development tools
+      typescript
+      typescript-language-server
+      vscode-langservers-extracted # HTML, CSS, JSON, ESLint LSP
+      prettier
+      eslint
+      npm-check-updates # Update package.json dependencies
 
       # Build and dev tools
-      nodePackages.nodemon
+      nodemon
 
       # Utilities
-      nodePackages.serve # Static file server
-      nodePackages.http-server # Simple HTTP server
+      serve # Static file server
+      http-server # Simple HTTP server
     ];
 
     # Bun and JavaScript environment configuration

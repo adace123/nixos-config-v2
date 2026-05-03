@@ -40,14 +40,12 @@ _: {
       "1password"
       "1password-cli"
 
-      # Browsers
-      # "firefox"
-      # "google-chrome"
-
       # Development
       "antigravity"
       "bruno"
+      "bruno-cli"
       "codex-app"
+      "cmux"
       "docker-desktop"
       "ghostty"
       "warp"
@@ -59,6 +57,7 @@ _: {
       "nikitabobko/tap/aerospace" # Tiling window manager
       "chatgpt"
       "claude"
+      "linear"
       "raycast" # Spotlight replacement
       "obsidian" # Note-taking
       "handy" # dictation
