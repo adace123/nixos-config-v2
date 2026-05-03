@@ -22,7 +22,6 @@ jobs:
         uses: DeterminateSystems/magic-nix-cache-action@main
       - name: Flake eval smoke check
         run: nix flake show
-
   darwin-check:
     runs-on: macos-latest
     steps:

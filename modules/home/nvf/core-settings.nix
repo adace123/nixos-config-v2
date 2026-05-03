@@ -185,7 +185,7 @@ _: {
         enable = true;
         lsp = {
           enable = true;
-          servers = [ "jsonls" ];
+          servers = [ "vscode-json-language-server" ];
         };
         format = {
           enable = true;
@@ -194,11 +194,11 @@ _: {
       };
 
       # JavaScript/TypeScript
-      ts = {
+      typescript = {
         enable = true;
         lsp = {
           enable = true;
-          servers = [ "ts_ls" ];
+          servers = [ "typescript-language-server" ];
         };
         format = {
           enable = true;
@@ -220,7 +220,7 @@ _: {
         enable = true;
         lsp = {
           enable = true;
-          servers = [ "bash-ls" ];
+          servers = [ "bash-language-server" ];
         };
         format = {
           enable = true;

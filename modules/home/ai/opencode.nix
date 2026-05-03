@@ -26,6 +26,7 @@ in
           "*.env.example" = "allow";
         };
         edit = "allow";
+        write = "allow";
         bash = {
           "*" = "ask";
           "git status*" = "allow";
@@ -36,6 +37,14 @@ in
           "unlink*" = "deny";
           "dd*" = "deny";
         };
+        glob = "allow";
+        grep = "allow";
+        webfetch = "allow";
+        websearch = "allow";
+        question = "allow";
+        task = "ask";
+        skill = "allow";
+        todowrite = "allow";
         external_directory = {
           "~/Projects/personal/**" = "allow";
         };
