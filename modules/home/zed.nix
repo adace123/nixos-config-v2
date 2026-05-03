@@ -79,6 +79,20 @@
       # File settings
       autosave = "on_focus_change";
 
+      # Assistant settings
+      assistant = {
+        enabled = true;
+        version = "2";
+      };
+
+      # LLM/Agent settings
+      agent = {
+        default_model = {
+          provider = "openrouter";
+          model = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free";
+        };
+      };
+
       # Tab settings
       tab_size = 2;
       hard_tabs = false;
@@ -161,6 +175,7 @@
           "p" = "project_panel::Paste";
           "q" = "workspace::ToggleLeftDock";
           "space e" = "workspace::ToggleLeftDock";
+          "space w" = "project_panel::NewSearchInDirectory";
           ":" = "command_palette::Toggle";
           "%" = "project_panel::NewFile";
           "/" = "project_panel::NewSearchInDirectory";
@@ -198,9 +213,11 @@
       {
         context = "Editor && VimControl && !VimWaiting && !menu";
         bindings = {
-          # Undo/Redo
-          "u" = "editor::Undo";
           "U" = "editor::Redo";
+
+          # Tab cycling (Shift-H = previous, Shift-L = next)
+          "shift-h" = "pane::ActivatePreviousItem";
+          "shift-l" = "pane::ActivateNextItem";
 
           # Refactoring
           "space c r" = "editor::Rename";
@@ -297,6 +314,10 @@
           "space f f" = "file_finder::Toggle";
           "space space" = "file_finder::Toggle";
           "space f n" = "workspace::NewFile";
+          "space f w" = [
+            "workspace::SendKeystrokes"
+            "cmd-shift-e cmd-alt-shift-f"
+          ];
 
           # File explorer
           "space e" = "workspace::ToggleLeftDock";
@@ -305,6 +326,10 @@
           "space t" = "workspace::ToggleBottomDock";
 
           # Window/pane management
+          "space w" = [
+            "workspace::SendKeystrokes"
+            "cmd-shift-e cmd-alt-shift-f"
+          ];
           "space w s" = "pane::SplitDown";
           "space w v" = "pane::SplitRight";
           "space s v" = "pane::SplitRight";
@@ -323,6 +348,8 @@
           # Navigation (hunks)
           "] h" = "editor::GoToHunk";
           "[ h" = "editor::GoToPreviousHunk";
+          "]" = "editor::GoToHunk";
+          "[" = "editor::GoToPreviousHunk";
           "] c" = "editor::GoToHunk";
           "[ c" = "editor::GoToPreviousHunk";
 
@@ -360,7 +387,6 @@
         bindings = {
           "j k" = "vim::NormalBefore";
           "k j" = "vim::NormalBefore";
-          "ctrl-w" = "project_panel::NewSearchInDirectory";
         };
       }
 

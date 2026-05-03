@@ -24,14 +24,14 @@ _: {
 
     # Formulae (command-line packages)
     brews = [
-      "awscli"
-      "colima"
-      "gh"
+      "awscli" # AWS CLI
+      "colima" # Lightweight container runtime
+      "gh" # GitHub CLI
       "pam-u2f" # YubiKey PAM module for sudo authentication
-      "pre-commit"
+      "pre-commit" # Git hooks manager
       "ykman" # YubiKey Manager CLI
-      "common-fate/granted/granted"
-      "terminal-notifier"
+      "common-fate/granted/granted" # AWS credentials manager
+      "terminal-notifier" # macOS notification tool
     ];
 
     # Casks (GUI applications)
@@ -41,22 +41,22 @@ _: {
       "1password-cli"
 
       # Development
-      "antigravity"
-      "bruno"
-      "codex-app"
-      "cmux"
-      "docker-desktop"
-      "ghostty"
-      "warp"
-      "lm-studio"
-      "yaak@beta"
-      "session-manager-plugin"
+      "antigravity" # Git HTTP server for testing
+      "bruno" # API client
+      "codex-app" # OpenAI Codex
+      "cmux" # Claude Code CLI
+      "docker-desktop" # Docker
+      "ghostty" # Terminal emulator
+      "warp" # AI terminal
+      "lm-studio" # Local LLMs
+      "yaak@beta" # API client
+      "session-manager-plugin" # AWS SSM
 
       # Productivity
       "nikitabobko/tap/aerospace" # Tiling window manager
-      "chatgpt"
-      "claude"
-      "linear"
+      "chatgpt" # OpenAI ChatGPT
+      "claude" # Anthropic Claude
+      "linear" # Issue tracking
       "raycast" # Spotlight replacement
       "obsidian" # Note-taking
       "handy" # dictation
@@ -65,13 +65,14 @@ _: {
       # Communication
       "slack"
       "discord"
+      "telegram"
       "zoom"
       "whatsapp"
       "microsoft-teams"
 
       # Utilities
       "balenaetcher" # usb flashing
-      "betterdisplay"
+      "betterdisplay" # Display management
     ];
 
     # Mac App Store apps (requires mas-cli)
