@@ -30,6 +30,12 @@ in
         default = 0;
         description = "Minute of the hour to check for updates (0-59)";
       };
+
+      autoSwitch = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Automatically run darwin switch when updates are detected";
+      };
     };
   };
 
@@ -58,7 +64,18 @@ in
         git pull --rebase origin main
         AFTER=$(git rev-parse HEAD)
 
-        if [ "$BEFORE" != "$AFTER" ]; then
+        if [ "$BEFORE" != "$AFTER" ] && [ "${lib.boolToString config.services.nix-config-auto-update.autoSwitch}" = "true" ]; then
+          if ${lib.getExe pkgs.nh} darwin switch ${repoDir}#darwinConfigurations.${config.networking.hostName}; then
+            ${pkgs.terminal-notifier}/bin/terminal-notifier \
+              -title "✅ Nix Config Auto-Applied" \
+              -message "Applied latest nixos-config changes"
+          else
+            ${pkgs.terminal-notifier}/bin/terminal-notifier \
+              -title "⚠️ Nix Config Update Failed" \
+              -message "Pulled changes but failed to switch. Run just switch manually."
+            exit 1
+          fi
+        elif [ "$BEFORE" != "$AFTER" ]; then
           ${pkgs.terminal-notifier}/bin/terminal-notifier \
             -title "❄️ Nix Config Updated" \
             -message "Run 'just switch' to apply changes"
