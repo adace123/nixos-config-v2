@@ -43,6 +43,7 @@
             "nixd"
             "!nil"
           ];
+          format_on_save = "on";
           formatter = {
             external = {
               command = "alejandra";
@@ -79,15 +80,15 @@
       # File settings
       autosave = "on_focus_change";
 
-      # Assistant settings
-      assistant = {
-        enabled = true;
-        version = "2";
-      };
-
       # LLM/Agent settings
       agent = {
+        enabled = true;
+        version = "2";
         default_model = {
+          provider = "openrouter";
+          model = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free";
+        };
+        commit_message_model = {
           provider = "openrouter";
           model = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free";
         };
