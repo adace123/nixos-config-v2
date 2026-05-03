@@ -17,12 +17,8 @@
       ccstatusline
       ccusage
       ccusage-opencode
-      claude-plugins
-      amp
-      copilot-cli
       gemini-cli
-      qwen-code
-      beads
+      hermes-agent
     ];
 
     sessionVariables = {
