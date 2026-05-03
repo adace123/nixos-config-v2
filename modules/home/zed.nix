@@ -24,7 +24,6 @@
 
       # Editor settings
       vim_mode = true;
-      hour_format = "hour24";
 
       # UI settings
       ui_font_size = 14;
@@ -72,12 +71,6 @@
         button = true;
       };
 
-      # Assistant settings
-      assistant = {
-        enabled = true;
-        version = "2";
-      };
-
       # Git settings
       git = {
         git_gutter = "tracked_files";
@@ -106,19 +99,24 @@
         show_parameter_hints = true;
         show_other_hints = true;
       };
-
-      # Status bar
-      status_bar = {
-        show_copilot_icon = true;
-      };
     };
 
     userKeymaps = [
       # Terminal toggle
       {
-        context = "Workspace";
+        context = "Dock || Terminal || Editor";
         bindings = {
           "ctrl-/" = "workspace::ToggleBottomDock";
+          "ctrl-x" = "pane::CloseAllItems";
+          "cmd-shift-s" = "project_panel::NewSearchInDirectory";
+          "cmd-shift-g" = "git_panel::Toggle";
+        };
+      }
+
+      {
+        context = "Terminal";
+        bindings = {
+          "cmd-t" = "workspace::NewTerminal";
         };
       }
 
@@ -240,7 +238,7 @@
           "space s w" = "buffer_search::Deploy";
           "space s W" = "pane::DeploySearch";
           "space s g" = "workspace::NewSearch";
-          "space /" = "workspace::NewSearch";
+          "space /" = "editor::ToggleComments";
           "space s b" = "vim::Search";
 
           # Buffer/Tab management (like harpoon)
@@ -305,6 +303,8 @@
           # Window/pane management
           "space w s" = "pane::SplitDown";
           "space w v" = "pane::SplitRight";
+          "space s v" = "pane::SplitRight";
+          "space s s" = "pane::SplitDown";
           "space -" = "pane::SplitDown";
           "space |" = "pane::SplitRight";
           "space w c" = "pane::CloseAllItems";
@@ -313,7 +313,7 @@
           # LSP & Code actions
           "space c a" = "editor::ToggleCodeActions";
           "space s d" = "diagnostics::Deploy";
-          "space s s" = "outline::Toggle";
+          "space s o" = "outline::Toggle";
           "space c f" = "editor::Format";
 
           # Navigation (hunks)
@@ -347,6 +347,15 @@
           # Move lines up/down (like Neovim's Alt+j/k)
           "shift-j" = "editor::MoveLineDown";
           "shift-k" = "editor::MoveLineUp";
+        };
+      }
+
+      # Insert mode bindings - jk/kj exits to normal mode
+      {
+        context = "Editor && vim_mode == insert && !VimWaiting";
+        bindings = {
+          "j k" = "vim::NormalBefore";
+          "k j" = "vim::NormalBefore";
         };
       }
 
