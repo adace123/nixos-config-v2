@@ -6,6 +6,7 @@
       specialArgs = { inherit inputs; };
       modules = [
         ../modules/darwin
+        inputs.opnix.darwinModules.default
         inputs.home-manager.darwinModules.home-manager
         {
           nixpkgs.overlays = [

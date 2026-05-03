@@ -46,10 +46,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    sops-nix = {
-      url = "github:Mic92/sops-nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    opnix.url = "github:brizzbuzz/opnix";
 
     zed-extensions = {
       url = "github:DuskSystems/nix-zed-extensions";

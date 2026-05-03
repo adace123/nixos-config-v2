@@ -165,6 +165,16 @@ diff:
 setup-work-ssh:
     ./scripts/setup-work-ssh.sh
 
+# Store the OpNix 1Password service account token
+opnix-token-set:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if command -v opnix &> /dev/null; then
+        sudo opnix token set
+    else
+        sudo nix run github:brizzbuzz/opnix -- token set
+    fi
+
 # Check for available updates (pulls if flake.lock changed, notifies via macOS)
 check-updates:
     ./scripts/check-for-updates.sh
