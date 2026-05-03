@@ -11,8 +11,9 @@ in
     enable = true;
     package = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.opencode;
 
+    tui.theme = "catppuccin";
+
     settings = {
-      theme = "catppuccin";
       model = "opencode/minimax-m2.5-free";
       autoupdate = true;
       share = "disabled";
@@ -41,7 +42,7 @@ in
       };
     };
 
-    rules = ''
+    context = ''
       # General Code Quality Rules
 
       ## File Loading

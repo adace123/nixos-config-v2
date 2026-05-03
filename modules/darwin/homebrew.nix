@@ -43,7 +43,6 @@ _: {
       # Development
       "antigravity"
       "bruno"
-      "bruno-cli"
       "codex-app"
       "cmux"
       "docker-desktop"
