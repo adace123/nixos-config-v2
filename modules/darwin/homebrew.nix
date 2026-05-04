@@ -43,7 +43,8 @@ _: {
       # Development
       "antigravity" # Git HTTP server for testing
       "bruno" # API client
-      "codex-app" # OpenAI Codex
+      "codex" # OpenAI Codex CLI
+      "codex-app" # OpenAI Codex App
       "cmux" # Claude Code CLI
       "docker-desktop" # Docker
       "ghostty" # Terminal emulator
