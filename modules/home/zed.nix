@@ -118,6 +118,12 @@
     };
 
     userKeymaps = [
+      {
+        bindings = {
+          "ctrl-p" = "projects::OpenRecent";
+        };
+      }
+
       # Terminal toggle
       {
         context = "Dock || Terminal || Editor";
@@ -126,6 +132,7 @@
           "ctrl-x" = "pane::CloseAllItems";
           "cmd-shift-s" = "project_panel::NewSearchInDirectory";
           "cmd-shift-g" = "git_panel::Toggle";
+          "cmd-p" = "projects::OpenRecent";
         };
       }
 
@@ -229,6 +236,7 @@
           "space f p" = "projects::OpenRecent";
           "space s g" = "workspace::NewSearch";
           "space q q" = "zed::Quit";
+          "cmd-p" = "projects::OpenRecent";
         };
       }
 
@@ -262,6 +270,8 @@
             }
           ];
           "space g r" = "git::Restore";
+          "space g s" = "git::ToggleStaged";
+          "space g S" = "git::StageAll";
           "space g h d" = "editor::ExpandAllDiffHunks";
           "space g h D" = "git::Diff";
           "space g h r" = "git::Restore";
@@ -374,6 +384,8 @@
           "[ h" = "editor::GoToPreviousHunk";
           "]" = "editor::GoToHunk";
           "[" = "editor::GoToPreviousHunk";
+          "}" = "editor::GoToHunk";
+          "{" = "editor::GoToPreviousHunk";
           "] c" = "editor::GoToHunk";
           "[ c" = "editor::GoToPreviousHunk";
 
