@@ -19,7 +19,7 @@
       which_key = {
         enabled = true;
         # Zed's default is 1000ms, which races the 1s multi-stroke timeout.
-        delay_ms = 300;
+        delay_ms = 500;
       };
       theme = {
         mode = "system";
@@ -171,6 +171,7 @@
         context = "GitPanel";
         bindings = {
           "q" = "git_panel::Close";
+          "alt-p" = "git::Push";
         };
       }
 
@@ -245,6 +246,9 @@
         context = "Editor && VimControl && !VimWaiting && !menu";
         bindings = {
           "U" = "editor::Redo";
+
+          # Enter expands incremental selection
+          "enter" = "editor::SelectLargerSyntaxNode";
 
           # Tab cycling (Shift-H = previous, Shift-L = next)
           "shift-h" = "pane::ActivatePreviousItem";
