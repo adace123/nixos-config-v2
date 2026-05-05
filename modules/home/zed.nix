@@ -10,7 +10,7 @@
     extraPackages = with pkgs; [
       nixd
       nil
-      alejandra
+      nixfmt
       nodejs
     ];
 
@@ -42,32 +42,20 @@
       };
 
       # Language settings
+      format_on_save = "on";
       languages = {
         Nix = {
-          language_servers = [
-            "nixd"
-            "!nil"
-          ];
           format_on_save = "on";
-          formatter = {
-            external = {
-              command = "alejandra";
-              arguments = [ "-" ];
-            };
-          };
-        };
-      };
-
-      # LSP settings
-      lsp = {
-        nixd = {
-          settings = {
-            formatting = {
-              command = [
-                "alejandra"
-                "-"
-              ];
-            };
+          language_servers = [
+            "!nixd"
+            "nil"
+          ];
+          formatter.external = {
+            command = "${pkgs.nixfmt}/bin/nixfmt";
+            arguments = [
+              "--quiet"
+              "--"
+            ];
           };
         };
       };
@@ -82,9 +70,6 @@
         git_gutter = "tracked_files";
       };
 
-      # File settings
-      autosave = "on_focus_change";
-
       # LLM/Agent settings
       agent = {
         enabled = true;
@@ -93,11 +78,16 @@
           provider = "copilot_chat";
           model = "gpt-5-mini";
         };
+        inline_assistant_model = {
+          provider = "copilot_chat";
+          model = "gpt-5-mini";
+        };
       };
 
       # Tab settings
       tab_size = 2;
       hard_tabs = false;
+      tabs.file_icons = true;
 
       # Indentation guides
       indent_guides = {
@@ -115,12 +105,20 @@
         show_parameter_hints = true;
         show_other_hints = true;
       };
+
+      # Cursor shape
+      cursor = {
+        shape = "bar";
+        show_multi_insert_cursor_guide = true;
+      };
     };
 
     userKeymaps = [
       {
         bindings = {
           "ctrl-p" = "projects::OpenRecent";
+          "ctrl-s" = "workspace::Save";
+          "ctrl-\\" = "terminal_panel::ToggleFocus";
         };
       }
 
@@ -132,7 +130,7 @@
           "ctrl-x" = "pane::CloseAllItems";
           "cmd-shift-s" = "project_panel::NewSearchInDirectory";
           "cmd-shift-g" = "git_panel::Toggle";
-          "cmd-p" = "projects::OpenRecent";
+          "cmd-p" = "file_finder::Toggle";
         };
       }
 
@@ -206,7 +204,6 @@
           "p" = "project_panel::Paste";
           "q" = "workspace::ToggleLeftDock";
           "space e" = "workspace::ToggleLeftDock";
-          "space w" = "project_panel::NewSearchInDirectory";
           ":" = "command_palette::Toggle";
           "%" = "project_panel::NewFile";
           "/" = "project_panel::NewSearchInDirectory";
@@ -237,7 +234,7 @@
           "space f p" = "projects::OpenRecent";
           "space s g" = "workspace::NewSearch";
           "space q q" = "zed::Quit";
-          "cmd-p" = "projects::OpenRecent";
+          "ctrl-p" = "projects::OpenRecent";
         };
       }
 
@@ -259,11 +256,15 @@
 
           # AI/Assistant
           "space a a" = "assistant::ToggleFocus";
+          "space a c" = "agent::ToggleFocus";
           "ctrl-\\" = "workspace::ToggleRightDock";
           "cmd-k" = "workspace::ToggleRightDock";
           "space a e" = "assistant::InlineAssist";
           "cmd-l" = "assistant::InlineAssist";
           "space a t" = "workspace::ToggleRightDock";
+
+          # F for global search (works in normal and visual)
+          "shift-f" = "pane::DeploySearch";
 
           # Git operations
           "space g g" = [
@@ -295,6 +296,7 @@
 
           # Search
           "space s w" = "buffer_search::Deploy";
+          "space f o" = "outline::Toggle";
           "space s W" = "pane::DeploySearch";
           "space s g" = "workspace::NewSearch";
           "space /" = "editor::ToggleComments";
@@ -347,15 +349,15 @@
           "space b d" = "pane::CloseActiveItem";
           "space b q" = "pane::CloseInactiveItems";
           "space b n" = "workspace::NewFile";
+          "shift-x" = "pane::CloseActiveItem";
+          "space Y" = [
+            "workspace::SendKeystrokes"
+            "cmd-a cmd-c esc"
+          ];
 
           # File operations (Telescope-like)
-          "space f f" = "file_finder::Toggle";
           "space space" = "file_finder::Toggle";
           "space f n" = "workspace::NewFile";
-          "space f w" = [
-            "workspace::SendKeystrokes"
-            "cmd-shift-e cmd-alt-shift-f"
-          ];
 
           # File explorer
           "space e" = "workspace::ToggleLeftDock";
@@ -364,18 +366,10 @@
           "space t" = "workspace::ToggleBottomDock";
 
           # Window/pane management
-          "space w" = [
-            "workspace::SendKeystrokes"
-            "cmd-shift-e cmd-alt-shift-f"
-          ];
-          "space w s" = "pane::SplitDown";
-          "space w v" = "pane::SplitRight";
           "space s v" = "pane::SplitRight";
           "space s s" = "pane::SplitDown";
           "space -" = "pane::SplitDown";
           "space |" = "pane::SplitRight";
-          "space w c" = "pane::CloseAllItems";
-          "space w d" = "pane::CloseAllItems";
 
           # LSP & Code actions
           "space c a" = "editor::ToggleCodeActions";
