@@ -13,7 +13,7 @@ This is a Nix flake-based configuration for managing macOS systems using nix-dar
 - `just check` - Run all checks (flake check, format, lint, pre-commit)
 - `just validate` - Deep validation including home-manager type checking
 - `nix flake check --all-systems` - Check flake for errors across all systems
-- `just switch` - Build and activate configuration
+- `nh darwin build` - Build configuration without activating (requires manual activation via `just switch` which needs password)
 - `nh darwin build` - Build without activating (using nh helper)
 - `nh clean` - Enhanced garbage collection with better UX
 - `nh search <pkg>` - Fast package search via Elasticsearch
@@ -168,9 +168,11 @@ modules/
 ### Making Changes
 
 1. Edit configuration files
-2. Run `just fmt` to format Nix files
+2. Run `just fmt` to format Nix files (required before committing)
 3. Run `just check` to validate changes
-4. Apply with `just switch`
+4. Build with `nh darwin build` (user must run `just switch` to activate)
+
+> **Important:** Always run `just fmt` after editing Nix files. The pre-commit hooks will fail without proper formatting.
 
 ### Adding New Packages
 
