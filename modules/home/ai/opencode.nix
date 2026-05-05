@@ -17,6 +17,12 @@ in
       model = "opencode/minimax-m2.5-free";
       autoupdate = true;
       share = "disabled";
+      mcpServers = {
+        context7 = {
+          type = "http";
+          url = "https://mcp.context7.com/mcp";
+        };
+      };
       permission = {
         "*" = "ask";
         read = {
@@ -32,6 +38,8 @@ in
           "git status*" = "allow";
           "git diff*" = "allow";
           "grep*" = "allow";
+          "find*" = "allow";
+          "ls*" = "allow";
           "rg*" = "allow";
           "rm*" = "deny";
           "unlink*" = "deny";
