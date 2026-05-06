@@ -12,6 +12,8 @@ updates:
       - "automated"
     commit-message:
       prefix: "chore(deps)"
+    automerge: true
+    automerge-type: squash
   - package-ecosystem: "nix"
     directory: "/"
     schedule:
@@ -24,6 +26,8 @@ updates:
       - "automated"
     commit-message:
       prefix: "chore(flake)"
+    automerge: true
+    automerge-type: squash
     groups:
       flake-input-updates:
         applies-to: version-updates
