@@ -33,6 +33,7 @@
       fd
       gum
       jq
+      yq
       htop
       btop # Better htop with more features
       k9s # Kubernetes CLI manager
