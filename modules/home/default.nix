@@ -49,7 +49,7 @@
       # Modern CLI replacements
       bat # cat replacement
       eza # ls replacement
-      fzf # fuzzy finder
+      television # fuzzy finder
       gum # Beautiful terminal UI components
 
       # Zsh completions

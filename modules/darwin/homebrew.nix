@@ -45,12 +45,11 @@ _: {
       "bruno" # API client
       "codex" # OpenAI Codex CLI
       "codex-app" # OpenAI Codex App
-      "cmux" # Claude Code CLI
+      "cmux"
       "docker-desktop" # Docker
       "ghostty" # Terminal emulator
       "warp" # AI terminal
       "lm-studio" # Local LLMs
-      "yaak@beta" # API client
       "session-manager-plugin" # AWS SSM
 
       # Productivity

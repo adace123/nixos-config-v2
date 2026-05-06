@@ -65,7 +65,8 @@
             command = "${pkgs.ruff}/bin/ruff";
             arguments = [
               "format"
-              "--"
+              "--stdin-filename"
+              "{buffer_path}"
             ];
           };
         };
