@@ -207,23 +207,6 @@ modules/
 - Work repos in `~/Projects/work/` use work SSH key automatically
 - Configuration files not tracked in git for security
 
-#### Neovim (nvf) Configuration
-
-This repository uses [nvf](https://github.com/NotAShelf/nvf) for Neovim configuration.
-
-**Finding nvf documentation:**
-
-1. Online options reference: <https://notashelf.github.io/nvf/options.html>
-2. Search for specific options: `webfetch` the options page and grep for the relevant term
-3. Release notes show breaking changes and new options: <https://notashelf.github.io/nvf/release-notes.html>
-4. nvf GitHub repo: <https://github.com/NotAShelf/nvf>
-
-**nvf configuration patterns:**
-
-- Statusline: Use `vim.statusline.lualine.*` options (accepts strings, not tables)
-- Complex customizations: Add Lua to `modules/home/nvf/lua-config.nix` under `luaConfigRC`
-- Plugin setup: Use `setupOpts` attribute for plugin-specific configuration
-
 ## Pre-commit Integration
 
 - Comprehensive hook suite configured in `flake-parts/pre-commit.nix`
@@ -321,10 +304,15 @@ Use this tool to search real-world code examples from millions of public GitHub 
 - When you need to look up correct configuration syntax for a tool
 - When NixOS/nix documentation doesn't cover the specific use case
 - When you need real-world examples of how others solved similar problems
+- **Crucial for Nix:** Because Nix documentation can be fragmented, always use the `language: ["Nix"]` filter when looking for how to configure a specific package or option in a flake/home-manager setup.
 
 **Examples:**
 
 ```bash
+# Find how others configure a specific Neovim plugin in Nix
+# (Ensure you pass the language filter: language=["Nix"])
+setupOpts = {
+
 # Find how others configure Python formatters in Zed
 # (query for actual code patterns, not questions)
 ruff format --stdin-filename
