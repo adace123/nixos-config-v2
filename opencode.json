@@ -29,32 +29,27 @@
   "snapshot": true,
   "autoupdate": "notify",
   "permission": {
-    "read": "allow",
     "edit": {
       "/Users/aaron/Projects/personal/nixos-config-v2/**": "ask"
     },
-    "glob": "allow",
-    "grep": "allow",
     "bash": {
       "just *": "allow",
       "nix *": "allow",
-      "git *": "allow",
       "darwin-rebuild *": "allow",
       "nh *": "allow",
       "pre-commit *": "allow",
       "nixpkgs-fmt *": "allow",
       "deadnix .": "allow",
       "home-manager *": "allow",
-      "statix *": "allow",
-      "terminal-notifier *": "allow"
+      "statix *": "allow"
     },
-    "task": "allow",
-    "question": "allow",
-    "todowrite": "allow",
-    "webfetch": "allow",
-    "websearch": "allow",
     "external_directory": "deny",
-    "lsp": "allow"
+    "nixos_nix": "allow"
   },
-  "default_agent": "build"
+  "mcp": {
+    "nixos": {
+      "type": "local",
+      "command": ["uvx", "mcp-nixos"]
+    }
+  }
 }

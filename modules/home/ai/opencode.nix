@@ -17,10 +17,14 @@ in
       model = "opencode/minimax-m2.5-free";
       autoupdate = true;
       share = "disabled";
-      mcpServers = {
+      mcp = {
         context7 = {
-          type = "http";
+          type = "remote";
           url = "https://mcp.context7.com/mcp";
+        };
+        grep-mcp = {
+          type = "remote";
+          url = "https://mcp.grep.app";
         };
       };
       permission = {
@@ -53,6 +57,9 @@ in
         task = "ask";
         skill = "allow";
         todowrite = "allow";
+        lsp = "allow";
+        "grep-mcp_searchGitHub" = "allow";
+        "terminal-notifier *" = "allow";
         external_directory = {
           "~/Projects/personal/**" = "allow";
         };
