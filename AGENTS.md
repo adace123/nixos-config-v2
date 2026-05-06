@@ -303,4 +303,37 @@ systemd.user.services = {
 - [nix-darwin documentation](https://github.com/LnL7/nix-darwin)
 - [home-manager manual](https://nix-community.github.io/home-manager/)
 - [Nixpkgs search](https://search.nixos.org/packages)
-- [Nix language guide](https://nixos.org/manual/nix/stable/language/)
+- [Nix language guide](https://nix.dev/manual/nix/stable/language/)
+
+## Research Tools
+
+### grep-mcp_searchGitHub (MCP)
+
+Use this tool to search real-world code examples from millions of public GitHub repositories. This is particularly useful for:
+
+- Finding correct usage patterns for libraries, frameworks, and tools
+- Understanding how to configure tools like Zed, Neovim, etc.
+- Discovering correct CLI arguments and flags for external formatters/linters
+
+**When to use grep-mcp_searchGitHub:**
+
+- When the user describes a problem with external tools (Zed, Neovim plugins, linters, formatters)
+- When you need to look up correct configuration syntax for a tool
+- When NixOS/nix documentation doesn't cover the specific use case
+- When you need real-world examples of how others solved similar problems
+
+**Examples:**
+
+```bash
+# Find how others configure Python formatters in Zed
+# (query for actual code patterns, not questions)
+ruff format --stdin-filename
+
+# Find correct prettier arguments with buffer_path
+prettier --stdin-filepath
+
+# Find how others use specific Zed settings
+formatter.external
+```
+
+**Note:** Search for actual code that would appear in files, not keywords or questions.

@@ -24,7 +24,7 @@ uninstall-hooks:
 
 # Format all Nix files in the project
 fmt:
-    nixpkgs-fmt **/*.nix
+    nix fmt **/*.nix
 
 # Find dead/unused code in Nix files
 deadnix:
