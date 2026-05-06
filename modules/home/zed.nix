@@ -12,6 +12,7 @@
       nil
       nixfmt
       nodejs
+      ruff
     ];
 
     userSettings = {
@@ -54,6 +55,16 @@
             command = "${pkgs.nixfmt}/bin/nixfmt";
             arguments = [
               "--quiet"
+              "--"
+            ];
+          };
+        };
+        Python = {
+          format_on_save = "on";
+          formatter.external = {
+            command = "${pkgs.ruff}/bin/ruff";
+            arguments = [
+              "format"
               "--"
             ];
           };
@@ -266,6 +277,32 @@
           # F for global search (works in normal and visual)
           "shift-f" = "pane::DeploySearch";
 
+          "space f f" = "file_finder::Toggle";
+
+          "space o c" = [
+            "task::Spawn"
+            {
+              "task_name" = "opencode";
+              "reveal_target" = "center";
+            }
+          ];
+
+          "space c c" = [
+            "task::Spawn"
+            {
+              "task_name" = "claude";
+              "reveal_target" = "center";
+            }
+          ];
+
+          "space k s" = [
+            "task::Spawn"
+            {
+              "task_name" = "k9s";
+              "reveal_target" = "center";
+            }
+          ];
+
           # Git operations
           "space g g" = [
             "task::Spawn"
@@ -278,10 +315,10 @@
           "space g s" = "git::ToggleStaged";
           "space g S" = "git::StageAll";
           "space g h d" = "editor::ExpandAllDiffHunks";
-          "space g h D" = "git::Diff";
+          "space g d" = "git::Diff";
           "space g h r" = "git::Restore";
           "space g h R" = "git::RestoreFile";
-          "space g b" = "git::Blame";
+          "space g l" = "git::Blame";
 
           # UI toggles
           "space u i" = "editor::ToggleInlayHints";
@@ -298,7 +335,7 @@
           "space s w" = "buffer_search::Deploy";
           "space f o" = "outline::Toggle";
           "space s W" = "pane::DeploySearch";
-          "space s g" = "workspace::NewSearch";
+          "space w" = "workspace::NewSearch";
           "space /" = "editor::ToggleComments";
           "space s b" = "vim::Search";
 
@@ -363,7 +400,7 @@
           "space e" = "workspace::ToggleLeftDock";
 
           # Terminal
-          "space t" = "workspace::ToggleBottomDock";
+          "space t" = "task::Spawn";
 
           # Window/pane management
           "space s v" = "pane::SplitRight";
@@ -486,6 +523,30 @@
           "-p"
           "$ZED_WORKTREE_ROOT"
         ];
+        use_new_terminal = true;
+        allow_concurrent_runs = false;
+        reveal = "always";
+        hide = "on_success";
+      }
+      {
+        label = "opencode";
+        command = "opencode";
+        use_new_terminal = true;
+        allow_concurrent_runs = false;
+        reveal = "always";
+        hide = "on_success";
+      }
+      {
+        label = "Claude Code";
+        command = "claude";
+        use_new_terminal = true;
+        allow_concurrent_runs = false;
+        reveal = "always";
+        hide = "on_success";
+      }
+      {
+        label = "k9s";
+        command = "";
         use_new_terminal = true;
         allow_concurrent_runs = false;
         reveal = "always";
