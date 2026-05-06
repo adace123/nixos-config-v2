@@ -41,6 +41,7 @@ in
           "*" = "ask";
           "git status*" = "allow";
           "git diff*" = "allow";
+          "git log*" = "allow";
           "grep*" = "allow";
           "find*" = "allow";
           "ls*" = "allow";
