@@ -100,14 +100,14 @@
       tab_size = 2;
       hard_tabs = false;
       tabs.file_icons = true;
+      tabs.show_diagnostics = "errors";
 
       # Indentation guides
       indent_guides = {
         enabled = true;
         line_width = 1;
         active_line_width = 1;
-        coloring = "fixed";
-        background_coloring = "disabled";
+        coloring = "indent_aware";
       };
 
       # Inlay hints
@@ -182,15 +182,6 @@
         bindings = {
           "q" = "git_panel::Close";
           "alt-p" = "git::Push";
-        };
-      }
-
-      # Project search result navigation
-      {
-        context = "ProjectSearchView";
-        bindings = {
-          "tab" = "editor::MoveToStartOfNextExcerpt";
-          "shift-tab" = "editor::MoveToEndOfPreviousExcerpt";
         };
       }
 
@@ -280,22 +271,6 @@
 
           "space f f" = "file_finder::Toggle";
 
-          "space o c" = [
-            "task::Spawn"
-            {
-              "task_name" = "opencode";
-              "reveal_target" = "center";
-            }
-          ];
-
-          "space c c" = [
-            "task::Spawn"
-            {
-              "task_name" = "claude";
-              "reveal_target" = "center";
-            }
-          ];
-
           "space k s" = [
             "task::Spawn"
             {
@@ -334,7 +309,7 @@
 
           # Search
           "space s w" = "buffer_search::Deploy";
-          "space f o" = "outline::Toggle";
+          "space o" = "outline::Toggle";
           "space s W" = "pane::DeploySearch";
           "space w" = "workspace::NewSearch";
           "space /" = "editor::ToggleComments";
@@ -524,22 +499,6 @@
           "-p"
           "$ZED_WORKTREE_ROOT"
         ];
-        use_new_terminal = true;
-        allow_concurrent_runs = false;
-        reveal = "always";
-        hide = "on_success";
-      }
-      {
-        label = "opencode";
-        command = "opencode";
-        use_new_terminal = true;
-        allow_concurrent_runs = false;
-        reveal = "always";
-        hide = "on_success";
-      }
-      {
-        label = "Claude Code";
-        command = "claude";
         use_new_terminal = true;
         allow_concurrent_runs = false;
         reveal = "always";
