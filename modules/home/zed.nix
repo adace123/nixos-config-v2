@@ -383,6 +383,7 @@
           "space s s" = "pane::SplitDown";
           "space -" = "pane::SplitDown";
           "space |" = "pane::SplitRight";
+          "space `" = "workspace::NewCenterTerminal";
 
           # LSP & Code actions
           "space c a" = "editor::ToggleCodeActions";
