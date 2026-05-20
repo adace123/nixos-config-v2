@@ -51,6 +51,7 @@ _: {
       "warp" # AI terminal
       "lm-studio" # Local LLMs
       "session-manager-plugin" # AWS SSM
+      "ngrok"
 
       # Productivity
       "nikitabobko/tap/aerospace" # Tiling window manager
