@@ -16,9 +16,9 @@
       agent-browser
       ccstatusline
       ccusage
-      ccusage-opencode
       gemini-cli
       hermes-agent
+      pi
     ];
 
     sessionVariables = {

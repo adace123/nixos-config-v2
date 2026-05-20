@@ -14,7 +14,7 @@ in
     tui.theme = "catppuccin";
 
     settings = {
-      model = "opencode/minimax-m2.5-free";
+      model = "opencode/qwen3.6-plus-free";
       autoupdate = true;
       share = "disabled";
       mcp = {
