@@ -60,24 +60,23 @@
     # Disable default config and set explicitly
     enableDefaultConfig = false;
 
-    matchBlocks = {
-      # Default settings for all hosts
-      "*" = {
-        serverAliveInterval = 60;
-        serverAliveCountMax = 3;
-        identityAgent = "\"~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock\"";
-      };
-
-      "github.com" = {
-        hostname = "github.com";
-        user = "git";
-        # identityFile managed by 1Password SSH agent
-      };
+    settings = {
+      # Required for extraConfig to work
+      "*" = { };
     };
 
-    # Include private SSH config for work servers
-    # This file is not tracked in git and stays only on your laptop
+    # Use extraConfig to properly quote paths with spaces
     extraConfig = ''
+      Host *
+        IdentityAgent "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
+        ServerAliveInterval 60
+        ServerAliveCountMax 3
+
+      Match host github.com
+        HostName github.com
+        User git
+        # identityFile managed by 1Password SSH agent
+
       Include ~/.ssh/work-config
     '';
   };
