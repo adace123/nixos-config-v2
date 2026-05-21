@@ -34,7 +34,7 @@
     },
     "bash": {
       "just *": "allow",
-      "nix *": "allow",
+      "nix**": "allow",
       "darwin-rebuild *": "allow",
       "nh *": "allow",
       "pre-commit *": "allow",
