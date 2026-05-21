@@ -16,7 +16,6 @@
       agent-browser
       ccstatusline
       ccusage
-      gemini-cli
       hermes-agent
       pi
     ];
