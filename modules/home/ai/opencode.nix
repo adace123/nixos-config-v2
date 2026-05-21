@@ -82,8 +82,6 @@ in
 
     commands.changelog = shared.commands.changelog.opencode;
     commands.commit = shared.commands.commit.opencode;
-
-    inherit (shared) skills;
   };
 
   programs.zsh.shellAliases = {

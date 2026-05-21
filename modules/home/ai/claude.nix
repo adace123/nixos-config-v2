@@ -14,9 +14,18 @@ in
 
     settings = {
       theme = "dark";
+      model = "claude-sonnet-4-6";
+      defaultMode = "auto";
+      skipAutoPermissionPrompt = true;
       statusLine = {
         type = "command";
         command = "bash -c 'basename $(dirname $(pwd))/$(basename $(pwd)); git branch --show-current 2>/dev/null | xargs -I{} echo \" ({})\" || true; echo -n \" | \"; npx ccusage@latest statusline' | tr -d '\\n'";
+      };
+      mcpServers = {
+        context7 = {
+          type = "http";
+          url = "https://mcp.context7.com/mcp";
+        };
       };
       permissions = {
         allow = [
@@ -32,6 +41,7 @@ in
           "Bash(git add*)"
           "Bash(cat *)"
           "Bash(ls *)"
+          "Bash(find *)"
           "Bash(grep *)"
           "Bash(rg *)"
           "Bash(fd *)"
@@ -50,6 +60,8 @@ in
           "WebFetch(domain:raw.githubusercontent.com)"
           "WebFetch(domain:pypi.org)"
           "WebFetch(domain:npmjs.com)"
+          "mcp__context7__get-library-docs"
+          "mcp__context7__resolve-library-id"
         ];
         ask = [
           "Bash(git commit*)"
@@ -108,7 +120,6 @@ in
       inherit (shared.rules) best-practices;
     };
 
-    inherit (shared) skills;
   };
 
   home = {
@@ -119,6 +130,7 @@ in
   };
 
   programs.zsh.shellAliases = {
-    cc = "claude";
+    cc = "claude --permission-mode=auto";
+    cca = "claude agents";
   };
 }

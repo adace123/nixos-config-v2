@@ -1,6 +1,5 @@
 {
-  inputs,
-  pkgs,
+  ...
 }:
 
 let
@@ -118,11 +117,5 @@ in
         Use imperative mood and follow conventional commits format.
       '';
     };
-  };
-
-  skills = {
-    beads = "${
-      inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.beads.src
-    }/claude-plugin/skills/beads";
   };
 }
