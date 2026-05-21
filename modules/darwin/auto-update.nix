@@ -7,7 +7,6 @@
 
 let
   userHome = config.users.users.aaron.home;
-  repoDir = "${userHome}/Projects/personal/nixos-config-v2";
 
 in
 {
@@ -39,7 +38,13 @@ in
 
       darwinConfigName = lib.mkOption {
         type = lib.types.str;
-        description = "Name of the darwinConfiguration output in the flake (e.g. the key under flake.darwinConfigurations)";
+        description = "Name of the darwinConfiguration output in the flake";
+      };
+
+      repoDir = lib.mkOption {
+        type = lib.types.str;
+        default = "${userHome}/Projects/personal/nixos-config-v2";
+        description = "Path to the local nix-config repository";
       };
     };
   };
@@ -63,21 +68,22 @@ in
       };
 
       script = ''
-        cd ${repoDir} || exit 1
+        REPO_DIR="${config.services.nix-config-auto-update.repoDir}"
+        cd "$REPO_DIR" || exit 1
 
         BEFORE=$(git rev-parse HEAD)
-        git pull --rebase origin main
+        git pull --rebase --autostash origin main
         AFTER=$(git rev-parse HEAD)
 
         if [ "$BEFORE" != "$AFTER" ] && [ "${lib.boolToString config.services.nix-config-auto-update.autoSwitch}" = "true" ]; then
-          if ${lib.getExe pkgs.nh} darwin switch ${repoDir}#darwinConfigurations.${config.services.nix-config-auto-update.darwinConfigName}; then
+          if ${lib.getExe pkgs.nh} darwin switch "$REPO_DIR"#darwinConfigurations.${config.services.nix-config-auto-update.darwinConfigName}; then
             ${pkgs.terminal-notifier}/bin/terminal-notifier \
               -title "✅ Nix Config Auto-Applied" \
               -message "Applied latest nix-config changes"
           else
             ${pkgs.terminal-notifier}/bin/terminal-notifier \
               -title "⚠️ Nix Config Update Failed" \
-              -message "Pulled changes but failed to switch. Run: nh darwin switch ${repoDir}#darwinConfigurations.${config.services.nix-config-auto-update.darwinConfigName}"
+              -message "Pulled changes but failed to switch. Run: nh darwin switch $REPO_DIR"
             exit 1
           fi
         elif [ "$BEFORE" != "$AFTER" ]; then

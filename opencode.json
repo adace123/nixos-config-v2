@@ -14,7 +14,7 @@
       "agent": "general"
     },
     "fmt": {
-      "template": "Format all Nix files using nixpkgs-fmt",
+      "template": "Format all Nix files using nixfmt",
       "agent": "general"
     },
     "update": {
@@ -34,11 +34,15 @@
     },
     "bash": {
       "just *": "allow",
-      "nix**": "allow",
+      "nix flake *": "allow",
+      "nix develop *": "allow",
+      "nix build *": "allow",
+      "nix run *": "allow",
+      "nix shell *": "allow",
       "darwin-rebuild *": "allow",
       "nh *": "allow",
       "pre-commit *": "allow",
-      "nixpkgs-fmt *": "allow",
+      "nixfmt *": "allow",
       "deadnix .": "allow",
       "home-manager *": "allow",
       "statix *": "allow"

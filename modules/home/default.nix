@@ -14,7 +14,7 @@
     ./nvf
     ./zellij.nix
     ./ai
-    ./zed.nix
+    ./zed
     ./1password-agent.nix
   ];
 
@@ -51,8 +51,6 @@
       bat # cat replacement
       eza # ls replacement
       television # fuzzy finder
-      gum # Beautiful terminal UI components
-
       # Zsh completions
       carapace # Multi-shell completion generator (aws, gh, kubectl, docker, etc.)
       nix-zsh-completions # Completions for Nix commands
@@ -77,29 +75,15 @@
   };
 
   # Nix configuration
-  nix = {
-    package = pkgs.nix;
-    settings = {
-      experimental-features = [
-        "nix-command"
-        "flakes"
-      ];
-      extra-substituters = [
-        "https://cache.numtide.com"
-        "https://cache.nixos.org"
-        "https://cache.garnix.io"
-        "https://nix-community.cachix.org"
-      ];
-      extra-trusted-public-keys = [
-        "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
-        "nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
-        "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g="
-        "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
-      ];
-      max-jobs = "auto";
-      cores = 0;
-    };
-  };
+  # Written to ~/.config/nix/nix.conf since nix-darwin has nix.enable = false
+  # (using Determinate Nix installer instead)
+  xdg.configFile."nix/nix.conf".text = ''
+    experimental-features = nix-command flakes
+    max-jobs = auto
+    cores = 0
+    extra-substituters = https://cache.numtide.com https://cache.nixos.org https://cache.garnix.io https://nix-community.cachix.org
+    extra-trusted-public-keys = niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g= nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
+  '';
 
   # Programs configuration
   programs = {
@@ -402,8 +386,7 @@
       };
     };
 
-    # Let Home Manager install and manage itself
-    home-manager.enable = true;
+    # home-manager is managed at the system level in flake-parts/darwin.nix
   };
 
   xdg.enable = true;
