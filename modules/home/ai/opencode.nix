@@ -14,7 +14,7 @@ in
     tui.theme = "catppuccin";
 
     settings = {
-      model = "opencode/qwen3.6-plus-free";
+      model = "opencode/deepseek-v4-flash-free";
       autoupdate = true;
       share = "disabled";
       mcp = {
