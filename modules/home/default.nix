@@ -76,19 +76,30 @@
     executable = true;
   };
 
-  # Nix configuration for Determinate Nix
-  home.file.".config/nix/nix.conf".text = ''
-    # Flakes support (if not already enabled by Determinate)
-    experimental-features = nix-command flakes
-
-    # Binary caches
-    extra-substituters = https://cache.numtide.com https://cache.nixos.org
-    extra-trusted-public-keys = niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g= nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
-
-    # Performance
-    max-jobs = auto
-    cores = 0
-  '';
+  # Nix configuration
+  nix = {
+    package = pkgs.nix;
+    settings = {
+      experimental-features = [
+        "nix-command"
+        "flakes"
+      ];
+      extra-substituters = [
+        "https://cache.numtide.com"
+        "https://cache.nixos.org"
+        "https://cache.garnix.io"
+        "https://nix-community.cachix.org"
+      ];
+      extra-trusted-public-keys = [
+        "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
+        "nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+        "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g="
+        "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
+      ];
+      max-jobs = "auto";
+      cores = 0;
+    };
+  };
 
   # Programs configuration
   programs = {
