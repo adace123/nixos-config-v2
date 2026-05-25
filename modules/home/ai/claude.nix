@@ -115,9 +115,9 @@ in
     commands.changelog = shared.commands.changelog.claude-code;
     commands.commit = shared.commands.commit.claude-code;
 
-    rules = {
-      inherit (shared.rules) code-quality;
-      inherit (shared.rules) best-practices;
+    skills = {
+      code-quality = shared.rules.code-quality;
+      best-practices = shared.rules.best-practices;
     };
 
   };

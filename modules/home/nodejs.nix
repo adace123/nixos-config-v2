@@ -8,7 +8,7 @@
 
       # Node.js for compatibility (available via node22/node20 commands)
       # nodejs_22 is available via alias 'node22' command
-      # nodejs_20 is available via alias 'node20' command
+      # nodejs_22 is available via alias 'node20' command
 
       # Development tools
       typescript
@@ -111,10 +111,8 @@
     # Node version management (use bun as default, node via explicit versions)
     node = "bun"; # Bun can run Node.js code
     node22 = "${pkgs.nodejs_22}/bin/node";
-    node20 = "${pkgs.nodejs_20}/bin/node";
     npm = "bun"; # Bun replaces npm
     npm22 = "${pkgs.nodejs_22}/bin/npm";
-    npm20 = "${pkgs.nodejs_20}/bin/npm";
 
     # npm shortcuts (using bun)
     ni = "bun install";

@@ -11,8 +11,6 @@ in
     enable = true;
     package = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.opencode;
 
-    tui.theme = "catppuccin";
-
     settings = {
       model = "opencode/deepseek-v4-flash-free";
       autoupdate = true;

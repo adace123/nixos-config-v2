@@ -25,6 +25,7 @@
     # compatible with. This helps avoid breakage when a new Home Manager release
     # introduces backwards incompatible changes.
     stateVersion = "24.05";
+    enableNixpkgsReleaseCheck = false;
 
     # Packages to install for this user
     packages = with pkgs; [
@@ -64,7 +65,7 @@
     sessionVariables = {
       DIRENV_LOG_FORMAT = ""; # Hide direnv export output
       EDITOR = "nvim";
-      NH_FLAKE = "${config.home.homeDirectory}/Projects/nixos-config-v2"; # Enable nh commands without specifying flake path
+      NH_FLAKE = "${config.home.homeDirectory}/Projects/personal/nixos-config-v2"; # Enable nh commands without specifying flake path
     };
   };
 
@@ -206,9 +207,9 @@
           source <(carapace _carapace)
         fi
 
-        # Function to reset cursor on each prompt
+        # Set blinking bar cursor
         precmd() {
-          echo -ne '\e[6 q'
+          echo -ne '\e[5 q'
         }
 
         # Run fastfetch on new terminal
@@ -260,10 +261,10 @@
       enableZshIntegration = true;
 
       settings = {
-        # Use a preset for consistency
-        format = "$username$hostname$directory$git_branch$git_status$nix_shell$fill$cmd_duration$line_break$character";
+        # Minimal prompt below the solid bar
+        format = "$directory$fill$git_branch$git_status$nix_shell$cmd_duration$line_break$character";
 
-        add_newline = true;
+        add_newline = false;
 
         # Username
         username = {
@@ -308,7 +309,7 @@
           style = "bold red";
         };
 
-        # Character
+        # Character (blinking bar added via precmd)
         character = {
           success_symbol = "[⚛](bold green)";
           error_symbol = "[⚛](bold red)";
