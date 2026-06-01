@@ -7,6 +7,7 @@
 {
   imports = [
     ./claude.nix
+    ./hermes.nix
     ./opencode.nix
   ];
 
@@ -17,7 +18,9 @@
       ccstatusline
       ccusage
       hermes-agent
+      hermes-desktop
       pi
+      omp
     ];
 
     sessionVariables = {

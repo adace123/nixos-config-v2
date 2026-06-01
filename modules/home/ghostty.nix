@@ -36,6 +36,7 @@ in
     cursor-text = 1a1b26
     cursor-style = bar
     cursor-style-blink = true
+    adjust-cursor-thickness = 3
 
     # Selection colors
     selection-background = 33467c

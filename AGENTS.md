@@ -10,18 +10,15 @@ This is a Nix flake-based configuration for managing macOS systems using nix-dar
 
 ### Primary Commands
 
-- `just check` - Run all checks (flake check, format, lint, pre-commit)
-- `just validate` - Deep validation including home-manager type checking
+- `just check` - Run all checks (flake check, format, lint, pre-commit); `just validate` is an alias
 - `nix flake check --all-systems` - Check flake for errors across all systems
 - `nh darwin build` - Build configuration without activating (requires manual activation via `just switch` which needs password)
-- `nh darwin build` - Build without activating (using nh helper)
 - `nh clean` - Enhanced garbage collection with better UX
 - `nh search <pkg>` - Fast package search via Elasticsearch
 
 ### Formatting Commands
 
-- `nixpkgs-fmt **/*.nix` - Format all Nix files
-- `just fmt` - Format Nix files via justfile
+- `just fmt` - Format all Nix files via justfile
 
 ### Linting Commands
 
@@ -136,83 +133,6 @@ home.sessionVariables = {
 };
 ```
 
-## Module Organization
-
-### Directory Structure
-
-```text
-modules/
-├── darwin/           # System-level configuration
-│   ├── default.nix   # Main system config
-│   ├── homebrew.nix  # Homebrew packages
-│   ├── fonts.nix     # Font configuration
-│   └── auto-update.nix # Auto-update service
-└── home/             # User-level configuration
-    ├── default.nix   # Main user config
-    ├── python.nix    # Python development
-    ├── nodejs.nix    # Node.js development
-    ├── git.nix       # Git configuration
-    └── nvf/          # Neovim configuration
-```
-
-### Module Creation Guidelines
-
-1. Each module should be self-contained
-2. Use imports for composition over inheritance
-3. Provide sensible defaults
-4. Document complex configurations
-5. Handle missing dependencies gracefully
-
-## Development Workflow
-
-### Making Changes
-
-1. Edit configuration files
-2. Run `just fmt` to format Nix files (required before committing)
-3. Run `just check` to validate changes
-4. Build with `nh darwin build` (user must run `just switch` to activate)
-
-> **Important:** Always run `just fmt` after editing Nix files. The pre-commit hooks will fail without proper formatting.
-
-### Adding New Packages
-
-- System packages: Add to `modules/darwin/default.nix`
-- User packages: Add to `modules/home/default.nix`
-- Homebrew: Add to `modules/darwin/homebrew.nix`
-- Consider creating separate modules for complex configurations
-
-### Updating Dependencies
-
-- Run `just update` to update all flake inputs
-- Use `just update-input nixpkgs` for specific updates
-- Test thoroughly after updates
-
-## Special Considerations
-
-### Nixvim Module
-
-- Currently disabled due to Swift build dependency issues
-- To enable: uncomment `./nixvim.nix` in `modules/home/default.nix`
-- Consider binary cache if enabling
-
-### Determinate Nix
-
-- Using Determinate Nix installer instead of nix-darwin's Nix
-- Nix settings configured via `~/.config/nix/nix.conf`
-- Binary cache configured for llm-agents
-
-### Work SSH Configuration
-
-- Supports separate SSH keys for work/personal repos
-- Work repos in `~/Projects/work/` use work SSH key automatically
-- Configuration files not tracked in git for security
-
-## Pre-commit Integration
-
-- Comprehensive hook suite configured in `flake-parts/pre-commit.nix`
-- Uses `prek` as pre-commit implementation
-- Hooks automatically run in development shell
-
 ## Common Patterns
 
 ### Package Installation
@@ -263,6 +183,145 @@ systemd.user.services = {
 };
 ```
 
+## Module Organization
+
+### Directory Structure
+
+```text
+modules/
+├── darwin/              # System-level configuration
+│   ├── default.nix      # Main system config
+│   ├── homebrew.nix     # Homebrew packages
+│   ├── fonts.nix        # Font configuration
+│   └── auto-update.nix  # Auto-update service
+└── home/                # User-level configuration
+    ├── default.nix      # Main user config
+    ├── 1password-agent.nix # 1Password SSH agent
+    ├── ai/              # AI configuration (claude, hermes, opencode, skills)
+    ├── aerospace.nix    # Aerospace window manager
+    ├── fastfetch.nix    # System info display
+    ├── ghostty.nix      # Ghostty terminal emulator
+    ├── git.nix          # Git configuration
+    ├── nodejs.nix       # Node.js development
+    ├── nvf/             # Neovim (nvf) configuration
+    ├── nixvim.nix       # Nixvim module (disabled)
+    ├── python.nix       # Python development
+    ├── starship/        # Starship prompt config
+    ├── zed/             # Zed editor settings and keybindings
+    ├── zellij.nix       # Zellij terminal multiplexer
+    └── opnix.nix        # 1Password secrets (OpNix)
+```
+
+### Module Creation Guidelines
+
+1. Each module should be self-contained
+2. Use imports for composition over inheritance
+3. Provide sensible defaults
+4. Document complex configurations
+5. Handle missing dependencies gracefully
+
+## Hostnames
+
+The configuration targets a specific Darwin host. The default host is `endor` (set in `justfile`).
+
+```bash
+# Build for the default host (endor)
+nh darwin build
+
+# Override the hostname explicitly
+nh darwin switch -- --flake .#endor
+nix build .#darwinConfigurations.endor.system
+```
+
+## Development Workflow
+
+### Making Changes
+
+1. Edit configuration files
+2. Run `git add` for any **new files** — Nix flakes can only resolve git-tracked files
+3. Run `just fmt` to format Nix files (required before committing)
+4. Run `just check` to validate changes
+5. Build with `nh darwin build` (user must run `just switch` to activate)
+
+> **Important:** Always run `just fmt` after editing Nix files. The pre-commit hooks will fail without proper formatting.
+
+### Adding New Packages
+
+- System packages: Add to `modules/darwin/default.nix`
+- User packages: Add to `modules/home/default.nix`
+- Homebrew: Add to `modules/darwin/homebrew.nix`
+- Consider creating separate modules for complex configurations
+
+### Updating Dependencies
+
+- Run `just update` to update all flake inputs
+- Use `just update-input nixpkgs` for specific updates
+- Test thoroughly after updates
+
+## Special Considerations
+
+### Nixvim Module
+
+- Currently disabled due to Swift build dependency issues
+- To enable: uncomment `./nixvim.nix` in `modules/home/default.nix`
+- Consider binary cache if enabling
+
+### Determinate Nix
+
+- Using Determinate Nix installer instead of nix-darwin's Nix
+- Nix settings configured via `~/.config/nix/nix.conf`
+- Binary cache configured for llm-agents
+
+### Work SSH Configuration
+
+- Supports separate SSH keys for work/personal repos
+- Work repos in `~/Projects/work/` use work SSH key automatically
+- Configuration files not tracked in git for security
+
+## Pre-commit Integration
+
+- Comprehensive hook suite configured in `flake-parts/pre-commit.nix`
+- Uses `prek` as pre-commit implementation
+- Hooks run on `git commit` after installing via `pre-commit install`
+
+## Research Tools
+
+### grep-mcp_searchGitHub (MCP)
+
+Use this tool to search real-world code examples from millions of public GitHub repositories. This is particularly useful for:
+
+- Finding correct usage patterns for libraries, frameworks, and tools
+- Understanding how to configure tools like Zed, Neovim, etc.
+- Discovering correct CLI arguments and flags for external formatters/linters
+
+**When to use grep-mcp_searchGitHub:**
+
+- When the user describes a problem with external tools (Zed, Neovim plugins, linters, formatters)
+- When you need to look up correct configuration syntax for a tool
+- When NixOS/nix documentation doesn't cover the specific use case
+- When you need real-world examples of how others solved similar problems
+- **Crucial for Nix:** Because Nix documentation can be fragmented, always use the `language: ["Nix"]` filter when looking for how to configure a specific package or option in a flake/home-manager setup.
+
+**Examples:**
+
+```text
+# Find how others configure a specific Neovim plugin in Nix
+# (Ensure you pass the language filter: language=["Nix"])
+setupOpts = {
+
+# Find how others configure Python formatters in Zed
+# (query for actual code patterns, not questions)
+ruff format --stdin-filename
+
+# Find correct prettier arguments with buffer_path
+prettier --stdin-filepath
+
+# Find how others use specific Zed settings
+formatter.external
+```
+
+**Note:** Search for actual code that would appear in files, not keywords or questions.
+
 ## Debugging Tips
 
 ### Build Issues
@@ -287,41 +346,3 @@ systemd.user.services = {
 - [home-manager manual](https://nix-community.github.io/home-manager/)
 - [Nixpkgs search](https://search.nixos.org/packages)
 - [Nix language guide](https://nix.dev/manual/nix/stable/language/)
-
-## Research Tools
-
-### grep-mcp_searchGitHub (MCP)
-
-Use this tool to search real-world code examples from millions of public GitHub repositories. This is particularly useful for:
-
-- Finding correct usage patterns for libraries, frameworks, and tools
-- Understanding how to configure tools like Zed, Neovim, etc.
-- Discovering correct CLI arguments and flags for external formatters/linters
-
-**When to use grep-mcp_searchGitHub:**
-
-- When the user describes a problem with external tools (Zed, Neovim plugins, linters, formatters)
-- When you need to look up correct configuration syntax for a tool
-- When NixOS/nix documentation doesn't cover the specific use case
-- When you need real-world examples of how others solved similar problems
-- **Crucial for Nix:** Because Nix documentation can be fragmented, always use the `language: ["Nix"]` filter when looking for how to configure a specific package or option in a flake/home-manager setup.
-
-**Examples:**
-
-```bash
-# Find how others configure a specific Neovim plugin in Nix
-# (Ensure you pass the language filter: language=["Nix"])
-setupOpts = {
-
-# Find how others configure Python formatters in Zed
-# (query for actual code patterns, not questions)
-ruff format --stdin-filename
-
-# Find correct prettier arguments with buffer_path
-prettier --stdin-filepath
-
-# Find how others use specific Zed settings
-formatter.external
-```
-
-**Note:** Search for actual code that would appear in files, not keywords or questions.

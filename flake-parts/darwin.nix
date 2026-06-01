@@ -18,6 +18,7 @@
             useUserPackages = true;
             backupFileExtension = "backup";
             sharedModules = [
+              inputs.opnix.homeManagerModules.default
               inputs.zed-extensions.homeManagerModules.default
             ];
             users.aaron = {
