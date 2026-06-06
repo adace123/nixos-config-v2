@@ -40,7 +40,7 @@ in
         "energy"
         "cloud"
       ];
-      extraPackages = [ ];
+      extraPackages = _: [ ];
     };
     customComponents = [ ];
     configWritable = true;
