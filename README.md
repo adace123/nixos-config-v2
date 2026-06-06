@@ -221,18 +221,25 @@ on a remote machine over SSH in a single step — no need to build flash images.
    > `aarch64-linux` derivations. nixos-anywhere builds them on the Pi itself
    > via SSH, so no local emulation is needed.
 
-### Building the SD Image via GitHub Actions
+### Building a Minimal Installer SD Image via GitHub Actions
 
-If you don't want to install via SSH or want a flashable image, trigger the
-GitHub Actions workflow:
+The SD image is a minimal installer with just SSH, Tailscale, and networking.
+On first boot, deploy the full Home Assistant configuration:
+
+```bash
+# SSH in and pull the full config
+nixos-rebuild switch --flake github:adace123/nixos-config-v2#coruscant \
+  --target-host root@coruscant-installer.local
+```
+
+Trigger the CI build:
 
 ```bash
 gh workflow run build-sd-image.yml --ref main
 ```
 
 Or go to Actions → Build Raspberry Pi SD Image → Run workflow in the GitHub UI.
-
-Download the compressed image from the workflow run artifacts and flash:
+Download the compressed image from artifacts and flash:
 
 ```bash
 unzstd -d nixos-sd-image-*.img.zst -o nixos-sd-image.img
