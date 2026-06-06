@@ -47,6 +47,7 @@ validate: check
 # Build the Darwin configuration without activating
 build:
     #!/usr/bin/env bash
+    set -euo pipefail
     if command -v nh &> /dev/null; then
         nh darwin build .#darwinConfigurations.{{ HOST }}
     else

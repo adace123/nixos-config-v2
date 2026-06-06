@@ -10,6 +10,9 @@
       upgrade = true;
       # Remove unlisted packages and casks
       cleanup = "zap";
+      # Newer Homebrew requires --force-cleanup to actually apply cleanup (HOMEBREW_ASK
+      # no longer works — it exits with code 1 in non-TTY environments)
+      extraFlags = [ "--force-cleanup" ];
     };
 
     # Global settings
@@ -33,6 +36,11 @@
       "ykman" # YubiKey Manager CLI
       "common-fate/granted/granted" # AWS credentials manager
       "terminal-notifier" # macOS notification tool
+
+      # Dependencies for ykman / pam-u2f (must be explicit with cleanup = "zap")
+      "cryptography"
+      "libcbor"
+      "libfido2"
     ];
 
     # Casks (GUI applications)
