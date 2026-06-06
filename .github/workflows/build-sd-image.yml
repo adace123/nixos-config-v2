@@ -21,8 +21,6 @@ jobs:
         uses: DeterminateSystems/nix-installer-action@v16
         with:
           flakehub: false
-      - name: Cache Nix store
-        uses: DeterminateSystems/magic-nix-cache-action@v9
       - name: Enable aarch64-linux emulation
         uses: docker/setup-qemu-action@v3
         with:
