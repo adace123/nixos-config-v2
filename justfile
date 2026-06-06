@@ -125,11 +125,16 @@ nixos-build-ci:
         exit 1
     fi
     echo "Triggering CI build for {{ NHOST }}..."
-    RUN_ID=$(gh workflow run build-sd-image.yml --ref main --field host={{ NHOST }} --json 2>/dev/null | jq -r '.id' || gh run list --workflow build-sd-image.yml --limit 1 --json databaseId --jq '.[0].databaseId')
+    URL=$(gh workflow run build-sd-image.yml --ref main --field host={{ NHOST }})
+    echo "$URL"
+    RUN_ID=$(echo "$URL" | grep -oE '[0-9]+$')
     if [ -z "$RUN_ID" ]; then
-        echo "Could not get run ID. Checking latest run..."
-        gh run list --workflow build-sd-image.yml --limit 1
+        echo "Could not parse run ID from URL, falling back to latest run..."
         RUN_ID=$(gh run list --workflow build-sd-image.yml --limit 1 --json databaseId --jq '.[0].databaseId')
+    fi
+    if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
+        echo "ERROR: No run ID found."
+        exit 1
     fi
     echo "Run ID: $RUN_ID"
     echo "Waiting for build to complete (this takes ~30-60 min)..."
