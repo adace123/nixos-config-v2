@@ -21,13 +21,13 @@ jobs:
         uses: DeterminateSystems/nix-installer-action@v16
         with:
           flakehub: false
+          extra-conf: |
+            extra-platforms = aarch64-linux
+            sandbox = false
       - name: Enable aarch64-linux emulation
         uses: docker/setup-qemu-action@v3
         with:
           platforms: arm64
-      - name: Configure binfmt for Nix
-        run: |
-          sudo bash -c 'echo ":aarch64-linux:M::\x7fELF\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\xb7\x00:\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff\xff:/run/binfmt/qemu-aarch64:C" > /proc/sys/fs/binfmt_misc/register' || true
       - name: Build SD image
         run: |
           nix build .#nixosConfigurations.${{ inputs.host || 'coruscant' }}-sd-image.config.system.build.sdImage \
