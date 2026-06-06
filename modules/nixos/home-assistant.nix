@@ -36,7 +36,6 @@ in
         "intent_script"
         "alert"
         "panel_custom"
-        "panel_iframe"
         "hassio"
         "energy"
         "map"
