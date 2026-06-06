@@ -61,26 +61,32 @@ let
   '';
 in
 {
-  virtualisation.oci-containers = {
-    backend = "docker";
-    containers.home-assistant = {
-      image = "ghcr.io/home-assistant/home-assistant:stable";
-      autoStart = true;
-      volumes = [
-        "${hassDir}:/config"
-        "/etc/localtime:/etc/localtime:ro"
-      ];
-      environment.TZ = config.time.timeZone;
-      extraOptions = [
-        "--network=host"
-        "--group-add=dialout"
-        "--cap-add=NET_ADMIN"
-        "--cap-add=NET_RAW"
-      ];
+  virtualisation = {
+    podman.autoPrune = {
+      enable = true;
+      dates = "weekly";
+    };
+    oci-containers = {
+      backend = "podman";
+      containers.home-assistant = {
+        image = "ghcr.io/home-assistant/home-assistant:stable";
+        autoStart = true;
+        volumes = [
+          "${hassDir}:/config"
+          "/etc/localtime:/etc/localtime:ro"
+        ];
+        environment.TZ = config.time.timeZone;
+        extraOptions = [
+          "--network=host"
+          "--group-add=dialout"
+          "--cap-add=NET_ADMIN"
+          "--cap-add=NET_RAW"
+        ];
+      };
     };
   };
 
-  systemd.services."docker-home-assistant" = {
+  systemd.services."podman-home-assistant" = {
     after = [ "mosquitto.service" ];
     requires = [ "mosquitto.service" ];
   };
