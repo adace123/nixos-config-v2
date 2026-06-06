@@ -7,6 +7,9 @@ default:
 # Default Darwin configuration hostname (override with: just <recipe> HOST=<name>)
 HOST := "endor"
 
+# Default NixOS configuration hostname (override with: just <recipe> NHOST=<name>)
+NHOST := "coruscant"
+
 install-nix:
     curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
 
@@ -90,6 +93,74 @@ switch:
     elif command -v osascript &> /dev/null; then
         osascript -e 'display notification "System configuration updated successfully!" with title "✅ Nix-Darwin Switch Complete"'
     fi
+
+# One-shot NixOS install on Raspberry Pi (expects Raspberry Pi OS with SSH)
+nixos-init:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Installing NixOS on {{ NHOST }}.local via nixos-anywhere..."
+    nix run github:nix-community/nixos-anywhere -- --flake .#{{ NHOST }} root@{{ NHOST }}.local
+
+# Build the NixOS configuration for Raspberry Pi
+nixos-build:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    nix build .#nixosConfigurations.{{ NHOST }}.config.system.build.toplevel --out-link result-nixos
+
+# Build and flash an SD card image for the Pi (device e.g. /dev/sda)
+nixos-flash DEVICE:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    nix build .#nixosConfigurations.{{ NHOST }}-sd-image.config.system.build.sdImage --out-link result-sd
+    IMG=$(echo result-sd/sd-image/*.img.zst)
+    unzstd -d -f "$IMG" -o /tmp/nixos-sd-image-{{ NHOST }}.img
+    sudo dd if=/tmp/nixos-sd-image-{{ NHOST }}.img of={{ DEVICE }} bs=1M status=progress conv=fsync
+
+# Build SD image via GitHub Actions and download it
+nixos-build-ci:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! command -v gh &> /dev/null; then
+        echo "gh (GitHub CLI) is required. Install it with: brew install gh"
+        exit 1
+    fi
+    echo "Triggering CI build for {{ NHOST }}..."
+    RUN_ID=$(gh workflow run build-sd-image.yml --ref main --field host={{ NHOST }} --json 2>/dev/null | jq -r '.id' || gh run list --workflow build-sd-image.yml --limit 1 --json databaseId --jq '.[0].databaseId')
+    if [ -z "$RUN_ID" ]; then
+        echo "Could not get run ID. Checking latest run..."
+        gh run list --workflow build-sd-image.yml --limit 1
+        RUN_ID=$(gh run list --workflow build-sd-image.yml --limit 1 --json databaseId --jq '.[0].databaseId')
+    fi
+    echo "Run ID: $RUN_ID"
+    echo "Waiting for build to complete (this takes ~30-60 min)..."
+    gh run watch "$RUN_ID" --exit-status
+    echo "Downloading artifact..."
+    gh run download "$RUN_ID" --name "nixos-sd-image-{{ NHOST }}" --dir result-sd-ci
+    echo "Image saved to result-sd-ci/"
+
+# Deploy NixOS configuration to Raspberry Pi via SSH
+nixos-deploy:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    nixos-rebuild switch --flake .#{{ NHOST }} --target-host root@{{ NHOST }}.local --build-host root@{{ NHOST }}.local --use-remote-sudo
+
+# Deploy NixOS configuration to Raspberry Pi with custom IP
+nixos-deploy-ip IP:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    nixos-rebuild switch --flake .#{{ NHOST }} --target-host root@{{ IP }} --build-host root@{{ IP }}
+
+# Show NixOS generations on remote host
+nixos-generations:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    nixos-rebuild --list-generations --flake .#{{ NHOST }} --target-host root@{{ NHOST }}.local
+
+# Rollback NixOS on remote host
+nixos-rollback:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    nixos-rebuild --rollback --flake .#{{ NHOST }} --target-host root@{{ NHOST }}.local
 
 # Show available system generations
 generations:

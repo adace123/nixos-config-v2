@@ -7,6 +7,7 @@
   perSystem =
     {
       config,
+      lib,
       pkgs,
       inputs',
       ...
@@ -77,19 +78,23 @@
           config.pre-commit.devShell
         ];
 
-        packages = with pkgs; [
-          # Nix tools
-          nil
-          nixd
-          inputs'.darwin.packages.darwin-rebuild
+        packages =
+          with pkgs;
+          [
+            # Nix tools
+            nil
+            nixd
 
-          # Development utilities
-          git
-          just
+            # Development utilities
+            git
+            just
 
-          # Documentation
-          mdbook
-        ];
+            # Documentation
+            mdbook
+          ]
+          ++ lib.optionals pkgs.stdenv.isDarwin [
+            inputs'.darwin.packages.darwin-rebuild
+          ];
 
         shellHook = ''
           echo "🚀 Welcome to nixos-config-v2 development shell"

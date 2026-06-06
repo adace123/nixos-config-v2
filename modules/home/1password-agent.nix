@@ -5,6 +5,10 @@ _: {
     item = "Work SSH Key"
 
     [[ssh-keys]]
+    vault = "Employee"
+    item = "Snowflake SSH Key"
+
+    [[ssh-keys]]
     vault = "Development"
     item = "GitHub SSH Key"
   '';

@@ -173,6 +173,150 @@ just generations
 just rollback
 ```
 
+## Raspberry Pi Setup (NixOS)
+
+This flake includes a NixOS configuration for a Raspberry Pi 4 (`coruscant`)
+running Home Assistant, Zigbee2MQTT, Mosquitto, and ESPHome.
+
+### Pi-Specific Prerequisites
+
+- Raspberry Pi 4 with SD card and power
+- Network connectivity (Ethernet recommended)
+- Raspberry Pi OS Lite flashed to the SD card (for initial boot)
+
+### One-shot Installation with nixos-anywhere
+
+[nixos-anywhere](https://github.com/nix-community/nixos-anywhere) installs NixOS
+on a remote machine over SSH in a single step — no need to build flash images.
+
+1. Boot the Pi from a Raspberry Pi OS SD card, ensure SSH is enabled:
+
+   ```bash
+   # On your build machine, flash Raspberry Pi OS Lite, then mount the
+   # boot partition and create an empty ssh file to enable headless SSH:
+   touch /mnt/boot/ssh
+   ```
+
+2. Insert the SD card, power on the Pi, find its IP, then run (avahi/.local hostname works if your network supports mDNS):
+
+   ```bash
+   just nixos-init
+   ```
+
+   Or directly:
+
+   ```bash
+   nix run github:nix-community/nixos-anywhere -- \
+     --flake .#coruscant \
+     root@coruscant.local
+   ```
+
+   nixos-anywhere will:
+   - SSH into the Pi running Raspberry Pi OS
+   - Partition the SD card and create filesystems
+   - Install NixOS with this flake's configuration
+   - Reboot into NixOS
+
+   > **Note:** The first build evaluates on your machine but builds
+   > `aarch64-linux` derivations. nixos-anywhere builds them on the Pi itself
+   > via SSH, so no local emulation is needed.
+
+### Building the SD Image via GitHub Actions
+
+If you don't want to install via SSH or want a flashable image, trigger the
+GitHub Actions workflow:
+
+```bash
+gh workflow run build-sd-image.yml --ref main
+```
+
+Or go to Actions → Build Raspberry Pi SD Image → Run workflow in the GitHub UI.
+
+Download the compressed image from the workflow run artifacts and flash:
+
+```bash
+unzstd -d nixos-sd-image-*.img.zst -o nixos-sd-image.img
+sudo dd if=nixos-sd-image.img of=/dev/sdX bs=1M status=progress
+```
+
+### Flashing a Local Build
+
+On a machine with `aarch64-linux` support (or a remote builder), build and
+flash directly:
+
+```bash
+just nixos-flash /dev/sdX
+```
+
+1. After reboot, SSH into the Pi (passwordless auth via SSH key):
+
+   ```bash
+   ssh root@coruscant.local
+   ```
+
+### WiFi Configuration
+
+The Pi is configured for Ethernet by default. To enable WiFi, set the
+`WIFI_SSID` and `WIFI_PSK` environment variables when building:
+
+```bash
+WIFI_SSID=MyNetwork WIFI_PSK=supersecret just nixos-deploy
+```
+
+Or for nixos-anywhere:
+
+```bash
+WIFI_SSID=MyNetwork WIFI_PSK=supersecret just nixos-init
+```
+
+When these env vars are unset, WiFi is disabled — Ethernet-only mode.
+
+### Tailscale
+
+Tailscale is enabled and will start on boot. On first boot, SSH in and
+authenticate:
+
+```bash
+ssh root@coruscant.local
+tailscale up
+```
+
+Follow the URL to authenticate in your browser. For automated setup, use a
+[pre-auth key](https://tailscale.com/kb/1085/auth-keys) by setting
+`services.tailscale.authKeyFile` in `modules/nixos/common.nix`.
+
+Once authenticated, you can SSH via Tailscale from anywhere:
+
+```bash
+ssh root@coruscant.tailnet-name.ts.net
+```
+
+### Updating Remotely
+
+```bash
+just nixos-deploy
+```
+
+Or directly:
+
+```bash
+nixos-rebuild switch \
+  --flake .#coruscant \
+  --target-host root@coruscant.local \
+  --use-remote-sudo
+```
+
+### Included Services
+
+| Service          | Port | Description                           |
+|------------------|------|---------------------------------------|
+| Home Assistant   | 8123 | Smart home automation                 |
+| Mosquitto (MQTT) | 1883 | MQTT broker for device communication  |
+| Zigbee2MQTT      | 8091 | Zigbee to MQTT bridge                 |
+| ESPHome          | 6052 | ESP32/ESP8266 device management       |
+
+All services are configured in `modules/nixos/home-assistant.nix`.
+
 ## Structure
 
 ```text
