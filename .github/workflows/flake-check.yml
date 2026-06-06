@@ -22,6 +22,16 @@ jobs:
           flakehub: false
       - name: Flake eval smoke check
         run: nix flake show
+  linux-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v16
+        with:
+          flakehub: false
+      - name: Check Nix flake (Linux)
+        run: nix flake check
   darwin-check:
     runs-on: macos-latest
     steps:
@@ -31,4 +41,4 @@ jobs:
         with:
           flakehub: false
       - name: Check Nix flake (Darwin)
-        run: nix flake check --all-systems
+        run: nix flake check
