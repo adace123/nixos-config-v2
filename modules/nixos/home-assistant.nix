@@ -38,7 +38,6 @@ in
         "panel_custom"
         "hassio"
         "energy"
-        "map"
         "cloud"
       ];
       extraPackages = [ ];
