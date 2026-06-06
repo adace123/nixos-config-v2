@@ -5,93 +5,84 @@
 }:
 let
   hassDir = "/var/lib/hass";
+
+  configurationYaml = pkgs.writeText "configuration.yaml" ''
+    default_config:
+
+    automation ui: !include automations.yaml
+    scene ui: !include scenes.yaml
+    script ui: !include scripts.yaml
+
+    http:
+      server_host: "::"
+      server_port: 8123
+      use_x_forwarded_for: true
+      trusted_proxies:
+        - 127.0.0.1
+        - ::1
+
+    logger:
+      default: info
+      logs:
+        homeassistant: info
+        homeassistant.components: warning
+
+    recorder:
+      purge_keep_days: 10
+      db_url: sqlite:///config/home-assistant_v2.db
+
+    history:
+
+    logbook:
+
+    sun:
+
+    system_health:
+
+    frontend:
+
+    config:
+
+    mobile_app:
+
+    discovery:
+
+    zeroconf:
+
+    homeassistant:
+      name: Coruscant
+      latitude: 0.0
+      longitude: 0.0
+      elevation: 0
+      unit_system: metric
+      time_zone: ${config.time.timeZone}
+      external_url: http://coruscant.local:8123
+      internal_url: http://coruscant.local:8123
+  '';
 in
 {
-  services.home-assistant = {
-    enable = true;
-    package = pkgs.home-assistant.override {
-      extraComponents = [
-        "esphome"
-        "met"
-        "radio_browser"
-        "systemmonitor"
-        "bthome"
-        "nextcloud"
-        "unifi_direct"
-        "unifi"
-        "openweathermap"
-        "tasmota"
-        "icloud"
-        "mqtt"
-        "zwave_js"
-        "zha"
-        "bluetooth"
-        "homekit"
-        "wake_on_lan"
-        "calendar"
-        "weather"
-        "todo"
-        "assist_pipeline"
-        "intent"
-        "intent_script"
-        "alert"
-        "panel_custom"
-        "hassio"
-        "energy"
-        "cloud"
+  virtualisation.oci-containers = {
+    backend = "docker";
+    containers.home-assistant = {
+      image = "ghcr.io/home-assistant/home-assistant:stable";
+      autoStart = true;
+      volumes = [
+        "${hassDir}:/config"
+        "/etc/localtime:/etc/localtime:ro"
       ];
-      extraPackages = _: [ ];
+      environment.TZ = config.time.timeZone;
+      extraOptions = [
+        "--network=host"
+        "--group-add=dialout"
+        "--cap-add=NET_ADMIN"
+        "--cap-add=NET_RAW"
+      ];
     };
-    customComponents = [ ];
-    configWritable = true;
-    openFirewall = true;
-    config = {
-      default_config = { };
-      "automation ui" = "!include automations.yaml";
-      "scene ui" = "!include scenes.yaml";
-      "script ui" = "!include scripts.yaml";
-      http = {
-        server_host = "0.0.0.0";
-        server_port = 8123;
-        use_x_forwarded_for = true;
-        trusted_proxies = [
-          "127.0.0.1"
-          "10.0.0.0/8"
-          "172.16.0.0/12"
-          "192.168.0.0/16"
-        ];
-      };
-      logger = {
-        default = "info";
-        logs = {
-          "homeassistant" = "info";
-          "homeassistant.components" = "warning";
-        };
-      };
-      recorder = {
-        purge_keep_days = 10;
-        db_url = "sqlite:///${hassDir}/home-assistant_v2.db";
-      };
-      history = { };
-      logbook = { };
-      sun = { };
-      system_health = { };
-      frontend = { };
-      config = { };
-      mobile_app = { };
-      discovery = { };
-      zeroconf = { };
-      homeassistant = {
-        name = "Coruscant";
-        latitude = 0.0;
-        longitude = 0.0;
-        elevation = 0;
-        unit_system = "metric";
-        time_zone = config.time.timeZone;
-        external_url = "http://coruscant.local:8123";
-        internal_url = "http://coruscant.local:8123";
-      };
-    };
+  };
+
+  systemd.services."docker-home-assistant" = {
+    after = [ "mosquitto.service" ];
+    requires = [ "mosquitto.service" ];
   };
 
   systemd.tmpfiles.rules = [
@@ -99,12 +90,13 @@ in
     "f ${hassDir}/automations.yaml 0644 hass hass - -"
     "f ${hassDir}/scenes.yaml 0644 hass hass - -"
     "f ${hassDir}/scripts.yaml 0644 hass hass - -"
-    "f ${hassDir}/configuration.yaml 0644 hass hass - -"
+    "L+ ${hassDir}/configuration.yaml - - - - ${configurationYaml}"
   ];
 
   users.users.hass = {
     isSystemUser = true;
     description = "Home Assistant user";
+    group = "hass";
     extraGroups = [
       "dialout"
       "gpio"
@@ -113,6 +105,8 @@ in
     home = hassDir;
     shell = pkgs.bash;
   };
+
+  users.groups.hass = { };
 
   services.mosquitto = {
     enable = true;
@@ -128,6 +122,28 @@ in
     ];
   };
 
+  services.zigbee2mqtt = {
+    enable = true;
+    settings = {
+      homeassistant.enabled = true;
+      permit_join = true;
+      mqtt = {
+        base_topic = "zigbee2mqtt";
+        server = "mqtt://localhost:1883";
+      };
+      serial = {
+        port = "/dev/ttyUSB0";
+        adapter = "ezsp";
+      };
+      frontend.port = 8091;
+    };
+  };
+
+  services.esphome = {
+    enable = true;
+    openFirewall = true;
+  };
+
   environment.systemPackages = with pkgs; [
     nmap
     iputils
@@ -140,30 +156,4 @@ in
     wiringpi
     zigbee2mqtt
   ];
-
-  services.zigbee2mqtt = {
-    enable = true;
-    settings = {
-      homeassistant = {
-        enabled = true;
-      };
-      permit_join = true;
-      mqtt = {
-        base_topic = "zigbee2mqtt";
-        server = "mqtt://localhost:1883";
-      };
-      serial = {
-        port = "/dev/ttyUSB0";
-        adapter = "ezsp";
-      };
-      frontend = {
-        port = 8091;
-      };
-    };
-  };
-
-  services.esphome = {
-    enable = true;
-    openFirewall = true;
-  };
 }
