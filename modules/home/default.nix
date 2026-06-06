@@ -43,6 +43,7 @@
       tree
       direnv # Automatic environment loading
       just # Command runner
+      yamlfmt # YAML formatter
       zoxide # Smart directory jumping
       glab
       nh # Nix helper for better rebuild/clean/search UX
