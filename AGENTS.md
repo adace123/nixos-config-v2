@@ -240,7 +240,8 @@ nix build .#darwinConfigurations.endor.system
 2. Run `git add` for any **new files** — Nix flakes can only resolve git-tracked files
 3. Run `just fmt` to format Nix files (required before committing)
 4. Run `just check` to validate changes
-5. Build with `nh darwin build` (user must run `just switch` to activate)
+5. Check if documentation (README.md, AGENTS.md) needs updating to reflect the changes — especially when adding/removing modules, changing workflows, or updating commands.
+6. Build with `nh darwin build` (user must run `just switch` to activate)
 
 > **Important:** Always run `just fmt` after editing Nix files. The pre-commit hooks will fail without proper formatting.
 
