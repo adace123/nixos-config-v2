@@ -211,6 +211,23 @@ metadata:
 dev:
     nix develop
 
+# Backup the sops age key to 1Password as a document
+backup-key:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    KEYFILE="$HOME/.config/sops/age/keys.txt"
+    if [ ! -f "$KEYFILE" ]; then
+        echo "ERROR: Age key not found at $KEYFILE. Run 'just init-sops' first."
+        exit 1
+    fi
+    if ! command -v op &> /dev/null; then
+        echo "ERROR: 1Password CLI (op) is required. Install it via: brew install 1password-cli"
+        exit 1
+    fi
+    echo "Storing age key in 1Password..."
+    op document create "$KEYFILE" --title "sops-nix age key" --tags "sops-nix,age-key"
+    echo "Done. The key can be restored from 1Password if needed."
+
 # Edit sops-encrypted secrets in $EDITOR (default: secrets/default.yaml)
 edit-secrets FILE="secrets/default.yaml":
     #!/usr/bin/env bash
@@ -275,16 +292,6 @@ diff:
 # Setup work SSH keys and configuration
 setup-work-ssh:
     ./scripts/setup-work-ssh.sh
-
-# Store the OpNix 1Password service account token
-opnix-token-set:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if command -v opnix &> /dev/null; then
-        sudo opnix token set
-    else
-        sudo nix run github:brizzbuzz/opnix -- token set
-    fi
 
 # Check for available updates (pulls if flake.lock changed, notifies via macOS)
 check-updates:

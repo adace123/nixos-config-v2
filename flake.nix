@@ -53,8 +53,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    opnix.url = "github:brizzbuzz/opnix";
-
     zed-extensions = {
       url = "github:DuskSystems/nix-zed-extensions";
       inputs.nixpkgs.follows = "nixpkgs";

@@ -208,8 +208,7 @@ modules/
     ├── python.nix       # Python development
     ├── starship/        # Starship prompt config
     ├── zed/             # Zed editor settings and keybindings
-    ├── zellij.nix       # Zellij terminal multiplexer
-    └── opnix.nix        # 1Password secrets (OpNix)
+    └── zellij.nix       # Zellij terminal multiplexer
 ```
 
 ### Module Creation Guidelines

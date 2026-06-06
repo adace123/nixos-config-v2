@@ -25,7 +25,7 @@
   # ── Hermes .env secrets (via OpNix / 1Password) ─────────────────
   # API keys and credentials for Hermes web search, providers, etc.
   # Actual values resolved from 1Password at build time by OpNix.
-  # Manually editable after deploy — opnix writes a real file, not a
+  # Manually editable after deploy — writes a real file, not a
   # nix-store symlink.
   programs.onepassword-secrets.secrets = {
     opencodeApiKey = {
