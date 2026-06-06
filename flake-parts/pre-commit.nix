@@ -91,6 +91,10 @@
 
             # Documentation
             mdbook
+
+            # Secrets management (sops-nix)
+            age
+            sops
           ]
           ++ lib.optionals pkgs.stdenv.isDarwin [
             inputs'.darwin.packages.darwin-rebuild

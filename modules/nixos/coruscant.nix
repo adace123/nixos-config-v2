@@ -1,4 +1,4 @@
-{ lib, ... }:
+{ ... }:
 {
   imports = [
     ./common.nix
@@ -9,20 +9,27 @@
   networking.hostName = "coruscant";
   networking.useDHCP = true;
 
-  # WiFi warning when env vars are not set
-  warnings = lib.optional (builtins.getEnv "WIFI_SSID" == "") ''
-    WiFi is not configured. Set WIFI_SSID and WIFI_PSK environment variables
-    at build time to enable wireless networking (e.g. WIFI_SSID=MyNetwork WIFI_PSK=secret just nixos-deploy).
-    The Pi will use Ethernet only.
-  '';
-
-  # WiFi (wpa_supplicant) — set WIFI_SSID and WIFI_PSK env vars at build time.
-  # Used as fallback when Ethernet is unavailable.
-  networking.wireless = lib.mkIf (builtins.getEnv "WIFI_SSID" != "") {
-    enable = true;
-    networks."${builtins.getEnv "WIFI_SSID"}" = {
-      psk = builtins.getEnv "WIFI_PSK";
+  sops = {
+    defaultSopsFile = ../secrets/default.yaml;
+    age.keyFile = "/var/lib/sops/age-key.txt";
+    secrets."wpa-supplicant" = {
+      neededForUsers = true;
     };
+  };
+
+  # WiFi (wpa_supplicant) — SSID/PSK from sops secret loaded at runtime.
+  # Used as fallback when Ethernet is unavailable.
+  networking.wireless = {
+    enable = true;
+    extraConfigFiles = [
+      "/run/secrets/wpa-supplicant"
+    ];
+  };
+
+  # Ensure wpa_supplicant has the secrets before starting
+  systemd.services.wpa_supplicant = {
+    wants = [ "sops-init.service" ];
+    after = [ "sops-init.service" ];
   };
 
   # Enable mDNS for local network discovery

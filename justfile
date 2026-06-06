@@ -95,11 +95,17 @@ switch:
     fi
 
 # One-shot NixOS install on Raspberry Pi (expects Raspberry Pi OS with SSH)
+# Copies nixos-files/ to target root (e.g., the sops age key for first-boot WiFi)
 nixos-init:
     #!/usr/bin/env bash
     set -euo pipefail
+    KEYFILE="nixos-files/var/lib/sops/age-key.txt"
+    if [ ! -f "$KEYFILE" ]; then
+        echo "ERROR: $KEYFILE not found. Run 'just init-sops' first."
+        exit 1
+    fi
     echo "Installing NixOS on {{ NHOST }}.local via nixos-anywhere..."
-    nix run github:nix-community/nixos-anywhere -- --flake .#{{ NHOST }} root@{{ NHOST }}.local
+    nix run github:nix-community/nixos-anywhere -- --extra-files ./nixos-files --flake .#{{ NHOST }} root@{{ NHOST }}.local
 
 # Build the NixOS configuration for Raspberry Pi
 nixos-build:
@@ -204,6 +210,34 @@ metadata:
 # Enter development shell
 dev:
     nix develop
+
+# Edit sops-encrypted secrets in $EDITOR (default: secrets/default.yaml)
+edit-secrets FILE="secrets/default.yaml":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ ! -f "{{ FILE }}" ]; then
+        echo "File not found: {{ FILE }}"
+        exit 1
+    fi
+    nix shell nixpkgs#sops nixpkgs#age -c sops "{{ FILE }}"
+
+# Generate an age key for sops-nix (idempotent — skips if key exists)
+init-sops:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    KEYFILE=~/.config/sops/age/keys.txt
+    mkdir -p "$(dirname "$KEYFILE")"
+    if [ -f "$KEYFILE" ]; then
+        echo "Age key already exists at $KEYFILE"
+        echo "Public key:"
+        grep "^# public key:" "$KEYFILE"
+    else
+        nix shell nixpkgs#age -c age-keygen -o "$KEYFILE"
+        echo ""
+        echo "Age key created at $KEYFILE"
+        echo "Add this public key to .sops.yaml:"
+        grep "^# public key:" "$KEYFILE"
+    fi
 
 # Clean up old generations older than 30 days
 clean:

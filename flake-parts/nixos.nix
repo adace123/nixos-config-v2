@@ -11,6 +11,7 @@ in
         nixos-raspberrypi.lib.inject-overlays
         nixos-raspberrypi.nixosModules.raspberry-pi-4.base
         nixos-raspberrypi.nixosModules.raspberry-pi-4.bluetooth
+        inputs.sops-nix.nixosModules.sops
         ../modules/nixos/coruscant.nix
       ];
     };
@@ -23,6 +24,7 @@ in
         nixos-raspberrypi.nixosModules.raspberry-pi-4.base
         nixos-raspberrypi.nixosModules.raspberry-pi-4.bluetooth
         nixos-raspberrypi.nixosModules.sd-image
+        inputs.sops-nix.nixosModules.sops
         ../modules/nixos/installer.nix
       ];
     };

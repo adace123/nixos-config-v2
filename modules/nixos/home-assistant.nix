@@ -5,60 +5,6 @@
 }:
 let
   hassDir = "/var/lib/hass";
-
-  configurationYaml = pkgs.writeText "configuration.yaml" ''
-    default_config:
-
-    automation ui: !include automations.yaml
-    scene ui: !include scenes.yaml
-    script ui: !include scripts.yaml
-
-    http:
-      server_host: "::"
-      server_port: 8123
-      use_x_forwarded_for: true
-      trusted_proxies:
-        - 127.0.0.1
-        - ::1
-
-    logger:
-      default: info
-      logs:
-        homeassistant: info
-        homeassistant.components: warning
-
-    recorder:
-      purge_keep_days: 10
-      db_url: sqlite:///config/home-assistant_v2.db
-
-    history:
-
-    logbook:
-
-    sun:
-
-    system_health:
-
-    frontend:
-
-    config:
-
-    mobile_app:
-
-    discovery:
-
-    zeroconf:
-
-    homeassistant:
-      name: Coruscant
-      latitude: 0.0
-      longitude: 0.0
-      elevation: 0
-      unit_system: metric
-      time_zone: ${config.time.timeZone}
-      external_url: http://coruscant.local:8123
-      internal_url: http://coruscant.local:8123
-  '';
 in
 {
   virtualisation = {
@@ -75,6 +21,10 @@ in
           "${hassDir}:/config"
           "/etc/localtime:/etc/localtime:ro"
         ];
+        pull = "newer";
+        labels = {
+          "io.containers.autoupdate" = "registry";
+        };
         environment.TZ = config.time.timeZone;
         extraOptions = [
           "--network=host"
@@ -91,13 +41,35 @@ in
     requires = [ "mosquitto.service" ];
   };
 
-  systemd.tmpfiles.rules = [
-    "d ${hassDir} 0755 hass hass - -"
-    "f ${hassDir}/automations.yaml 0644 hass hass - -"
-    "f ${hassDir}/scenes.yaml 0644 hass hass - -"
-    "f ${hassDir}/scripts.yaml 0644 hass hass - -"
-    "L+ ${hassDir}/configuration.yaml - - - - ${configurationYaml}"
-  ];
+  # Podman auto-update: containers with io.containers.autoupdate=registry
+  # get their images pulled weekly and are restarted automatically.
+  systemd.services."podman-auto-update" = {
+    wants = [ "network-online.target" ];
+    after = [ "network-online.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${pkgs.podman}/bin/podman auto-update";
+      ExecStartPost = "${pkgs.podman}/bin/podman image prune -f";
+    };
+  };
+
+  systemd.timers."podman-auto-update" = {
+    wantedBy = [ "timers.target" ];
+    timerConfig.OnCalendar = "weekly";
+  };
+
+  system.activationScripts.home-assistant-config = {
+    text = ''
+      mkdir -p ${hassDir}
+      ${pkgs.coreutils}/bin/cp --update ${./configuration.yaml} ${hassDir}/configuration.yaml
+      ${pkgs.gnused}/bin/sed -i "s/__TIME_ZONE__/${config.time.timeZone}/g" ${hassDir}/configuration.yaml
+      touch ${hassDir}/automations.yaml
+      touch ${hassDir}/scenes.yaml
+      touch ${hassDir}/scripts.yaml
+      ${pkgs.coreutils}/bin/chown -R hass:hass ${hassDir}
+    '';
+    deps = [ "users" ];
+  };
 
   users.users.hass = {
     isSystemUser = true;

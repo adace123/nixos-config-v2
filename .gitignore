@@ -40,14 +40,19 @@ Temporary Items
 *.bak
 *.backup
 
-# Secrets (if you ever store them temporarily)
-secrets/
+# Secrets (plaintext/temporary only — encrypted sops files are tracked)
+secrets/*.txt
+secrets/*.plaintext
+secrets/*.decrypted
 *.secret
 *.key
 *.pem
 
 # Local development
 .direnv/
+
+# Target-specific files copied by nixos-anywhere (e.g., sops age key)
+nixos-files/
 
 # pre-commit
 .pre-commit-config.yaml
