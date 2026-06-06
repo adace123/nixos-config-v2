@@ -258,6 +258,21 @@ nix build .#darwinConfigurations.endor.system
 - Use `just update-input nixpkgs` for specific updates
 - Test thoroughly after updates
 
+### SD Image CI / GitHub Actions
+
+The `build-sd-image.yml` workflow builds an aarch64-linux SD image on
+`ubuntu-latest` using QEMU emulation. Key lessons:
+
+- **Must `git push` before triggering**: `gh workflow run --ref main`
+  uses whatever is on the remote `main` — local commits don't count.
+- **Disable FlakeHub**: `nix-installer-action` defaults to FlakeHub
+  which requires OIDC auth. Set `flakehub: false`.
+- **No magic-nix-cache**: That action also requires FlakeHub auth and
+  rate-limits easily. Remove it for infrequent builds.
+- **Cross-arch builds need config**: For `--system aarch64-linux` on
+  `x86_64-linux` via QEMU, set `extra-platforms = aarch64-linux` and
+  `sandbox = false` (or mount `/run/binfmt` into sandboxes).
+
 ## Special Considerations
 
 ### Nixvim Module
@@ -339,6 +354,9 @@ formatter.external
 - Swift build timeouts: Disable nixvim or use binary cache
 - Path issues: Ensure `/run/current-system/sw/bin` in PATH
 - Permission issues: Use `sudo` for system-level changes
+- HA `extraPackages` is a **function** (`_: []`), not a bare list (`[]`)
+- HA `extraComponents` only includes integrations with Python deps —
+  verify entries against the actual nixpkgs component list before adding
 
 ## Resources
 

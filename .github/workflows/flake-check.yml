@@ -17,9 +17,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@main
-      - name: Cache Nix store
-        uses: DeterminateSystems/magic-nix-cache-action@main
+        uses: DeterminateSystems/nix-installer-action@v16
+        with:
+          flakehub: false
       - name: Flake eval smoke check
         run: nix flake show
   darwin-check:
@@ -27,8 +27,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@main
-      - name: Cache Nix store
-        uses: DeterminateSystems/magic-nix-cache-action@main
+        uses: DeterminateSystems/nix-installer-action@v16
+        with:
+          flakehub: false
       - name: Check Nix flake (Darwin)
         run: nix flake check --all-systems
