@@ -11,12 +11,11 @@
 
     firewall = {
       enable = true;
+      trustedInterfaces = [ "tailscale0" ];
       allowedTCPPorts = [
-        8123
-        1883
-        8091
+        8123 # Home Assistant Web UI
       ];
-      allowedUDPPorts = [ 5353 ];
+      allowedUDPPorts = [ 5353 ]; # mDNS
     };
   };
 

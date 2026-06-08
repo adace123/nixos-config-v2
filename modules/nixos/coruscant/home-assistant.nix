@@ -91,7 +91,7 @@ in
     listeners = [
       {
         port = 1883;
-        address = "0.0.0.0";
+        address = "127.0.0.1";
         settings = {
           max_connections = -1;
           protocol = "mqtt";
@@ -111,7 +111,7 @@ in
       };
       serial = {
         port = "/dev/ttyUSB0";
-        adapter = "ezsp";
+        adapter = "ember";
       };
       frontend.port = 8091;
     };
