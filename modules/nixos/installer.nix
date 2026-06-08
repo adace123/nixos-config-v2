@@ -17,6 +17,13 @@ in
       networking.hostName = "coruscant-installer";
       networking.useDHCP = true;
 
+      # Installer image: allow root login with password for initial setup
+      services.openssh.settings = {
+        PermitRootLogin = "yes";
+        PasswordAuthentication = true;
+      };
+      users.users.root.initialPassword = "installer";
+
       # Enable mDNS for local network discovery
       services.avahi = {
         enable = true;

@@ -114,13 +114,42 @@ nixos-build:
     nix build .#nixosConfigurations.{{ NHOST }}.config.system.build.toplevel --out-link result-nixos
 
 # Build and flash an SD card image for the Pi (device e.g. /dev/sda)
+# If result-sd-ci/ has a pre-built image, prompts whether to use it
 nixos-flash DEVICE:
     #!/usr/bin/env bash
     set -euo pipefail
-    nix build .#nixosConfigurations.{{ NHOST }}-sd-image.config.system.build.sdImage --out-link result-sd
-    IMG=$(echo result-sd/sd-image/*.img.zst)
+    CI_IMGS=(result-sd-ci/*.img.zst)
+    if [ -f "${CI_IMGS[0]}" ]; then
+        echo "Found CI-built image: ${CI_IMGS[0]}"
+        read -p "Use this image instead of building locally? [Y/n] " -r
+        if [[ $REPLY =~ ^[Yy]?$ ]]; then
+            IMG="${CI_IMGS[0]}"
+        fi
+    fi
+    if [ -z "${IMG-}" ]; then
+        nix build .#nixosConfigurations.{{ NHOST }}-sd-image.config.system.build.sdImage --out-link result-sd
+        IMG="result-sd/sd-image/"
+    fi
+    if [ -d "$IMG" ]; then
+        IMG=$(echo "$IMG"/*.img.zst)
+    fi
     unzstd -d -f "$IMG" -o /tmp/nixos-sd-image-{{ NHOST }}.img
     sudo dd if=/tmp/nixos-sd-image-{{ NHOST }}.img of={{ DEVICE }} bs=1M status=progress conv=fsync
+
+    echo ""
+    echo "Verifying flash (spot check first 10MB)..."
+    sync
+    RDEVICE=$(echo "{{ DEVICE }}" | sed 's|/dev/disk|/dev/rdisk|')
+    IMG_SPOT=$(dd if=/tmp/nixos-sd-image-{{ NHOST }}.img bs=1M count=10 2>/dev/null | shasum -a 256 | cut -d' ' -f1)
+    echo "Image (first 10MB): $IMG_SPOT"
+    DEV_SPOT=$(sudo dd if="$RDEVICE" bs=1M count=10 2>/dev/null | shasum -a 256 | cut -d' ' -f1) || true
+    echo "Device (first 10MB): $DEV_SPOT"
+    if [ "$IMG_SPOT" = "$DEV_SPOT" ]; then
+        echo "✅ Flash verified successfully!"
+    else
+        echo "❌ Verification FAILED — checksum mismatch!"
+        exit 1
+    fi
 
 # Build SD image via GitHub Actions and download it
 nixos-build-ci:
@@ -150,10 +179,15 @@ nixos-build-ci:
     echo "Image saved to result-sd-ci/"
 
 # Deploy NixOS configuration to Raspberry Pi via SSH
-nixos-deploy:
+# TARGET: optional hostname/IP (default: {{ NHOST }}.local)
+nixos-deploy TARGET="":
     #!/usr/bin/env bash
     set -euo pipefail
-    nixos-rebuild switch --flake .#{{ NHOST }} --target-host root@{{ NHOST }}.local --build-host root@{{ NHOST }}.local --use-remote-sudo
+    TARGET="{{ TARGET }}"
+    if [ -z "$TARGET" ]; then
+        TARGET="{{ NHOST }}.local"
+    fi
+    nixos-rebuild switch --flake .#{{ NHOST }} --target-host root@$TARGET --build-host root@$TARGET --use-remote-sudo
 
 # Deploy NixOS configuration to Raspberry Pi with custom IP
 nixos-deploy-ip IP:
