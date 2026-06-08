@@ -115,7 +115,7 @@ nixos-init TARGET="":
       --extra-files ./nixos-files \
       --flake .#{{ NHOST }} \
       --env-password \
-      --phases disko,install \
+      --phases install \
       --build-on remote \
       root@$TARGET
 
