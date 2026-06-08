@@ -45,7 +45,8 @@
       "nixfmt *": "allow",
       "deadnix .": "allow",
       "home-manager *": "allow",
-      "statix *": "allow"
+      "statix *": "allow",
+      "gh run *": "allow"
     },
     "external_directory": "deny",
     "nixos_nix": "allow"

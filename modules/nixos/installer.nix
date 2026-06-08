@@ -18,7 +18,7 @@ in
       networking.useDHCP = true;
 
       # Installer image: allow root login with password for initial setup
-      services.openssh.settings = {
+      services.openssh.settings = lib.mkForce {
         PermitRootLogin = "yes";
         PasswordAuthentication = true;
       };
