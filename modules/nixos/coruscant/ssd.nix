@@ -6,8 +6,7 @@
 }:
 {
   imports = [
-    ./common.nix
-    ./home-assistant.nix
+    ./base.nix
     ./disko-ssd.nix
   ];
 
@@ -23,30 +22,4 @@
   # Use nixpkgs' firmware (from cache.nixos.org) instead of flake's custom
   # GitHub fetches which trigger HTTP 504 from the Pi's network
   boot.loader.raspberry-pi.firmwarePackage = lib.mkForce inputs.nixpkgs.legacyPackages.aarch64-linux.raspberrypifw;
-
-  networking.hostName = "coruscant";
-  networking.useDHCP = true;
-
-  services.avahi = {
-    enable = true;
-    hostName = "coruscant";
-    publish = {
-      enable = true;
-      workstation = true;
-      addresses = true;
-      domain = true;
-    };
-  };
-
-  time.timeZone = "UTC";
-
-  networking.firewall = {
-    enable = true;
-    allowedTCPPorts = [
-      8123
-      1883
-      8091
-    ];
-    allowedUDPPorts = [ 5353 ];
-  };
 }

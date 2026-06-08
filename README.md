@@ -182,38 +182,42 @@ running Home Assistant, Zigbee2MQTT, Mosquitto, and ESPHome.
 
 - Raspberry Pi 4 with SD card and power
 - Network connectivity (Ethernet recommended)
-- Raspberry Pi OS Lite flashed to the SD card (for initial boot)
+- Minimal installer SD image flashed to the SD card
 
-### One-shot Installation with nixos-anywhere
+### One-shot Installation from the Minimal Installer
 
 [nixos-anywhere](https://github.com/nix-community/nixos-anywhere) installs NixOS
-on a remote machine over SSH in a single step — no need to build flash images.
+on a remote machine over SSH in a single step after booting the minimal
+installer image.
 
-1. Boot the Pi from a Raspberry Pi OS SD card, ensure SSH is enabled:
-
-   ```bash
-   # On your build machine, flash Raspberry Pi OS Lite, then mount the
-   # boot partition and create an empty ssh file to enable headless SSH:
-   touch /mnt/boot/ssh
-   ```
-
-2. Insert the SD card, power on the Pi, find its IP, then run (avahi/.local hostname works if your network supports mDNS):
+1. Boot the Pi from the minimal installer SD image.
+2. Once the Pi is reachable as `coruscant-installer.local`, run:
 
    ```bash
    just nixos-init
    ```
 
+   If mDNS is unavailable, pass the IP or hostname explicitly:
+
+   ```bash
+   just nixos-init 192.168.1.50
+   ```
+
    Or directly:
 
    ```bash
+   SSHPASS=installer \
    nix run github:nix-community/nixos-anywhere -- \
-     --flake .#coruscant \
-     root@coruscant.local
+     --flake .#coruscant-ssd \
+     --env-password \
+     --phases disko,install,reboot \
+     --build-on remote \
+     root@coruscant-installer.local
    ```
 
    nixos-anywhere will:
-   - SSH into the Pi running Raspberry Pi OS
-   - Partition the SD card and create filesystems
+   - SSH into the Pi running the minimal installer
+   - Partition and format the SSD with Disko
    - Install NixOS with this flake's configuration
    - Reboot into NixOS
 
@@ -322,7 +326,7 @@ nixos-rebuild switch \
 | Zigbee2MQTT      | 8091 | Zigbee to MQTT bridge                 |
 | ESPHome          | 6052 | ESP32/ESP8266 device management       |
 
-All services are configured in `modules/nixos/home-assistant.nix`.
+All services are configured in `modules/nixos/coruscant/home-assistant.nix`.
 
 ## Structure
 

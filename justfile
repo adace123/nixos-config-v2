@@ -10,6 +10,9 @@ HOST := "endor"
 # Default NixOS configuration hostname (override with: just <recipe> NHOST=<name>)
 NHOST := "coruscant"
 
+# Default first-install NixOS configuration (must include Disko)
+NINSTALL := "coruscant-ssd"
+
 install-nix:
     curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
 
@@ -94,28 +97,30 @@ switch:
         osascript -e 'display notification "System configuration updated successfully!" with title "✅ Nix-Darwin Switch Complete"'
     fi
 
-# One-shot NixOS install on Raspberry Pi (expects installer image with SSH)
-# Copies nixos-files/ to target root (e.g., the sops age key for first-boot WiFi)
-# TARGET: optional hostname/IP (default: {{ NHOST }}.local)
-nixos-init TARGET="":
+# One-shot NixOS install on Raspberry Pi from the minimal installer image
+# Copies nixos-files/ to target root when that directory exists
+# TARGET: optional hostname/IP (default: {{ NHOST }}-installer.local)
+# CONFIG: NixOS configuration to install (default: {{ NINSTALL }})
+nixos-init TARGET="" CONFIG=NINSTALL:
     #!/usr/bin/env bash
     set -euo pipefail
-    KEYFILE="nixos-files/var/lib/sops/age-key.txt"
-    if [ ! -f "$KEYFILE" ]; then
-        echo "ERROR: $KEYFILE not found. Run 'just init-sops' first."
-        exit 1
+    EXTRA_FILES_ARGS=()
+    if [ -d ./nixos-files ]; then
+        EXTRA_FILES_ARGS+=(--extra-files ./nixos-files)
+    else
+        echo "No ./nixos-files directory found; continuing without extra files."
     fi
     TARGET="{{ TARGET }}"
     if [ -z "$TARGET" ]; then
-        TARGET="{{ NHOST }}.local"
+        TARGET="{{ NHOST }}-installer.local"
     fi
     echo "Installing NixOS on $TARGET via nixos-anywhere..."
     echo "(kexec unsupported on Raspberry Pi — skipping)"
     SSHPASS="installer" nix run github:nix-community/nixos-anywhere -- \
-      --extra-files ./nixos-files \
-      --flake .#{{ NHOST }} \
+      "${EXTRA_FILES_ARGS[@]}" \
+      --flake .#{{ CONFIG }} \
       --env-password \
-      --phases install \
+      --phases disko,install,reboot \
       --build-on remote \
       root@$TARGET
 
@@ -145,6 +150,16 @@ nixos-flash DEVICE:
     if [ -d "$IMG" ]; then
         IMG=$(echo "$IMG"/*.img.zst)
     fi
+    if [ ! -e "{{ DEVICE }}" ]; then
+        echo "ERROR: Device {{ DEVICE }} does not exist."
+        exit 1
+    fi
+    echo "About to overwrite {{ DEVICE }} with $IMG"
+    read -p "Type '{{ DEVICE }}' to continue: " -r CONFIRM
+    if [ "$CONFIRM" != "{{ DEVICE }}" ]; then
+        echo "Aborted."
+        exit 1
+    fi
     unzstd -d -f "$IMG" -o /tmp/nixos-sd-image-{{ NHOST }}.img
     sudo dd if=/tmp/nixos-sd-image-{{ NHOST }}.img of={{ DEVICE }} bs=1M status=progress conv=fsync
 
@@ -171,16 +186,35 @@ nixos-build-ci:
         echo "gh (GitHub CLI) is required. Install it with: brew install gh"
         exit 1
     fi
+    PREVIOUS_RUN_ID=$(gh run list \
+      --workflow build-sd-image.yml \
+      --branch main \
+      --event workflow_dispatch \
+      --limit 1 \
+      --json databaseId \
+      --jq '.[0].databaseId // empty')
     echo "Triggering CI build for {{ NHOST }}..."
-    URL=$(gh workflow run build-sd-image.yml --ref main --field host={{ NHOST }})
-    echo "$URL"
-    RUN_ID=$(echo "$URL" | grep -oE '[0-9]+$')
+    gh workflow run build-sd-image.yml --ref main --field host={{ NHOST }}
+    echo "Waiting for GitHub to create the workflow run..."
+    RUN_ID=""
+    for _ in {1..12}; do
+        RUN_ID=$(gh run list \
+          --workflow build-sd-image.yml \
+          --branch main \
+          --event workflow_dispatch \
+          --limit 1 \
+          --json databaseId \
+          --jq '.[0].databaseId // empty')
+        if [ -n "$RUN_ID" ] && [ "$RUN_ID" != "$PREVIOUS_RUN_ID" ]; then
+            break
+        fi
+        sleep 5
+    done
     if [ -z "$RUN_ID" ]; then
-        echo "Could not parse run ID from URL, falling back to latest run..."
-        RUN_ID=$(gh run list --workflow build-sd-image.yml --limit 1 --json databaseId --jq '.[0].databaseId')
-    fi
-    if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
-        echo "ERROR: No run ID found."
+        echo "ERROR: No workflow_dispatch run found for build-sd-image.yml on main."
+        exit 1
+    elif [ "$RUN_ID" = "$PREVIOUS_RUN_ID" ]; then
+        echo "ERROR: Timed out waiting for a new build-sd-image.yml run."
         exit 1
     fi
     echo "Run ID: $RUN_ID"
@@ -206,7 +240,7 @@ nixos-deploy TARGET="":
 nixos-deploy-ip IP:
     #!/usr/bin/env bash
     set -euo pipefail
-    nixos-rebuild switch --flake .#{{ NHOST }} --target-host root@{{ IP }} --build-host root@{{ IP }}
+    nixos-rebuild switch --flake .#{{ NHOST }} --target-host root@{{ IP }} --build-host root@{{ IP }} --use-remote-sudo
 
 # Show NixOS generations on remote host
 nixos-generations:
