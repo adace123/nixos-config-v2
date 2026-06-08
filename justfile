@@ -111,9 +111,10 @@ nixos-init TARGET="":
     fi
     echo "Installing NixOS on $TARGET via nixos-anywhere..."
     echo "(kexec unsupported on Raspberry Pi — will skip reboot)"
-    nix run github:nix-community/nixos-anywhere -- \
+    SSHPASS="installer" nix run github:nix-community/nixos-anywhere -- \
       --extra-files ./nixos-files \
       --flake .#{{ NHOST }} \
+      --env-password \
       --no-reboot \
       root@$TARGET
 
