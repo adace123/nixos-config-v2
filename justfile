@@ -175,6 +175,7 @@ nixos-build-ci:
     echo "Waiting for build to complete (this takes ~30-60 min)..."
     gh run watch "$RUN_ID" --exit-status
     echo "Downloading artifact..."
+    [ -d result-sd-ci ] && rm -rf result-sd-ci
     gh run download "$RUN_ID" --name "nixos-sd-image-{{ NHOST }}" --dir result-sd-ci
     echo "Image saved to result-sd-ci/"
 
