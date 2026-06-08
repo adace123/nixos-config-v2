@@ -41,7 +41,7 @@ jobs:
           mkdir -p /tmp/artifact
           cp result/sd-image/*.img.zst /tmp/artifact/
       - name: Upload image
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: nixos-sd-image-${{ inputs.host || 'coruscant' }}
           path: /tmp/artifact/*.img.zst
