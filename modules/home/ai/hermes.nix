@@ -21,18 +21,4 @@
     compression.enabled = true;
     toolsets = [ "all" ];
   };
-
-  # ── Hermes .env secrets (via OpNix / 1Password) ─────────────────
-  # API keys and credentials for Hermes web search, providers, etc.
-  # Actual values resolved from 1Password at build time by OpNix.
-  # Manually editable after deploy — writes a real file, not a
-  # nix-store symlink.
-  programs.onepassword-secrets.secrets = {
-    opencodeApiKey = {
-      name = "OPENCODE_ZEN_API_KEY";
-      reference = "op://Personal/Development/Opencode API Key";
-      path = ".hermes/.env";
-      mode = "0600";
-    };
-  };
 }

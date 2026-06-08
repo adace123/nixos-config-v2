@@ -6,6 +6,7 @@
       specialArgs = { inherit inputs; };
       modules = [
         ../modules/darwin
+        inputs.sops-nix.darwinModules.sops
         inputs.home-manager.darwinModules.home-manager
         {
           nixpkgs.overlays = [
@@ -17,6 +18,7 @@
             useUserPackages = true;
             backupFileExtension = "backup";
             sharedModules = [
+              inputs.sops-nix.homeManagerModules.sops
               inputs.zed-extensions.homeManagerModules.default
             ];
             users.aaron = {
