@@ -2,6 +2,7 @@
   imports = [
     ./common.nix
     ./home-assistant.nix
+    ./disko-ssd.nix
   ];
 
   networking.hostName = "coruscant";
@@ -15,18 +16,6 @@
       workstation = true;
       addresses = true;
       domain = true;
-    };
-  };
-
-  fileSystems = {
-    "/" = {
-      device = "/dev/disk/by-partlabel/root";
-      fsType = "ext4";
-    };
-    "/boot/firmware" = {
-      device = "/dev/disk/by-partlabel/firmware";
-      fsType = "vfat";
-      options = [ "umask=0077" ];
     };
   };
 
