@@ -1,9 +1,11 @@
-{ ... }: {
+{ lib, pkgs, ... }: {
   imports = [
     ./common.nix
     ./home-assistant.nix
     ./disko-ssd.nix
   ];
+
+  boot.kernelPackages = lib.mkForce pkgs.linuxPackages;
 
   networking.hostName = "coruscant";
   networking.useDHCP = true;
