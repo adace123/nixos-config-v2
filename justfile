@@ -94,9 +94,11 @@ switch:
         osascript -e 'display notification "System configuration updated successfully!" with title "✅ Nix-Darwin Switch Complete"'
     fi
 
-# One-shot NixOS install on Raspberry Pi (expects Raspberry Pi OS with SSH)
+# One-shot NixOS install on Raspberry Pi (expects installer image with SSH)
 # Copies nixos-files/ to target root (e.g., the sops age key for first-boot WiFi)
-nixos-init:
+# TARGET: optional hostname/IP (default: {{ NHOST }}.local)
+# DISKO: optional path to disko config (uses coruscant-ssd flake config)
+nixos-init TARGET="" DISKO="":
     #!/usr/bin/env bash
     set -euo pipefail
     KEYFILE="nixos-files/var/lib/sops/age-key.txt"
@@ -104,8 +106,30 @@ nixos-init:
         echo "ERROR: $KEYFILE not found. Run 'just init-sops' first."
         exit 1
     fi
-    echo "Installing NixOS on {{ NHOST }}.local via nixos-anywhere..."
-    nix run github:nix-community/nixos-anywhere -- --extra-files ./nixos-files --flake .#{{ NHOST }} root@{{ NHOST }}.local
+    TARGET="{{ TARGET }}"
+    if [ -z "$TARGET" ]; then
+        TARGET="{{ NHOST }}.local"
+    fi
+    FLARE="{{ NHOST }}"
+    DISKO="{{ DISKO }}"
+    if [ -n "$DISKO" ]; then
+        FLARE="coruscant-ssd"
+        echo "Installing to SSD with disko config: $DISKO..."
+        nix run github:nix-community/nixos-anywhere -- \
+          --extra-files ./nixos-files \
+          --flake .#$FLARE \
+          --disko "$DISKO" \
+          --no-reboot \
+          root@$TARGET
+    else
+        echo "Installing NixOS on $TARGET via nixos-anywhere..."
+        echo "(kexec unsupported on Raspberry Pi — will skip reboot)"
+        nix run github:nix-community/nixos-anywhere -- \
+          --extra-files ./nixos-files \
+          --flake .#$FLARE \
+          --no-reboot \
+          root@$TARGET
+    fi
 
 # Build the NixOS configuration for Raspberry Pi
 nixos-build:

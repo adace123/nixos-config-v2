@@ -28,5 +28,17 @@ in
         ../modules/nixos/installer.nix
       ];
     };
+
+    coruscant-ssd = inputs.nixpkgs.lib.nixosSystem {
+      system = "aarch64-linux";
+      specialArgs = { inherit inputs nixos-raspberrypi; };
+      modules = [
+        nixos-raspberrypi.lib.inject-overlays
+        nixos-raspberrypi.nixosModules.raspberry-pi-4.base
+        nixos-raspberrypi.nixosModules.raspberry-pi-4.bluetooth
+        inputs.sops-nix.nixosModules.sops
+        ../modules/nixos/coruscant-ssd.nix
+      ];
+    };
   };
 }
