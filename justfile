@@ -116,6 +116,7 @@ nixos-init TARGET="":
       --flake .#{{ NHOST }} \
       --env-password \
       --phases disko,install \
+      --build-on remote \
       root@$TARGET
 
 # Build the NixOS configuration for Raspberry Pi
