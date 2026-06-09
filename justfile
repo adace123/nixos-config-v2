@@ -136,15 +136,15 @@ nixos-verify-boot TARGET="" PASSWORD="installer":
     fi
 
     # Check boot partition has firmware files
-    FW_FILES=$(ssh_cmd "ls /boot/config.txt /boot/u-boot.bin /boot/broadcom/ 2>/dev/null" || true)
-    echo "Boot partition (/boot):"
+    FW_FILES=$(ssh_cmd "ls /boot/firmware/config.txt /boot/firmware/u-boot.bin /boot/firmware/broadcom/ 2>/dev/null" || true)
+    echo "Firmware partition (/boot/firmware):"
     echo "${FW_FILES:-  (empty)}"
     if ! echo "$FW_FILES" | grep -q "config.txt"; then
-        echo "FAIL: /boot/config.txt not found"
+        echo "FAIL: /boot/firmware/config.txt not found"
         FAIL=1
     fi
     if ! echo "$FW_FILES" | grep -q "u-boot.bin"; then
-        echo "FAIL: /boot/u-boot.bin not found"
+        echo "FAIL: /boot/firmware/u-boot.bin not found"
         FAIL=1
     fi
 
