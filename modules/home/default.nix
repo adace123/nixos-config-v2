@@ -48,6 +48,7 @@
       glab
       nh # Nix helper for better rebuild/clean/search UX
       lazygit
+      sshpass
 
       # Modern CLI replacements
       bat # cat replacement
