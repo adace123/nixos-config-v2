@@ -9,12 +9,35 @@
       partitions = {
         firmware = {
           size = "500M";
-          type = "EF00";
+          type = "0700";
+          attributes = [ 0 ];
           content = {
             type = "filesystem";
             format = "vfat";
             mountpoint = "/boot/firmware";
-            mountOptions = [ "umask=0077" ];
+            mountOptions = [
+              "noatime"
+              "noauto"
+              "x-systemd.automount"
+              "x-systemd.idle-timeout=1min"
+            ];
+          };
+        };
+        esp = {
+          size = "500M";
+          type = "EF00";
+          attributes = [ 2 ];
+          content = {
+            type = "filesystem";
+            format = "vfat";
+            mountpoint = "/boot";
+            mountOptions = [
+              "noatime"
+              "noauto"
+              "x-systemd.automount"
+              "x-systemd.idle-timeout=1min"
+              "umask=0077"
+            ];
           };
         };
         root = {
