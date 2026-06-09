@@ -7,17 +7,25 @@
     content = {
       type = "gpt";
       partitions = {
-        boot = {
-          size = "1G";
+        firmware = {
+          size = "512M";
           type = "EF00";
           content = {
             type = "filesystem";
             format = "vfat";
-            mountpoint = "/boot";
+            mountpoint = "/boot/firmware";
             mountOptions = [
               "noatime"
               "umask=0077"
             ];
+          };
+        };
+        boot = {
+          size = "1G";
+          content = {
+            type = "filesystem";
+            format = "ext4";
+            mountpoint = "/boot";
           };
         };
         root = {
