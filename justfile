@@ -199,9 +199,9 @@ nixos-init TARGET="" CONFIG=NINSTALL:
     }
 
     echo ""
-    echo "Rebooting $TARGET..."
-    ssh -o StrictHostKeyChecking=no "root@$TARGET" "reboot" || true
-    echo "Done. Wait for Pi to come back up, then remove the SD card."
+    echo "Shutting down $TARGET..."
+    ssh -o StrictHostKeyChecking=no "root@$TARGET" "shutdown now" || true
+    echo "Done. Remove the SD card, then power on the Pi to boot from SSD."
 
 # Build the NixOS configuration for Raspberry Pi
 nixos-build:
