@@ -126,50 +126,35 @@ nixos-verify-boot TARGET="" PASSWORD="installer":
     echo "Verifying boot layout on $TARGET..."
     FAIL=0
 
-    # Check partition table
-    PARTS=$(ssh_cmd "lsblk -ln -o NAME,SIZE,TYPE /dev/sda 2>/dev/null" || true)
-    echo "SSD partitions:"
-    echo "$PARTS"
-    if ! echo "$PARTS" | grep -q "part"; then
+    # Run all checks in a single SSH call to avoid rate limiting
+    CHECKS=$(ssh_cmd 'echo "PARTS:"; lsblk -ln -o NAME,SIZE,TYPE /dev/sda 2>/dev/null; echo "FW:"; ls /mnt/boot/firmware/config.txt /mnt/boot/firmware/u-boot*.bin /mnt/boot/firmware/broadcom/ 2>/dev/null; echo "BOOT:"; ls /mnt/boot/extlinux/ /mnt/boot/nixos/ 2>/dev/null; echo "STORE:"; test -d /mnt/nix/store && echo "$(ls /mnt/nix/store | wc -l) entries"' || true)
+    echo "$CHECKS"
+
+    if ! echo "$CHECKS" | grep -q "part"; then
         echo "FAIL: No partitions found on /dev/sda"
         FAIL=1
     fi
-
-    # Check firmware partition has RPi boot files
-    FW_FILES=$(ssh_cmd "ls /mnt/boot/firmware/config.txt /mnt/boot/firmware/u-boot*.bin /mnt/boot/firmware/broadcom/ 2>/dev/null" || true)
-    echo "Firmware (/mnt/boot/firmware):"
-    echo "${FW_FILES:-  (empty)}"
-    if ! echo "$FW_FILES" | grep -q "config.txt"; then
+    if ! echo "$CHECKS" | grep -q "config.txt"; then
         echo "FAIL: /mnt/boot/firmware/config.txt not found"
         FAIL=1
     fi
-    if ! echo "$FW_FILES" | grep -qE "u-boot"; then
+    if ! echo "$CHECKS" | grep -qE "u-boot"; then
         echo "FAIL: /mnt/boot/firmware/u-boot*.bin not found"
         FAIL=1
     fi
-
-    # Check extlinux and kernel
-    BOOT_FILES=$(ssh_cmd "ls /mnt/boot/extlinux/ /mnt/boot/nixos/ 2>/dev/null" || true)
-    echo "Extlinux / NixOS generations:"
-    echo "${BOOT_FILES:-  (empty)}"
-    if ! echo "$BOOT_FILES" | grep -q "extlinux.conf"; then
+    if ! echo "$CHECKS" | grep -q "extlinux.conf"; then
         echo "FAIL: /mnt/boot/extlinux/extlinux.conf not found"
         FAIL=1
     fi
-    if ! echo "$BOOT_FILES" | grep -qE "Image|bzImage"; then
+    if ! echo "$CHECKS" | grep -qE "Image|bzImage"; then
         echo "FAIL: Kernel image not found in /mnt/boot/nixos/"
         FAIL=1
     fi
-    if ! echo "$BOOT_FILES" | grep -q "initrd"; then
+    if ! echo "$CHECKS" | grep -q "initrd"; then
         echo "FAIL: initrd not found in /mnt/boot/nixos/"
         FAIL=1
     fi
-
-    # Check NixOS system exists on root
-    NIXOS=$(ssh_cmd "ls /mnt/nix/store/ 2>/dev/null | head -5" || true)
-    echo "NixOS store (/mnt/nix/store):"
-    echo "${NIXOS:-  (empty)}"
-    if [ -z "$NIXOS" ]; then
+    if ! echo "$CHECKS" | grep -qE "[0-9]+ entries"; then
         echo "FAIL: /mnt/nix/store is empty — NixOS not installed"
         FAIL=1
     fi
