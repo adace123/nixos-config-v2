@@ -12,7 +12,7 @@
   # Ensure /boot/firmware is available during nixos-install for the
   # RPi bootloader installer to copy firmware files (config.txt, DTBs, etc.)
   fileSystems."/boot/firmware" = {
-    device = "/dev/disk/by-partlabel/FIRMWARE";
+    device = "/dev/disk/by-label/FIRMWARE";
     fsType = "vfat";
     options = [ "noatime" ];
     neededForBoot = true;
