@@ -49,6 +49,9 @@
       nh # Nix helper for better rebuild/clean/search UX
       lazygit
       sshpass
+      jujutsu
+      trivy
+      fzf
 
       # Modern CLI replacements
       bat # cat replacement
