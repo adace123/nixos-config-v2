@@ -135,42 +135,42 @@ nixos-verify-boot TARGET="" PASSWORD="installer":
         FAIL=1
     fi
 
-    # Check boot partition has firmware files
-    FW_FILES=$(ssh_cmd "ls /boot/firmware/config.txt /boot/firmware/u-boot.bin /boot/firmware/broadcom/ 2>/dev/null" || true)
-    echo "Firmware partition (/boot/firmware):"
+    # Check firmware partition has RPi boot files
+    FW_FILES=$(ssh_cmd "ls /mnt/boot/firmware/config.txt /mnt/boot/firmware/u-boot*.bin /mnt/boot/firmware/broadcom/ 2>/dev/null" || true)
+    echo "Firmware (/mnt/boot/firmware):"
     echo "${FW_FILES:-  (empty)}"
     if ! echo "$FW_FILES" | grep -q "config.txt"; then
-        echo "FAIL: /boot/firmware/config.txt not found"
+        echo "FAIL: /mnt/boot/firmware/config.txt not found"
         FAIL=1
     fi
-    if ! echo "$FW_FILES" | grep -q "u-boot.bin"; then
-        echo "FAIL: /boot/firmware/u-boot.bin not found"
+    if ! echo "$FW_FILES" | grep -qE "u-boot"; then
+        echo "FAIL: /mnt/boot/firmware/u-boot*.bin not found"
         FAIL=1
     fi
 
     # Check extlinux and kernel
-    BOOT_FILES=$(ssh_cmd "ls /boot/extlinux/ /boot/nixos/ 2>/dev/null" || true)
+    BOOT_FILES=$(ssh_cmd "ls /mnt/boot/extlinux/ /mnt/boot/nixos/ 2>/dev/null" || true)
     echo "Extlinux / NixOS generations:"
     echo "${BOOT_FILES:-  (empty)}"
     if ! echo "$BOOT_FILES" | grep -q "extlinux.conf"; then
-        echo "FAIL: /boot/extlinux/extlinux.conf not found"
+        echo "FAIL: /mnt/boot/extlinux/extlinux.conf not found"
         FAIL=1
     fi
     if ! echo "$BOOT_FILES" | grep -qE "Image|bzImage"; then
-        echo "FAIL: Kernel image not found in /boot/nixos/"
+        echo "FAIL: Kernel image not found in /mnt/boot/nixos/"
         FAIL=1
     fi
     if ! echo "$BOOT_FILES" | grep -q "initrd"; then
-        echo "FAIL: initrd not found in /boot/nixos/"
+        echo "FAIL: initrd not found in /mnt/boot/nixos/"
         FAIL=1
     fi
 
     # Check NixOS system exists on root
-    NIXOS=$(ssh_cmd "ls /nix/store/ | head -5 2>/dev/null" || true)
-    echo "NixOS store (/nix/store):"
+    NIXOS=$(ssh_cmd "ls /mnt/nix/store/ 2>/dev/null | head -5" || true)
+    echo "NixOS store (/mnt/nix/store):"
     echo "${NIXOS:-  (empty)}"
     if [ -z "$NIXOS" ]; then
-        echo "FAIL: /nix/store is empty — NixOS not installed"
+        echo "FAIL: /mnt/nix/store is empty — NixOS not installed"
         FAIL=1
     fi
 
