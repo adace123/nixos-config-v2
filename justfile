@@ -156,7 +156,7 @@ nixos-verify-boot TARGET="" PASSWORD="installer":
         echo "FAIL: /boot/extlinux/extlinux.conf not found"
         FAIL=1
     fi
-    if ! echo "$BOOT_FILES" | grep -q "bzImage"; then
+    if ! echo "$BOOT_FILES" | grep -qE "Image|bzImage"; then
         echo "FAIL: Kernel image not found in /boot/nixos/"
         FAIL=1
     fi
