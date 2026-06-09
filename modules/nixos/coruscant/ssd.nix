@@ -9,6 +9,9 @@
   # to avoid building from source on the Pi
   boot.kernelPackages = lib.mkForce pkgs.linuxPackages;
 
+  # Fix U-Boot package name mismatch between nixos-raspberrypi and nixpkgs
+  boot.loader.raspberry-pi.ubootPackage = lib.mkForce pkgs.ubootRaspberryPi4_64bit;
+
   # Ensure /boot/firmware is mounted early enough for the RPi bootloader
   # installer to copy firmware files (config.txt, DTBs, etc.)
   fileSystems."/boot/firmware".neededForBoot = lib.mkForce true;
