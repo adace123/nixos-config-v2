@@ -100,18 +100,34 @@ switch:
 # Verify SSD boot layout after nixos-anywhere install
 # Returns 0 if valid, 1 if invalid (prints diagnostics)
 # TARGET: SSH target (e.g. root@coruscant-installer.local)
-nixos-verify-boot TARGET="":
+# PASSWORD: SSH password (default: installer)
+nixos-verify-boot TARGET="" PASSWORD="installer":
     #!/usr/bin/env bash
     set -euo pipefail
     TARGET="{{ TARGET }}"
     if [ -z "$TARGET" ]; then
         TARGET="root@{{ NHOST }}-installer.local"
     fi
+    PASSWORD="{{ PASSWORD }}"
+
+    # Build SSH command — try key auth first, fall back to sshpass
+    ssh_cmd() {
+        if ssh -o StrictHostKeyChecking=no -o BatchMode=yes "$TARGET" "$@" 2>/dev/null; then
+            return 0
+        elif command -v sshpass &>/dev/null; then
+            sshpass -p "$PASSWORD" ssh -o StrictHostKeyChecking=no "$TARGET" "$@"
+        else
+            echo "ERROR: SSH key auth failed and sshpass not installed"
+            echo "Install sshpass: brew install hudochenkov/sshpass/sshpass"
+            exit 1
+        fi
+    }
+
     echo "Verifying boot layout on $TARGET..."
     FAIL=0
 
     # Check partition table
-    PARTS=$(ssh -o StrictHostKeyChecking=no "$TARGET" "lsblk -ln -o NAME,SIZE,TYPE /dev/sda 2>/dev/null" || true)
+    PARTS=$(ssh_cmd "lsblk -ln -o NAME,SIZE,TYPE /dev/sda 2>/dev/null" || true)
     echo "SSD partitions:"
     echo "$PARTS"
     if ! echo "$PARTS" | grep -q "part"; then
@@ -120,7 +136,7 @@ nixos-verify-boot TARGET="":
     fi
 
     # Check firmware partition has boot files
-    FW_FILES=$(ssh -o StrictHostKeyChecking=no "$TARGET" "ls /boot/firmware/ 2>/dev/null" || true)
+    FW_FILES=$(ssh_cmd "ls /boot/firmware/ 2>/dev/null" || true)
     echo "Firmware partition (/boot/firmware):"
     echo "${FW_FILES:-  (empty)}"
     if [ -z "$FW_FILES" ]; then
@@ -129,7 +145,7 @@ nixos-verify-boot TARGET="":
     fi
 
     # Check ESP has extlinux and kernel
-    BOOT_FILES=$(ssh -o StrictHostKeyChecking=no "$TARGET" "ls /boot/extlinux/ /boot/nixos/ 2>/dev/null" || true)
+    BOOT_FILES=$(ssh_cmd "ls /boot/extlinux/ /boot/nixos/ 2>/dev/null" || true)
     echo "Boot partition (/boot):"
     echo "${BOOT_FILES:-  (empty)}"
     if ! echo "$BOOT_FILES" | grep -q "extlinux.conf"; then
@@ -146,7 +162,7 @@ nixos-verify-boot TARGET="":
     fi
 
     # Check NixOS system exists on root
-    NIXOS=$(ssh -o StrictHostKeyChecking=no "$TARGET" "ls /nix/store/ | head -5 2>/dev/null" || true)
+    NIXOS=$(ssh_cmd "ls /nix/store/ | head -5 2>/dev/null" || true)
     echo "NixOS store (/nix/store):"
     echo "${NIXOS:-  (empty)}"
     if [ -z "$NIXOS" ]; then
@@ -156,10 +172,10 @@ nixos-verify-boot TARGET="":
 
     if [ "$FAIL" -eq 0 ]; then
         echo "OK: Boot layout verified"
-        return 0
+        exit 0
     else
         echo "BOOT LAYOUT VERIFICATION FAILED — not rebooting"
-        return 1
+        exit 1
     fi
 
 # One-shot NixOS install on Raspberry Pi from the minimal installer image
