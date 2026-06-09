@@ -15,6 +15,7 @@
           content = {
             type = "filesystem";
             format = "vfat";
+            label = "FIRMWARE";
             mountpoint = "/boot/firmware";
             mountOptions = [
               "noatime"
