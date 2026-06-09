@@ -135,24 +135,28 @@ nixos-verify-boot TARGET="" PASSWORD="installer":
         FAIL=1
     fi
 
-    # Check firmware partition has boot files
-    FW_FILES=$(ssh_cmd "ls /boot/firmware/ 2>/dev/null" || true)
-    echo "Firmware partition (/boot/firmware):"
+    # Check boot partition has firmware files
+    FW_FILES=$(ssh_cmd "ls /boot/config.txt /boot/u-boot.bin /boot/broadcom/ 2>/dev/null" || true)
+    echo "Boot partition (/boot):"
     echo "${FW_FILES:-  (empty)}"
-    if [ -z "$FW_FILES" ]; then
-        echo "FAIL: /boot/firmware is empty — missing config.txt, U-Boot binary, DTBs"
+    if ! echo "$FW_FILES" | grep -q "config.txt"; then
+        echo "FAIL: /boot/config.txt not found"
+        FAIL=1
+    fi
+    if ! echo "$FW_FILES" | grep -q "u-boot.bin"; then
+        echo "FAIL: /boot/u-boot.bin not found"
         FAIL=1
     fi
 
-    # Check ESP has extlinux and kernel
+    # Check extlinux and kernel
     BOOT_FILES=$(ssh_cmd "ls /boot/extlinux/ /boot/nixos/ 2>/dev/null" || true)
-    echo "Boot partition (/boot):"
+    echo "Extlinux / NixOS generations:"
     echo "${BOOT_FILES:-  (empty)}"
     if ! echo "$BOOT_FILES" | grep -q "extlinux.conf"; then
         echo "FAIL: /boot/extlinux/extlinux.conf not found"
         FAIL=1
     fi
-    if ! echo "$BOOT_FILES" | grep -q "Image"; then
+    if ! echo "$BOOT_FILES" | grep -q "bzImage"; then
         echo "FAIL: Kernel image not found in /boot/nixos/"
         FAIL=1
     fi

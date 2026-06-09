@@ -3,32 +3,13 @@
 
   disko.devices.disk.main = {
     type = "disk";
-    # Consider replacing with a stable path like: /dev/disk/by-id/usb-SSDO_Device_...
     device = "/dev/sda";
     content = {
       type = "gpt";
       partitions = {
-        firmware = {
-          size = "500M";
-          type = "0700";
-          attributes = [ 0 ];
-          content = {
-            type = "filesystem";
-            format = "vfat";
-            extraArgs = [
-              "-n"
-              "FIRMWARE"
-            ];
-            mountpoint = "/boot/firmware";
-            mountOptions = [
-              "noatime"
-            ];
-          };
-        };
-        esp = {
-          size = "500M";
+        boot = {
+          size = "1G";
           type = "EF00";
-          attributes = [ 2 ];
           content = {
             type = "filesystem";
             format = "vfat";
