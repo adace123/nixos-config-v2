@@ -12,6 +12,8 @@ in
 {
   flake.nixosConfigurations = {
     coruscant = mkPiSystem [
+      nixos-raspberrypi.lib.inject-overlays
+      nixos-raspberrypi.nixosModules.raspberry-pi-4.base
       inputs.sops-nix.nixosModules.sops
       ../modules/nixos/coruscant/ssd.nix
     ];
@@ -25,6 +27,8 @@ in
     ];
 
     coruscant-ssd = mkPiSystem [
+      nixos-raspberrypi.lib.inject-overlays
+      nixos-raspberrypi.nixosModules.raspberry-pi-4.base
       inputs.sops-nix.nixosModules.sops
       ../modules/nixos/coruscant/ssd.nix
     ];
