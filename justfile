@@ -97,6 +97,71 @@ switch:
         osascript -e 'display notification "System configuration updated successfully!" with title "✅ Nix-Darwin Switch Complete"'
     fi
 
+# Verify SSD boot layout after nixos-anywhere install
+# Returns 0 if valid, 1 if invalid (prints diagnostics)
+# TARGET: SSH target (e.g. root@coruscant-installer.local)
+nixos-verify-boot TARGET="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    TARGET="{{ TARGET }}"
+    if [ -z "$TARGET" ]; then
+        TARGET="root@{{ NHOST }}-installer.local"
+    fi
+    echo "Verifying boot layout on $TARGET..."
+    FAIL=0
+
+    # Check partition table
+    PARTS=$(ssh -o StrictHostKeyChecking=no "$TARGET" "lsblk -ln -o NAME,SIZE,TYPE /dev/sda 2>/dev/null" || true)
+    echo "SSD partitions:"
+    echo "$PARTS"
+    if ! echo "$PARTS" | grep -q "part"; then
+        echo "FAIL: No partitions found on /dev/sda"
+        FAIL=1
+    fi
+
+    # Check firmware partition has boot files
+    FW_FILES=$(ssh -o StrictHostKeyChecking=no "$TARGET" "ls /boot/firmware/ 2>/dev/null" || true)
+    echo "Firmware partition (/boot/firmware):"
+    echo "${FW_FILES:-  (empty)}"
+    if [ -z "$FW_FILES" ]; then
+        echo "FAIL: /boot/firmware is empty — missing config.txt, U-Boot binary, DTBs"
+        FAIL=1
+    fi
+
+    # Check ESP has extlinux and kernel
+    BOOT_FILES=$(ssh -o StrictHostKeyChecking=no "$TARGET" "ls /boot/extlinux/ /boot/nixos/ 2>/dev/null" || true)
+    echo "Boot partition (/boot):"
+    echo "${BOOT_FILES:-  (empty)}"
+    if ! echo "$BOOT_FILES" | grep -q "extlinux.conf"; then
+        echo "FAIL: /boot/extlinux/extlinux.conf not found"
+        FAIL=1
+    fi
+    if ! echo "$BOOT_FILES" | grep -q "Image"; then
+        echo "FAIL: Kernel image not found in /boot/nixos/"
+        FAIL=1
+    fi
+    if ! echo "$BOOT_FILES" | grep -q "initrd"; then
+        echo "FAIL: initrd not found in /boot/nixos/"
+        FAIL=1
+    fi
+
+    # Check NixOS system exists on root
+    NIXOS=$(ssh -o StrictHostKeyChecking=no "$TARGET" "ls /nix/store/ | head -5 2>/dev/null" || true)
+    echo "NixOS store (/nix/store):"
+    echo "${NIXOS:-  (empty)}"
+    if [ -z "$NIXOS" ]; then
+        echo "FAIL: /nix/store is empty — NixOS not installed"
+        FAIL=1
+    fi
+
+    if [ "$FAIL" -eq 0 ]; then
+        echo "OK: Boot layout verified"
+        return 0
+    else
+        echo "BOOT LAYOUT VERIFICATION FAILED — not rebooting"
+        return 1
+    fi
+
 # One-shot NixOS install on Raspberry Pi from the minimal installer image
 # Copies nixos-files/ to target root when that directory exists
 # TARGET: optional hostname/IP (default: {{ NHOST }}-installer.local)
@@ -120,9 +185,23 @@ nixos-init TARGET="" CONFIG=NINSTALL:
       "${EXTRA_FILES_ARGS[@]}" \
       --flake .#{{ CONFIG }} \
       --env-password \
-      --phases disko,install,reboot \
+      --phases disko,install \
       --build-on remote \
       root@$TARGET
+
+    echo ""
+    echo "Install complete. Verifying boot layout..."
+    echo ""
+    just nixos-verify-boot "root@$TARGET" || {
+      echo ""
+      echo "Aborting — fix the issue and re-run: just nixos-init"
+      exit 1
+    }
+
+    echo ""
+    echo "Rebooting $TARGET..."
+    ssh -o StrictHostKeyChecking=no "root@$TARGET" "reboot" || true
+    echo "Done. Wait for Pi to come back up, then remove the SD card."
 
 # Build the NixOS configuration for Raspberry Pi
 nixos-build:
