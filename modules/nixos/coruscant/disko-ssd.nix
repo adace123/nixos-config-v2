@@ -8,8 +8,8 @@
       type = "gpt";
       partitions = {
         firmware = {
-          size = "512M";
-          type = "EF00";
+          size = "1024M";
+          type = "0700";
           content = {
             type = "filesystem";
             format = "vfat";
@@ -21,11 +21,16 @@
           };
         };
         boot = {
-          size = "1G";
+          size = "1024M";
+          type = "EF00";
           content = {
             type = "filesystem";
-            format = "ext4";
+            format = "vfat";
             mountpoint = "/boot";
+            mountOptions = [
+              "noatime"
+              "umask=0077"
+            ];
           };
         };
         root = {
