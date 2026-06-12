@@ -245,7 +245,7 @@ nix build .#darwinConfigurations.endor.system
 
 ### Committing
 
-- **Scope commits precisely.** When the user wants to commit, they mean only the current change — don't stage unrelated pending work from the working tree.
+- **Scope commits precisely.** Only stage files that are part of the current session's changes — never stage unrelated pending work from the working tree. Use `git diff --name-only` to verify you're only committing what was just discussed or modified.
 - **Pre-commit hooks run on all staged files.** If an unrelated file has a hook failure (e.g. deadnix unused variable), the entire commit is blocked. Check `git diff --cached` for other staged changes and either fix or unstage them before committing.
 - After a failed commit, pre-commit stashes unstaged files and restores them. The commit is not created — fix the issue and retry.
 
