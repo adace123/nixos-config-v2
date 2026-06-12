@@ -48,9 +48,9 @@ If you prefer to set things up manually or the bootstrap script doesn't work:
    - Update the username from `aaron` to your username
    - Change `aarch64-darwin` to `x86_64-darwin` if you're on an Intel Mac
 
-2. Update user details in `modules/home/default.nix`:
-   - Update Git username and email
-   - Customize packages and shell configuration as needed
+2. Update user details:
+   - Git username and email in `modules/home/git.nix`
+   - Customize packages and shell configuration in `modules/home/default.nix`
 
 3. Build and activate the configuration:
 
@@ -176,7 +176,7 @@ just rollback
 ## Raspberry Pi Setup (NixOS)
 
 This flake includes a NixOS configuration for a Raspberry Pi 4 (`coruscant`)
-running Home Assistant, Zigbee2MQTT, Mosquitto, and ESPHome.
+running Home Assistant, Beszel monitoring, Zigbee2MQTT, Mosquitto, and ESPHome.
 
 ### Pi-Specific Prerequisites
 
@@ -335,22 +335,62 @@ nixos-rebuild switch \
 | Mosquitto (MQTT) | 1883 | MQTT broker for device communication  |
 | Zigbee2MQTT      | 8091 | Zigbee to MQTT bridge                 |
 | ESPHome          | 6052 | ESP32/ESP8266 device management       |
+| Beszel Hub       | 8090 | Lightweight server monitoring         |
 
-All services are configured in `modules/nixos/coruscant/home-assistant.nix`.
+Home automation services are configured in `modules/nixos/coruscant/home-assistant.nix`,
+Beszel in `modules/nixos/beszel.nix`, and Caddy reverse proxying in
+`modules/nixos/coruscant/caddy.nix`.
 
 ## Structure
 
 ```text
 .
-├── flake.nix              # Main flake configuration
-├── flake.lock             # Locked dependency versions
+├── flake.nix                 # Main flake configuration
+├── flake.lock                # Locked dependency versions
+├── flake-parts/
+│   ├── darwin.nix            # Darwin host entry point
+│   ├── nixos.nix             # NixOS host entry point
+│   └── pre-commit.nix        # Pre-commit hook configuration
+├── scripts/
+│   ├── ai-selector.sh        # AI assistant launcher
+│   ├── check-for-updates.sh  # Auto-update check script
+│   ├── setup-work-ssh.sh     # Work SSH key setup
+│   ├── setup-yubikey-sudo.sh # YubiKey sudo setup
+│   └── README.md
 ├── modules/
 │   ├── darwin/
-│   │   ├── default.nix    # macOS system configuration
-│   │   └── homebrew.nix   # Homebrew packages and casks
-│   └── home/
-│       └── default.nix    # Home-manager user configuration
-└── README.md              # This file
+│   │   ├── default.nix       # macOS system configuration
+│   │   ├── auto-update.nix   # Auto-update service
+│   │   ├── fonts.nix         # Font configuration
+│   │   └── homebrew.nix      # Homebrew packages and casks
+│   ├── home/
+│   │   ├── default.nix       # Home-manager user config (shell, pkgs)
+│   │   ├── 1password-agent.nix
+│   │   ├── ai/               # AI tool config (claude, hermes, opencode)
+│   │   ├── aerospace.nix     # AeroSpace window manager
+│   │   ├── fastfetch.nix     # System info display
+│   │   ├── ghostty.nix       # Ghostty terminal emulator
+│   │   ├── git.nix           # Git configuration
+│   │   ├── nodejs.nix        # Node.js development
+│   │   ├── nvf/              # Neovim (nvf) configuration
+│   │   ├── nixvim.nix        # Nixvim module (disabled)
+│   │   ├── python.nix        # Python development
+│   │   ├── starship/         # Starship prompt config
+│   │   ├── zed/              # Zed editor settings and keybindings
+│   │   └── zellij.nix        # Zellij terminal multiplexer
+│   └── nixos/
+│       ├── common.nix        # Shared NixOS configuration
+│       ├── beszel.nix        # Beszel monitoring (hub + agent)
+│       └── coruscant/
+│           ├── base.nix      # Coruscant host entry point
+│           ├── caddy.nix     # Caddy reverse proxy (Cloudflare DNS)
+│           ├── configuration.yaml
+│           ├── home-assistant.nix
+│           ├── installer.nix
+│           └── ssd.nix       # SSD boot (disko)
+├── bootstrap.sh              # First-time setup script
+├── justfile                  # Command runner recipes
+└── README.md                 # This file
 ```
 
 ## What's Included
@@ -369,12 +409,17 @@ All services are configured in `modules/nixos/coruscant/home-assistant.nix`.
 
 - **Python**: Python 3.13/3.12/3.11, UV package manager, Ruff, Mypy, Poetry, IPython
 - **Node.js**: Node 22, Bun, npm, yarn, pnpm, TypeScript, ESLint, Prettier
-- **Git**: Configured with comprehensive .gitignore
+- **Git**: Configured with signing, aliases, and comprehensive .gitignore
 - **Shell**: Zsh with Oh-My-Zsh, Starship prompt, autosuggestions, syntax highlighting
-- **CLI Tools**: ripgrep, fd, bat, eza, fzf, jq, htop, tree, direnv, just, nh
-- **Window Manager**: AeroSpace (i3-like tiling for macOS)
-- **Terminal**: Ghostty with custom configuration
-- **System Info**: Fastfetch with creative boxed output
+- **CLI Tools**: ripgrep, fd, bat, eza, fzf, jq, htop, btop, tree, direnv, just, nh, yazi, lazygit, zoxide, television, carapace
+- **AeroSpace**: i3-like tiling window manager for macOS
+- **Ghostty**: Terminal emulator with custom configuration
+- **Fastfetch**: System info display with creative boxed output
+- **Zellij**: Terminal multiplexer with custom layouts and keybindings
+- **Zed**: Editor configuration, settings, and custom keybindings
+- **nvf (Neovim)**: Full Neovim configuration with LSP, Treesitter, Telescope
+- **1Password Agent**: SSH agent integration with 1Password
+- **AI Tools**: Claude, Hermes, opencode CLI assistant configurations
 
 ### Optional (Currently Disabled)
 
