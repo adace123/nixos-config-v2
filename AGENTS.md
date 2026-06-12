@@ -240,8 +240,14 @@ nix build .#darwinConfigurations.endor.system
 2. Run `git add` for any **new files** — Nix flakes can only resolve git-tracked files
 3. Run `just fmt` to format Nix files (required before committing)
 4. Run `just check` to validate changes
-5. Check if documentation (README.md, AGENTS.md) needs updating to reflect the changes — especially when adding/removing modules, changing workflows, or updating commands.
+5. Check if documentation (README.md, AGENTS.md) needs updating to reflect the changes — especially when adding/removing modules, changing workflows, updating commands, or making architectural changes (new services, hosts, infrastructure). When in doubt, update the README.
 6. Build with `nh darwin build` (user must run `just switch` to activate)
+
+### Committing
+
+- **Scope commits precisely.** When the user wants to commit, they mean only the current change — don't stage unrelated pending work from the working tree.
+- **Pre-commit hooks run on all staged files.** If an unrelated file has a hook failure (e.g. deadnix unused variable), the entire commit is blocked. Check `git diff --cached` for other staged changes and either fix or unstage them before committing.
+- After a failed commit, pre-commit stashes unstaged files and restores them. The commit is not created — fix the issue and retry.
 
 > **Important:** Always run `just fmt` after editing Nix files. The pre-commit hooks will fail without proper formatting.
 
@@ -259,6 +265,10 @@ ssh root@<host> "cd /tmp/nixos-config && nixos-rebuild switch --flake .#<hostnam
 
 # Option 2: nixos-rebuild via nix run (if nixos-rebuild not locally installed)
 # Requires a Linux builder or building on the target host
+
+# Option 3: Use just nixos-deploy (hostname configured in justfile)
+just nixos-deploy              # deploys to default host (coruscant)
+just nixos-deploy-ip 10.0.0.2 # deploys to specific IP
 ```
 
 Evaluation can still be verified locally: `nix eval .#nixosConfigurations.<name>.config.system.build.toplevel.drvPath`
