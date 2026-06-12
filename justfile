@@ -127,7 +127,7 @@ nixos-verify-boot TARGET="" PASSWORD="installer":
     FAIL=0
 
     # Run all checks in a single SSH call to avoid rate limiting
-    CHECKS=$(ssh_cmd 'echo "PARTS:"; lsblk -ln -o NAME,SIZE,TYPE /dev/sda 2>/dev/null; echo "FW:"; ls /mnt/boot/firmware/config.txt /mnt/boot/firmware/u-boot*.bin /mnt/boot/firmware/broadcom/ 2>/dev/null; echo "BOOT:"; ls /mnt/boot/extlinux/ /mnt/boot/nixos/ 2>/dev/null; echo "STORE:"; test -d /mnt/nix/store && echo "$(ls /mnt/nix/store | wc -l) entries"' || true)
+    CHECKS=$(ssh_cmd 'echo "PARTS:"; lsblk -ln -o NAME,SIZE,TYPE /dev/sda 2>/dev/null; echo "FW:"; ls /mnt/boot/firmware/config.txt /mnt/boot/firmware/broadcom/ /mnt/boot/firmware/nixos/default/kernel.img /mnt/boot/firmware/nixos/default/initrd /mnt/boot/firmware/nixos/default/cmdline.txt 2>/dev/null; echo "CONFIG:"; grep -E "^(kernel|os_prefix)=" /mnt/boot/firmware/config.txt 2>/dev/null; echo "STORE:"; test -d /mnt/nix/store && echo "$(ls /mnt/nix/store | wc -l) entries"' || true)
     echo "$CHECKS"
 
     if ! echo "$CHECKS" | grep -q "part"; then
@@ -138,20 +138,20 @@ nixos-verify-boot TARGET="" PASSWORD="installer":
         echo "FAIL: /mnt/boot/firmware/config.txt not found"
         FAIL=1
     fi
-    if ! echo "$CHECKS" | grep -qE "u-boot"; then
-        echo "FAIL: /mnt/boot/firmware/u-boot*.bin not found"
+    if ! echo "$CHECKS" | grep -q "kernel=kernel.img"; then
+        echo "FAIL: config.txt does not set kernel=kernel.img"
         FAIL=1
     fi
-    if ! echo "$CHECKS" | grep -q "extlinux.conf"; then
-        echo "FAIL: /mnt/boot/extlinux/extlinux.conf not found"
+    if ! echo "$CHECKS" | grep -q "os_prefix=nixos/default/"; then
+        echo "FAIL: config.txt does not set os_prefix=nixos/default/"
         FAIL=1
     fi
-    if ! echo "$CHECKS" | grep -qE "Image|bzImage"; then
-        echo "FAIL: Kernel image not found in /mnt/boot/nixos/"
+    if ! echo "$CHECKS" | grep -q "kernel.img"; then
+        echo "FAIL: kernel.img not found in /mnt/boot/firmware/nixos/default/"
         FAIL=1
     fi
     if ! echo "$CHECKS" | grep -q "initrd"; then
-        echo "FAIL: initrd not found in /mnt/boot/nixos/"
+        echo "FAIL: initrd not found in /mnt/boot/firmware/nixos/default/"
         FAIL=1
     fi
     if ! echo "$CHECKS" | grep -qE "[0-9]+ entries"; then
@@ -171,7 +171,8 @@ nixos-verify-boot TARGET="" PASSWORD="installer":
 # Copies nixos-files/ to target root when that directory exists
 # TARGET: optional hostname/IP (default: {{ NHOST }}-installer.local)
 # CONFIG: NixOS configuration to install (default: {{ NINSTALL }})
-nixos-init TARGET="" CONFIG=NINSTALL:
+# SKIP_DISK: set to "1" to skip drive partitioning/formatting (reuse existing layout)
+nixos-init TARGET="" CONFIG=NINSTALL SKIP_DISK="":
     #!/usr/bin/env bash
     set -euo pipefail
     EXTRA_FILES_ARGS=()
@@ -184,13 +185,19 @@ nixos-init TARGET="" CONFIG=NINSTALL:
     if [ -z "$TARGET" ]; then
         TARGET="{{ NHOST }}-installer.local"
     fi
+    if [ "{{ SKIP_DISK }}" = "1" ]; then
+        PHASES="install"
+        echo "Skipping disk partitioning (SKIP_DISK=1)..."
+    else
+        PHASES="disko,install"
+    fi
     echo "Installing NixOS on $TARGET via nixos-anywhere..."
     echo "(kexec unsupported on Raspberry Pi — skipping)"
     SSHPASS="installer" nix run github:nix-community/nixos-anywhere -- \
       "${EXTRA_FILES_ARGS[@]}" \
       --flake .#{{ CONFIG }} \
       --env-password \
-      --phases disko,install \
+      --phases "$PHASES" \
       --build-on remote \
       root@$TARGET
 
