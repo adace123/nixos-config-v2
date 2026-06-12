@@ -171,7 +171,7 @@ nixos-verify-boot TARGET="" PASSWORD="installer":
 # Copies nixos-files/ to target root when that directory exists
 # TARGET: optional hostname/IP (default: {{ NHOST }}-installer.local)
 # CONFIG: NixOS configuration to install (default: {{ NINSTALL }})
-# SKIP_DISK: set to "1" to skip drive partitioning/formatting (reuse existing layout)
+# SKIP_DISK/skip_disk: set to "1" or "true" to skip drive partitioning/formatting (reuse existing layout)
 nixos-init TARGET="" CONFIG=NINSTALL:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -185,9 +185,10 @@ nixos-init TARGET="" CONFIG=NINSTALL:
     if [ -z "$TARGET" ]; then
         TARGET="{{ NHOST }}-installer.local"
     fi
-    if [ "$SKIP_DISK" = "1" ]; then
+    SKIP_DISK="${SKIP_DISK:-${skip_disk:-0}}"
+    if [ "$SKIP_DISK" = "1" ] || [ "$SKIP_DISK" = "true" ]; then
         PHASES="install"
-        echo "Skipping disk partitioning (SKIP_DISK=1)..."
+        echo "Skipping disk partitioning (SKIP_DISK=$SKIP_DISK)..."
     else
         PHASES="disko,install"
     fi
