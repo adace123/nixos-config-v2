@@ -16,4 +16,13 @@
     "scsi_mod"
   ];
   boot.kernelParams = [ "rootwait" ];
+
+  fileSystems."/boot/firmware".neededForBoot = true;
+  systemd.tmpfiles.rules = [ "d /boot/firmware 0755 root root -" ];
+  system.activationScripts.mountBootFirmware = lib.stringAfter [ "specialfs" ] ''
+    mkdir -p /boot/firmware
+    if ! ${pkgs.util-linux}/bin/findmnt --mountpoint /boot/firmware >/dev/null; then
+      ${pkgs.util-linux}/bin/mount /boot/firmware
+    fi
+  '';
 }
