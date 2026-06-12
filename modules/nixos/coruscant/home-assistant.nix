@@ -10,7 +10,7 @@ in
   sops.templates."hass-configuration.yaml" = {
     content =
       builtins.replaceStrings
-        [ "__TIME_ZONE__" "__EXTERNAL_URL__" ]
+        [ "__TIME_ZONE__" "__EXTERNAL_DOMAIN__" ]
         [ config.time.timeZone config.sops.placeholder.home-assistant-external-domain ]
         (builtins.readFile ./configuration.yaml);
   };

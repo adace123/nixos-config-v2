@@ -33,5 +33,5 @@ homeassistant:
   elevation: 71
   unit_system: metric
   time_zone: __TIME_ZONE__
-  external_url: __EXTERNAL_URL__
-  internal_url: __EXTERNAL_URL__
+  external_url: https://__EXTERNAL_DOMAIN__
+  internal_url: https://__EXTERNAL_DOMAIN__
