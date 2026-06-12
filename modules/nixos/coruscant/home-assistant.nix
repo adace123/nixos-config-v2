@@ -5,13 +5,15 @@
 }:
 let
   hassDir = "/var/lib/hass";
-  hassConfigFile = pkgs.writeText "hass-configuration.yaml" (
-    builtins.replaceStrings [ "__TIME_ZONE__" ] [ config.time.timeZone ] (
-      builtins.readFile ./configuration.yaml
-    )
-  );
 in
 {
+  sops.templates."hass-configuration.yaml" = {
+    content =
+      builtins.replaceStrings
+        [ "__TIME_ZONE__" "__EXTERNAL_URL__" ]
+        [ config.time.timeZone config.sops.placeholder.home-assistant-external-domain ]
+        (builtins.readFile ./configuration.yaml);
+  };
   virtualisation = {
     podman.autoPrune = {
       enable = true;
@@ -43,7 +45,10 @@ in
   };
 
   systemd.services."podman-home-assistant" = {
-    after = [ "mosquitto.service" ];
+    after = [
+      "mosquitto.service"
+      "copy-hass-config.service"
+    ];
     requires = [ "mosquitto.service" ];
     serviceConfig = {
       Restart = "on-failure";
@@ -68,12 +73,27 @@ in
     timerConfig.OnCalendar = "weekly";
   };
 
+  # Copy rendered HA config before HA starts.  Sops templates are guaranteed
+  # to be rendered during activation, before any systemd service starts.
+  systemd.services."copy-hass-config" = {
+    description = "Copy rendered HA configuration";
+    before = [ "podman-home-assistant.service" ];
+    requiredBy = [ "podman-home-assistant.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+    };
+    script = ''
+      ${pkgs.coreutils}/bin/cp ${
+        config.sops.templates."hass-configuration.yaml".path
+      } ${hassDir}/configuration.yaml
+      ${pkgs.coreutils}/bin/chown -R hass:hass ${hassDir}
+    '';
+  };
+
   system.activationScripts.home-assistant-config = {
     text = ''
       mkdir -p ${hassDir}
-      ${pkgs.coreutils}/bin/cp ${hassConfigFile} ${hassDir}/configuration.yaml
       touch ${hassDir}/automations.yaml ${hassDir}/scenes.yaml ${hassDir}/scripts.yaml
-      rm -f ${hassDir}/home-assistant_v2.db ${hassDir}/home-assistant_v2.db.corrupt.*
       ${pkgs.coreutils}/bin/chown -R hass:hass ${hassDir}
     '';
     deps = [ "users" ];

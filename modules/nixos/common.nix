@@ -75,7 +75,7 @@
   };
 
   # Timezone
-  time.timeZone = "UTC";
+  time.timeZone = "America/Los_Angeles";
 
   # Enable NTP
   services.ntp = {

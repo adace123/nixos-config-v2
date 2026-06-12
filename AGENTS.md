@@ -245,6 +245,24 @@ nix build .#darwinConfigurations.endor.system
 
 > **Important:** Always run `just fmt` after editing Nix files. The pre-commit hooks will fail without proper formatting.
 
+### Building for Remote NixOS Hosts
+
+**Cannot build aarch64-linux on aarch64-darwin natively.** NixOS configurations
+target Linux — building from a Darwin machine will fail with
+`required system or feature not available: 'aarch64-linux'`. To deploy to a
+remote NixOS host (e.g., coruscant RPi):
+
+```bash
+# Option 1: rsync the flake and build remotely
+rsync -avz --exclude '.git/' --exclude 'result*' . root@<host>:/tmp/nixos-config
+ssh root@<host> "cd /tmp/nixos-config && nixos-rebuild switch --flake .#<hostname>"
+
+# Option 2: nixos-rebuild via nix run (if nixos-rebuild not locally installed)
+# Requires a Linux builder or building on the target host
+```
+
+Evaluation can still be verified locally: `nix eval .#nixosConfigurations.<name>.config.system.build.toplevel.drvPath`
+
 ### Adding New Packages
 
 - System packages: Add to `modules/darwin/default.nix`

@@ -3,7 +3,7 @@ automation ui: !include automations.yaml
 scene ui: !include scenes.yaml
 script ui: !include scripts.yaml
 http:
-  server_host: "::"
+  server_host: "127.0.0.1"
   server_port: 8123
   use_x_forwarded_for: true
   trusted_proxies:
@@ -33,4 +33,5 @@ homeassistant:
   elevation: 71
   unit_system: metric
   time_zone: __TIME_ZONE__
-  internal_url: http://coruscant.local:8123
+  external_url: __EXTERNAL_URL__
+  internal_url: __EXTERNAL_URL__
