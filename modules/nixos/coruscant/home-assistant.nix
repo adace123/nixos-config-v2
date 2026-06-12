@@ -71,8 +71,9 @@ in
   system.activationScripts.home-assistant-config = {
     text = ''
       mkdir -p ${hassDir}
-      ${pkgs.coreutils}/bin/cp --update ${hassConfigFile} ${hassDir}/configuration.yaml
+      ${pkgs.coreutils}/bin/cp ${hassConfigFile} ${hassDir}/configuration.yaml
       touch ${hassDir}/automations.yaml ${hassDir}/scenes.yaml ${hassDir}/scripts.yaml
+      rm -f ${hassDir}/home-assistant_v2.db ${hassDir}/home-assistant_v2.db.corrupt.*
       ${pkgs.coreutils}/bin/chown -R hass:hass ${hassDir}
     '';
     deps = [ "users" ];
