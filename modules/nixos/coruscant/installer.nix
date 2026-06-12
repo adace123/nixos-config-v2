@@ -7,6 +7,7 @@
   # Use stock kernel (from cache.nixos.org) instead of vendor RPi kernel
   # to avoid building the vendor kernel from source under QEMU emulation.
   boot.kernelPackages = lib.mkForce pkgs.linuxPackages;
+  boot.loader.raspberry-pi.bootloader = "kernel";
 
   networking.hostName = "coruscant-installer";
   networking.useDHCP = true;

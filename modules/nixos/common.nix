@@ -11,6 +11,11 @@
       PasswordAuthentication = false;
     };
   };
+  users.users.root.openssh.authorizedKeys.keys = [
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC6DWf0lf4vWTAUmjkulvvZrhCifTS8eFqkDlHPSawrU"
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILRSOuLiLN+rY14q+55fd7XUH3rfA54nx3gZJjfmwa7G"
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIH6NoE7HzOLf05FzjkbsQQkMSbe6AJEm2fgNZeaO6RAe"
+  ];
 
   # Enable automatic updates
   system.autoUpgrade = {
@@ -67,10 +72,10 @@
   virtualisation.docker.enable = true;
 
   # Tailscale for secure remote access
-  # After first boot, authenticate with: tailscale up
-  # Or set services.tailscale.authKeyFile for automated auth.
   services.tailscale = {
     enable = true;
+    openFirewall = true;
+    useRoutingFeatures = "server";
     extraSetFlags = [ "--advertise-exit-node" ];
   };
 

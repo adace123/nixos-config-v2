@@ -203,6 +203,16 @@ installer image.
    just nixos-init 192.168.1.50
    ```
 
+   Secrets are decrypted on the Pi using `/var/lib/sops-nix/key.txt`. Before
+   installing a config that uses SOPS secrets, copy your local age key into the
+   gitignored `nixos-files/` tree so `just nixos-init` passes it through
+   `nixos-anywhere`:
+
+   ```bash
+   mkdir -p nixos-files/var/lib/sops-nix
+   cp ~/.config/sops/age/keys.txt nixos-files/var/lib/sops-nix/key.txt
+   ```
+
    Or directly:
 
    ```bash
