@@ -8,7 +8,7 @@
       type = "gpt";
       partitions = {
         firmware = {
-          size = "256M";
+          size = "1024M";
           type = "0700"; # plain MS basic data, NOT EF00
           content = {
             type = "filesystem";
