@@ -25,6 +25,7 @@ in
         volumes = [
           "${hassDir}:/config"
           "/etc/localtime:/etc/localtime:ro"
+          "/run/dbus:/run/dbus:ro"
         ];
         pull = "newer";
         labels = {

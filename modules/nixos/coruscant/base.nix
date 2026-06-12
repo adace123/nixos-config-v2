@@ -9,6 +9,8 @@
   sops.age.keyFile = "/var/lib/sops-nix/key.txt";
   sops.secrets.ts-auth-key = { };
 
+  hardware.bluetooth.enable = true;
+
   networking = {
     hostName = "coruscant";
     firewall.allowedTCPPorts = [ 8123 ]; # Home Assistant Web UI

@@ -16,7 +16,7 @@ logger:
     homeassistant.components: warning
 recorder:
   purge_keep_days: 10
-  db_url: sqlite:///config/home-assistant_v2.db
+  db_url: sqlite:////config/home-assistant_v2.db
 history:
 logbook:
 sun:
