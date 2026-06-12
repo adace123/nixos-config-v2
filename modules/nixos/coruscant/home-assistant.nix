@@ -39,6 +39,10 @@ in
   systemd.services."podman-home-assistant" = {
     after = [ "mosquitto.service" ];
     requires = [ "mosquitto.service" ];
+    serviceConfig = {
+      Restart = "on-failure";
+      RestartSec = "30s";
+    };
   };
 
   # Podman auto-update: containers with io.containers.autoupdate=registry
