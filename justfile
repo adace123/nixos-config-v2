@@ -11,7 +11,7 @@ HOST := "endor"
 NHOST := "coruscant"
 
 # Default first-install NixOS configuration (must include Disko)
-NINSTALL := "coruscant-ssd"
+NINSTALL := "coruscant"
 
 install-nix:
     curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install

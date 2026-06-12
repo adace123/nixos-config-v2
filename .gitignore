@@ -56,3 +56,6 @@ nixos-files/
 
 # pre-commit
 .pre-commit-config.yaml
+
+# uv
+.venv

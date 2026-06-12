@@ -5,6 +5,11 @@
 }:
 let
   hassDir = "/var/lib/hass";
+  hassConfigFile = pkgs.writeText "hass-configuration.yaml" (
+    builtins.replaceStrings [ "__TIME_ZONE__" ] [ config.time.timeZone ] (
+      builtins.readFile ./configuration.yaml
+    )
+  );
 in
 {
   virtualisation = {
@@ -65,11 +70,8 @@ in
   system.activationScripts.home-assistant-config = {
     text = ''
       mkdir -p ${hassDir}
-      ${pkgs.coreutils}/bin/cp --update ${./configuration.yaml} ${hassDir}/configuration.yaml
-      ${pkgs.gnused}/bin/sed -i "s/__TIME_ZONE__/${config.time.timeZone}/g" ${hassDir}/configuration.yaml
-      touch ${hassDir}/automations.yaml
-      touch ${hassDir}/scenes.yaml
-      touch ${hassDir}/scripts.yaml
+      ${pkgs.coreutils}/bin/cp --update ${hassConfigFile} ${hassDir}/configuration.yaml
+      touch ${hassDir}/automations.yaml ${hassDir}/scenes.yaml ${hassDir}/scripts.yaml
       ${pkgs.coreutils}/bin/chown -R hass:hass ${hassDir}
     '';
     deps = [ "users" ];
@@ -136,6 +138,5 @@ in
     bluez-tools
     i2c-tools
     wiringpi
-    zigbee2mqtt
   ];
 }

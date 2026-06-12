@@ -9,8 +9,14 @@
   boot.kernelPackages = lib.mkForce pkgs.linuxPackages;
   boot.loader.raspberry-pi.bootloader = "kernel";
 
+  # Installer image — disable services that don't apply to a temporary image
+  system.autoUpgrade.enable = lib.mkForce false;
+  nix.gc.automatic = lib.mkForce false;
+  virtualisation.docker.enable = lib.mkForce false;
+  services.tailscale.enable = lib.mkForce false;
+  zramSwap.enable = lib.mkForce false;
+
   networking.hostName = "coruscant-installer";
-  networking.useDHCP = true;
 
   # Installer image: allow root login with password for initial setup
   services.openssh.settings = lib.mkForce {
@@ -19,30 +25,12 @@
   };
   users.users.root.initialPassword = "installer";
 
-  # Enable mDNS for local network discovery
-  services.avahi = {
-    enable = true;
-    hostName = "coruscant-installer";
-    publish = {
-      enable = true;
-      workstation = true;
-      addresses = true;
-      domain = true;
-    };
-  };
+  # Override avahi hostname to match the installer hostname
+  services.avahi.hostName = "coruscant-installer";
 
   # Root filesystem
   fileSystems."/" = {
     device = "/dev/disk/by-label/NIXOS_SD";
     fsType = "ext4";
-  };
-
-  # Timezone
-  time.timeZone = "UTC";
-
-  # Minimal firewall — just mDNS
-  networking.firewall = {
-    enable = true;
-    allowedUDPPorts = [ 5353 ];
   };
 }
