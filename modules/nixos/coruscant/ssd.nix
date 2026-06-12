@@ -59,6 +59,8 @@
   ];
   boot.kernelParams = [ "rootwait" ];
 
+  services.fstrim.enable = true;
+
   fileSystems."/boot/firmware".neededForBoot = true;
   systemd.tmpfiles.rules = [ "d /boot/firmware 0755 root root -" ];
 }
