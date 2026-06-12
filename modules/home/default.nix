@@ -52,6 +52,7 @@
       jujutsu
       trivy
       fzf
+      tailscale
 
       # Modern CLI replacements
       bat # cat replacement
