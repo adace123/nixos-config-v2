@@ -326,25 +326,37 @@ nixos-deploy TARGET="":
     if [ -z "$TARGET" ]; then
         TARGET="{{ NHOST }}.local"
     fi
-    nixos-rebuild switch --flake .#{{ NHOST }} --target-host root@$TARGET --build-host root@$TARGET --use-remote-sudo
+    nix run nixpkgs#nixos-rebuild -- switch --flake .#{{ NHOST }} --target-host root@$TARGET --build-host root@$TARGET --elevate=sudo
 
 # Deploy NixOS configuration to Raspberry Pi with custom IP
 nixos-deploy-ip IP:
     #!/usr/bin/env bash
     set -euo pipefail
-    nixos-rebuild switch --flake .#{{ NHOST }} --target-host root@{{ IP }} --build-host root@{{ IP }} --use-remote-sudo
+    nix run nixpkgs#nixos-rebuild -- switch --flake .#{{ NHOST }} --target-host root@{{ IP }} --build-host root@{{ IP }} --elevate=sudo
 
 # Show NixOS generations on remote host
 nixos-generations:
     #!/usr/bin/env bash
     set -euo pipefail
-    nixos-rebuild --list-generations --flake .#{{ NHOST }} --target-host root@{{ NHOST }}.local
+    nix run nixpkgs#nixos-rebuild -- --list-generations --flake .#{{ NHOST }} --target-host root@{{ NHOST }}.local
 
 # Rollback NixOS on remote host
 nixos-rollback:
     #!/usr/bin/env bash
     set -euo pipefail
-    nixos-rebuild --rollback --flake .#{{ NHOST }} --target-host root@{{ NHOST }}.local
+    nix run nixpkgs#nixos-rebuild -- --rollback --flake .#{{ NHOST }} --target-host root@{{ NHOST }}.local
+
+# Tail Home Assistant logs on remote NixOS host via journalctl
+# FILTER: optional grep pattern (e.g., "error|recorder|bluetooth")
+# LINES: number of lines to show (default: 50)
+hass-logs FILTER="" LINES="50":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    CMD="journalctl -u podman-home-assistant.service -n {{ LINES }} --no-hostname --output cat 2>&1"
+    if [ -n "{{ FILTER }}" ]; then
+        CMD="$CMD | grep -iE '{{ FILTER }}'"
+    fi
+    ssh root@{{ NHOST }}.local "$CMD"
 
 # Show available system generations
 generations:
