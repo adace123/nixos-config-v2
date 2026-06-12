@@ -172,7 +172,7 @@ nixos-verify-boot TARGET="" PASSWORD="installer":
 # TARGET: optional hostname/IP (default: {{ NHOST }}-installer.local)
 # CONFIG: NixOS configuration to install (default: {{ NINSTALL }})
 # SKIP_DISK: set to "1" to skip drive partitioning/formatting (reuse existing layout)
-nixos-init TARGET="" CONFIG=NINSTALL SKIP_DISK="":
+nixos-init TARGET="" CONFIG=NINSTALL:
     #!/usr/bin/env bash
     set -euo pipefail
     EXTRA_FILES_ARGS=()
@@ -185,7 +185,7 @@ nixos-init TARGET="" CONFIG=NINSTALL SKIP_DISK="":
     if [ -z "$TARGET" ]; then
         TARGET="{{ NHOST }}-installer.local"
     fi
-    if [ "{{ SKIP_DISK }}" = "1" ]; then
+    if [ "$SKIP_DISK" = "1" ]; then
         PHASES="install"
         echo "Skipping disk partitioning (SKIP_DISK=1)..."
     else
@@ -212,7 +212,7 @@ nixos-init TARGET="" CONFIG=NINSTALL SKIP_DISK="":
 
     echo ""
     echo "Shutting down $TARGET..."
-    ssh -o StrictHostKeyChecking=no "root@$TARGET" "shutdown now" || true
+    sshpass -p installer ssh -o StrictHostKeyChecking=no "root@$TARGET" "shutdown now" || true
     echo "Done. Remove the SD card, then power on the Pi to boot from SSD."
 
 # Build the NixOS configuration for Raspberry Pi
