@@ -1,9 +1,13 @@
 { inputs, ... }:
+let
+  hosts = import ../hosts;
+  host = hosts.endor;
+in
 {
   flake.darwinConfigurations = {
-    endor = inputs.darwin.lib.darwinSystem {
-      system = "aarch64-darwin";
-      specialArgs = { inherit inputs; };
+    "${host.hostName}" = inputs.darwin.lib.darwinSystem {
+      system = host.system;
+      specialArgs = { inherit inputs host; };
       modules = [
         ../modules/darwin
         inputs.sops-nix.darwinModules.sops
@@ -21,14 +25,14 @@
               inputs.sops-nix.homeManagerModules.sops
               inputs.zed-extensions.homeManagerModules.default
             ];
-            users.aaron = {
+            users.${host.user.name} = {
               imports = [ ../modules/home ];
               home = {
-                username = "aaron";
-                homeDirectory = "/Users/aaron";
+                username = host.user.name;
+                homeDirectory = host.user.homeDirectory;
               };
             };
-            extraSpecialArgs = { inherit inputs; };
+            extraSpecialArgs = { inherit inputs host; };
           };
         }
       ];

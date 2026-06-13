@@ -1,4 +1,4 @@
-{ lib, pkgs, ... }:
+{ host, lib, pkgs, ... }:
 {
   imports = [
     ../common.nix
@@ -16,7 +16,7 @@
   services.tailscale.enable = lib.mkForce false;
   zramSwap.enable = lib.mkForce false;
 
-  networking.hostName = "coruscant-installer";
+  networking.hostName = "${host.hostName}-installer";
 
   # Installer image: allow root login with password for initial setup
   services.openssh.settings = lib.mkForce {
@@ -26,7 +26,7 @@
   users.users.root.initialPassword = "installer";
 
   # Override avahi hostname to match the installer hostname
-  services.avahi.hostName = "coruscant-installer";
+  services.avahi.hostName = "${host.hostName}-installer";
 
   # Root filesystem
   fileSystems."/" = {

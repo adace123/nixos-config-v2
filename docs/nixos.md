@@ -8,7 +8,8 @@ a Raspberry Pi 4 running the home-server workload.
 The NixOS configuration lives under:
 
 ```text
-flake-parts/nixos.nix                # host entry points (coruscant, coruscant-sd-image)
+hosts/coruscant/default.nix          # host identity (hostname, system)
+flake-parts/nixos.nix                # NixOS output wiring from host metadata
 modules/nixos/common.nix             # shared NixOS settings
 modules/nixos/beszel.nix             # Beszel monitoring hub
 modules/nixos/coruscant/             # host-specific modules

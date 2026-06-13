@@ -6,7 +6,7 @@
 }:
 
 let
-  userHome = config.users.users.aaron.home;
+  userHome = config.users.users.${config.system.primaryUser}.home;
 
 in
 {
