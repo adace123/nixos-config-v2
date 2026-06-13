@@ -1,584 +1,159 @@
-# macOS Nix Configuration
+# nixos-config-v2
 
-A Nix flake-based configuration for managing macOS systems using
-nix-darwin and home-manager.
+Personal Nix flake managing a macOS workstation and a Raspberry Pi 4 home
+server. Uses [nix-darwin](https://github.com/LnL7/nix-darwin),
+[home-manager](https://nix-community.github.io/home-manager/), and
+[SOPS](https://getsops.io/) for secrets.
 
-## Prerequisites
+## Architecture
 
-1. Install Nix with flakes support:
+```text
+flake.nix
+├── Darwin  (aarch64-darwin)
+│   └── endor          — Apple Silicon Mac
+│       └── home-manager (user: aaron)
+│           ├── shell / CLI tools / dev environments
+│           ├── Neovim (nvf), Zed, Ghostty, Zellij
+│           └── AI tools (Claude, Hermes, opencode)
+└── NixOS   (aarch64-linux)
+    └── coruscant      — Raspberry Pi 4 home server
+        ├── Home Assistant  (podman container, port 8123)
+        ├── Mosquitto       (MQTT broker, port 1883)
+        ├── Zigbee2MQTT     (Zigbee bridge, port 8091)
+        ├── ESPHome         (ESP device manager, port 6052)
+        ├── Beszel Hub      (server monitoring, port 8090)
+        └── Caddy           (HTTPS reverse proxy, Cloudflare DNS-01)
+```
 
-   ```bash
-   curl --proto '=https' --tlsv1.2 -sSf -L \
-     https://install.determinate.systems/nix | sh -s -- install
-   ```
+### How the pieces fit together
 
-   Or use the official installer with flakes enabled:
+| Layer | Tool | Purpose |
+|-------|------|---------|
+| System (macOS) | nix-darwin | System packages, macOS defaults, Homebrew, Touch ID sudo |
+| User (macOS) | home-manager | Shell, CLI tools, editors, dev environments |
+| System (Linux) | NixOS | Pi kernel, services, firewall, Tailscale, SOPS secrets |
+| Secrets | SOPS + age | Encrypted YAML committed to git; decrypted at activation |
+| Remote access | Tailscale | Secure SSH and service access from anywhere |
 
-   ```bash
-   sh <(curl -L https://nixos.org/nix/install)
+### Shared modules
 
-   # Then enable flakes
-   mkdir -p ~/.config/nix
-   echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
-   ```
+```text
+modules/
+├── darwin/       # nix-darwin system config (macOS)
+├── home/         # home-manager user config (macOS)
+└── nixos/
+    ├── common.nix         # shared NixOS settings (SSH, firewall, NTP, GC…)
+    ├── beszel.nix         # Beszel monitoring
+    └── coruscant/         # host-specific NixOS modules
+```
 
-2. Make sure you're on macOS (this configuration only supports Darwin systems).
+> **Future goal — data-driven hosts:** currently, host-specific values
+> (username, system arch, hostname) are scattered across `flake-parts/` and
+> `modules/darwin/`. The intended target is a `hosts/` directory where each
+> machine declares only its identity; everything else comes from shared modules:
+>
+> ```text
+> hosts/
+> ├── endor/           # Darwin workstation
+> └── coruscant/       # NixOS Raspberry Pi
+> ```
 
 ## Quick Start
 
-**For first-time setup**, simply run the bootstrap script:
+### macOS (first time)
 
 ```bash
+# 1. Install Nix (Determinate installer)
+curl --proto '=https' --tlsv1.2 -sSf -L \
+  https://install.determinate.systems/nix | sh -s -- install
+
+# 2. Clone and bootstrap
+git clone https://github.com/adace123/nixos-config-v2
 cd nixos-config-v2
 ./bootstrap.sh
 ```
 
-This will:
-
-- Check that Nix is installed
-- Detect your hostname automatically
-- Build and activate the nix-darwin configuration
-- Set up all system and user packages
-
-## Manual Setup
-
-If you prefer to set things up manually or the bootstrap script doesn't work:
-
-1. Update the hostname in `flake-parts/darwin.nix`:
-   - Update the username from `aaron` to your username
-   - Change `aarch64-darwin` to `x86_64-darwin` if you're on an Intel Mac
-
-2. Update user details:
-   - Git username and email in `modules/home/git.nix`
-   - Customize packages and shell configuration in `modules/home/default.nix`
-
-3. Build and activate the configuration:
-
-   ```bash
-   # First time setup (installs nix-darwin)
-   nix build .#darwinConfigurations.<your-hostname>.system
-   ./result/sw/bin/darwin-rebuild switch --flake .
-   
-   # After first time, you can use nh for better UX:
-   just switch HOST=<your-hostname>
-   ```
-
-## Minimum Bootstrap Path
-
-If you are setting up on a fresh machine, use this minimum sequence:
-
-1. Install Nix (Determinate installer is recommended):
-
-   ```bash
-   curl --proto '=https' --tlsv1.2 -sSf -L \
-     https://install.determinate.systems/nix | sh -s -- install
-   ```
-
-2. Enter the repo and install `just` (if missing):
-
-   ```bash
-   cd nixos-config-v2
-   nix profile install nixpkgs#just
-   ```
-
-3. Run checks and build for your host (replace `<hostname>`):
-
-   ```bash
-   just check HOST=<hostname>
-   just switch HOST=<hostname>
-   ```
-
-4. Optional deep validation alias:
-
-   ```bash
-   just validate HOST=<hostname>
-   ```
-
-## Usage
-
-### Updating the System
-
-After making changes to your configuration:
+Or manually:
 
 ```bash
-just switch HOST=<your-hostname>
+nix profile install nixpkgs#just
+just switch HOST=endor
 ```
 
-Or use the convenient alias (configured in home-manager):
+### NixOS / Raspberry Pi (first time)
 
 ```bash
-update
+# Prepare age key for secrets decryption on the Pi
+mkdir -p nixos-files/var/lib/sops-nix
+cp ~/.config/sops/age/keys.txt nixos-files/var/lib/sops-nix/key.txt
+
+# Boot Pi from installer SD card, then:
+just nixos-init
 ```
 
-### Updating Dependencies
-
-To update all flake inputs (nixpkgs, nix-darwin, home-manager):
-
-```bash
-nix flake update
-just switch HOST=<your-hostname>
-```
-
-To update a specific input:
-
-```bash
-nix flake lock --update-input nixpkgs
-```
-
-### Adding Packages
-
-#### System-wide packages
-
-Add packages to `modules/darwin/default.nix` in the
-`environment.systemPackages` list.
-
-#### User packages
-
-Add packages to `modules/home/default.nix` in the `home.packages` list.
-
-#### Homebrew packages
-
-Add formulae (CLI tools), casks (GUI apps), or Mac App Store apps to
-`modules/darwin/homebrew.nix`:
-
-- **Formulae**: Add to the `brews` list
-- **Casks**: Add to the `casks` list
-- **Mac App Store**: Add to the `masApps` attribute set (requires app ID
-  from `mas search "App Name"`)
-
-Example:
-
-```nix
-brews = [
-  "ffmpeg"
-  "imagemagick"
-];
-
-casks = [
-  "visual-studio-code"
-  "rectangle"
-];
-
-masApps = {
-  "Xcode" = 497799835;
-};
-```
-
-### Rollback
-
-If something goes wrong, you can rollback to a previous generation:
-
-```bash
-just generations
-just rollback
-```
-
-## Raspberry Pi Setup (NixOS)
-
-This flake includes a NixOS configuration for a Raspberry Pi 4 (`coruscant`)
-running Home Assistant, Beszel monitoring, Zigbee2MQTT, Mosquitto, and ESPHome.
-
-### Pi-Specific Prerequisites
-
-- Raspberry Pi 4 with SD card and power
-- Network connectivity (Ethernet recommended)
-- Minimal installer SD image flashed to the SD card
-
-### One-shot Installation from the Minimal Installer
-
-[nixos-anywhere](https://github.com/nix-community/nixos-anywhere) installs NixOS
-on a remote machine over SSH in a single step after booting the minimal
-installer image.
-
-1. Boot the Pi from the minimal installer SD image.
-2. Once the Pi is reachable as `coruscant-installer.local`, run:
-
-   ```bash
-   just nixos-init
-   ```
-
-   If mDNS is unavailable, pass the IP or hostname explicitly:
-
-   ```bash
-   just nixos-init 192.168.1.50
-   ```
-
-   Secrets are decrypted on the Pi using `/var/lib/sops-nix/key.txt`. Before
-   installing a config that uses SOPS secrets, copy your local age key into the
-   gitignored `nixos-files/` tree so `just nixos-init` passes it through
-   `nixos-anywhere`:
-
-   ```bash
-   mkdir -p nixos-files/var/lib/sops-nix
-   cp ~/.config/sops/age/keys.txt nixos-files/var/lib/sops-nix/key.txt
-   ```
-
-   Or directly:
-
-   ```bash
-   SSHPASS=installer \
-   nix run github:nix-community/nixos-anywhere -- \
-     --flake .#coruscant-ssd \
-     --env-password \
-     --phases disko,install,reboot \
-     --build-on remote \
-     root@coruscant-installer.local
-   ```
-
-   nixos-anywhere will:
-   - SSH into the Pi running the minimal installer
-   - Partition and format the SSD with Disko
-   - Install NixOS with this flake's configuration
-   - Reboot into NixOS
-
-   > **Note:** The first build evaluates on your machine but builds
-   > `aarch64-linux` derivations. nixos-anywhere builds them on the Pi itself
-   > via SSH, so no local emulation is needed.
-
-### Building a Minimal Installer SD Image via GitHub Actions
-
-The SD image is a minimal installer with just SSH, Tailscale, and networking.
-On first boot, deploy the full Home Assistant configuration:
-
-```bash
-# SSH in and pull the full config
-nixos-rebuild switch --flake github:adace123/nixos-config-v2#coruscant \
-  --target-host root@coruscant-installer.local
-```
-
-Trigger the CI build:
-
-```bash
-gh workflow run build-sd-image.yml --ref main
-```
-
-Or go to Actions → Build Raspberry Pi SD Image → Run workflow in the GitHub UI.
-Download the compressed image from artifacts and flash:
-
-```bash
-unzstd -d nixos-sd-image-*.img.zst -o nixos-sd-image.img
-sudo dd if=nixos-sd-image.img of=/dev/sdX bs=1M status=progress
-```
-
-### Flashing a Local Build
-
-On a machine with `aarch64-linux` support (or a remote builder), build and
-flash directly:
-
-```bash
-just nixos-flash /dev/sdX
-```
-
-1. After reboot, SSH into the Pi (passwordless auth via SSH key):
-
-   ```bash
-   ssh root@coruscant.local
-   ```
-
-### WiFi Configuration
-
-The Pi is configured for Ethernet by default. To enable WiFi, set the
-`WIFI_SSID` and `WIFI_PSK` environment variables when building:
-
-```bash
-WIFI_SSID=MyNetwork WIFI_PSK=supersecret just nixos-deploy
-```
-
-Or for nixos-anywhere:
-
-```bash
-WIFI_SSID=MyNetwork WIFI_PSK=supersecret just nixos-init
-```
-
-When these env vars are unset, WiFi is disabled — Ethernet-only mode.
-
-### Tailscale
-
-Tailscale is enabled and will start on boot. On first boot, SSH in and
-authenticate:
-
-```bash
-ssh root@coruscant.local
-tailscale up
-```
-
-Follow the URL to authenticate in your browser. For automated setup, use a
-[pre-auth key](https://tailscale.com/kb/1085/auth-keys) by setting
-`services.tailscale.authKeyFile` in `modules/nixos/common.nix`.
-
-Once authenticated, you can SSH via Tailscale from anywhere:
-
-```bash
-ssh root@coruscant.tailnet-name.ts.net
-```
-
-### Updating Remotely
-
-```bash
-just nixos-deploy
-```
-
-Or directly:
-
-```bash
-nixos-rebuild switch \
-  --flake .#coruscant \
-  --target-host root@coruscant.local \
-  --use-remote-sudo
-```
-
-### Included Services
-
-| Service          | Port | Description                           |
-|------------------|------|---------------------------------------|
-| Home Assistant   | 8123 | Smart home automation                 |
-| Mosquitto (MQTT) | 1883 | MQTT broker for device communication  |
-| Zigbee2MQTT      | 8091 | Zigbee to MQTT bridge                 |
-| ESPHome          | 6052 | ESP32/ESP8266 device management       |
-| Beszel Hub       | 8090 | Lightweight server monitoring         |
-
-Home automation services are configured in `modules/nixos/coruscant/home-assistant.nix`,
-Beszel in `modules/nixos/beszel.nix`, and Caddy reverse proxying in
-`modules/nixos/coruscant/caddy.nix`.
-
-## Structure
+See [docs/nixos.md](docs/nixos.md) for the full provisioning walkthrough.
+
+## Common Commands
+
+| Task | Command |
+|------|---------|
+| Apply macOS config | `just switch` |
+| Validate (flake check + build) | `just check` |
+| Deploy to Pi | `just nixos-deploy` |
+| Edit secrets | `just edit-secrets` |
+| Init age key | `just init-sops` |
+| Back up age key to 1Password | `just backup-key` |
+| Update all flake inputs | `just update` |
+| Garbage-collect | `just clean` |
+
+## Secrets
+
+Secrets use SOPS + age encryption. The encrypted file `secrets/default.yaml`
+is safe to commit. The private key lives at `~/.config/sops/age/keys.txt` on
+macOS and `/var/lib/sops-nix/key.txt` on the Pi.
+
+See [docs/secrets.md](docs/secrets.md) for the full workflow: creating,
+editing, rotating keys, recovering access, adding a new machine, and backups.
+
+## Documentation
+
+| Doc | Contents |
+|-----|---------|
+| [docs/darwin.md](docs/darwin.md) | macOS setup, packages, customisation, troubleshooting |
+| [docs/nixos.md](docs/nixos.md) | Pi provisioning, services, remote deployment |
+| [docs/home-assistant.md](docs/home-assistant.md) | HA layout, services, intended future structure |
+| [docs/secrets.md](docs/secrets.md) | Full secrets workflow |
+| [docs/deployment.md](docs/deployment.md) | All deployment commands, auto-update, GC |
+
+## Repository Structure
 
 ```text
 .
-├── flake.nix                 # Main flake configuration
+├── flake.nix                 # Inputs and flake-parts wiring
 ├── flake.lock                # Locked dependency versions
 ├── flake-parts/
-│   ├── darwin.nix            # Darwin host entry point
-│   ├── nixos.nix             # NixOS host entry point
-│   └── pre-commit.nix        # Pre-commit hook configuration
-├── scripts/
-│   ├── ai-selector.sh        # AI assistant launcher
-│   ├── check-for-updates.sh  # Auto-update check script
-│   ├── setup-work-ssh.sh     # Work SSH key setup
-│   ├── setup-yubikey-sudo.sh # YubiKey sudo setup
-│   └── README.md
+│   ├── darwin.nix            # Darwin host: endor
+│   ├── nixos.nix             # NixOS hosts: coruscant, coruscant-sd-image
+│   └── pre-commit.nix        # Pre-commit hooks
 ├── modules/
-│   ├── darwin/
-│   │   ├── default.nix       # macOS system configuration
-│   │   ├── auto-update.nix   # Auto-update service
-│   │   ├── fonts.nix         # Font configuration
-│   │   └── homebrew.nix      # Homebrew packages and casks
-│   ├── home/
-│   │   ├── default.nix       # Home-manager user config (shell, pkgs)
-│   │   ├── 1password-agent.nix
-│   │   ├── ai/               # AI tool config (claude, hermes, opencode)
-│   │   ├── aerospace.nix     # AeroSpace window manager
-│   │   ├── fastfetch.nix     # System info display
-│   │   ├── ghostty.nix       # Ghostty terminal emulator
-│   │   ├── git.nix           # Git configuration
-│   │   ├── nodejs.nix        # Node.js development
-│   │   ├── nvf/              # Neovim (nvf) configuration
-│   │   ├── nixvim.nix        # Nixvim module (disabled)
-│   │   ├── python.nix        # Python development
-│   │   ├── starship/         # Starship prompt config
-│   │   ├── zed/              # Zed editor settings and keybindings
-│   │   └── zellij.nix        # Zellij terminal multiplexer
+│   ├── darwin/               # nix-darwin system modules
+│   ├── home/                 # home-manager user modules
 │   └── nixos/
-│       ├── common.nix        # Shared NixOS configuration
-│       ├── beszel.nix        # Beszel monitoring (hub + agent)
-│       └── coruscant/
-│           ├── base.nix      # Coruscant host entry point
-│           ├── caddy.nix     # Caddy reverse proxy (Cloudflare DNS)
-│           ├── configuration.yaml
-│           ├── home-assistant.nix
-│           ├── installer.nix
-│           └── ssd.nix       # SSD boot (disko)
-├── bootstrap.sh              # First-time setup script
-├── justfile                  # Command runner recipes
-└── README.md                 # This file
+│       ├── common.nix
+│       ├── beszel.nix
+│       └── coruscant/        # Raspberry Pi host modules
+├── secrets/
+│   └── default.yaml          # SOPS-encrypted secrets
+├── scripts/                  # Helper shell scripts
+├── bootstrap.sh              # First-time macOS setup
+├── justfile                  # All runnable commands
+└── docs/                     # Focused documentation
 ```
-
-## What's Included
-
-### System Configuration (nix-darwin)
-
-- Nix daemon with flakes enabled
-- Auto-optimization of Nix store
-- macOS system defaults (Dock, Finder, keyboard)
-- Touch ID for sudo authentication
-- Multiple Nerd Fonts (FiraCode, JetBrains Mono, Meslo, and more)
-- Zsh as default shell
-- Homebrew integration with automatic cleanup
-
-### User Configuration (home-manager)
-
-- **Python**: Python 3.13/3.12/3.11, UV package manager, Ruff, Mypy, Poetry, IPython
-- **Node.js**: Node 22, Bun, npm, yarn, pnpm, TypeScript, ESLint, Prettier
-- **Git**: Configured with signing, aliases, and comprehensive .gitignore
-- **Shell**: Zsh with Oh-My-Zsh, Starship prompt, autosuggestions, syntax highlighting
-- **CLI Tools**: ripgrep, fd, bat, eza, fzf, jq, htop, btop, tree, direnv, just, nh, yazi, lazygit, zoxide, television, carapace
-- **AeroSpace**: i3-like tiling window manager for macOS
-- **Ghostty**: Terminal emulator with custom configuration
-- **Fastfetch**: System info display with creative boxed output
-- **Zellij**: Terminal multiplexer with custom layouts and keybindings
-- **Zed**: Editor configuration, settings, and custom keybindings
-- **nvf (Neovim)**: Full Neovim configuration with LSP, Treesitter, Telescope
-- **1Password Agent**: SSH agent integration with 1Password
-- **AI Tools**: Claude, Hermes, opencode CLI assistant configurations
-
-### Optional (Currently Disabled)
-
-- **Nixvim**: Full Neovim configuration with LSP, Treesitter, Telescope, Neo-tree
-  - *Note: Temporarily disabled to avoid Swift build dependency issues*
-  - To enable: uncomment `./nixvim.nix` in `modules/home/default.nix`
-
-## Work SSH Keys Setup
-
-This configuration supports separate SSH keys for personal (GitHub) and
-work repositories. All work repositories in `~/Projects/work/` will
-automatically use your work SSH key.
-
-### Initial Setup
-
-1. **Run the setup script:**
-
-   ```bash
-   ./scripts/setup-work-ssh.sh
-   ```
-
-   This will:
-   - Generate a work SSH key if needed (`~/.ssh/id_ed25519_work`)
-   - Create example configuration files
-   - Guide you through the setup process
-
-2. **Configure your work git server:**
-
-   Edit `~/.ssh/work-config` (not tracked in git) and add your work server
-   details:
-
-   ```ssh
-   Host work-git gitlab-work
-     HostName git.yourcompany.com
-     User git
-     IdentityFile ~/.ssh/id_ed25519_work
-     IdentitiesOnly yes
-   ```
-
-3. **Configure work git settings:**
-
-   Edit `~/.config/git/work-config` (not tracked in git):
-
-   ```gitconfig
-   [user]
-     name = Aaron Feigenbaum
-     email = aaron.feigenbaum@yourcompany.com
-
-   [url "git@work-git:"]
-     insteadOf = https://git.yourcompany.com/
-   ```
-
-4. **Add your work public key to your work git server:**
-
-   ```bash
-   cat ~/.ssh/id_ed25519_work.pub
-   ```
-
-### Work SSH Usage
-
-- **Personal repos (anywhere):** Use your personal key automatically
-
-   ```bash
-   git clone git@github.com:username/repo.git
-   ```
-
-- **Work repos (in ~/Projects/work/):** Use your work key automatically
-
-   ```bash
-   git clone git@work-git:company/repo.git ~/Projects/work/repo
-   ```
-
-The configuration will automatically:
-
-- Use your work SSH key for all repositories in `~/Projects/work/`
-- Use your work email for commits in `~/Projects/work/`
-- Use your personal SSH key and email everywhere else
-
-### Files Not Tracked in Git
-
-These files stay private on your laptop:
-
-- `~/.ssh/work-config` - Your work git server hostname
-- `~/.config/git/work-config` - Your work git email and settings
-- `~/.ssh/id_ed25519_work` - Your work private key
-- `~/.ssh/id_ed25519_work.pub` - Your work public key
-
-Example files are created by home-manager at:
-
-- `~/.ssh/work-config.example`
-- `~/.config/git/work-config.example`
-
-## Customization
-
-Feel free to customize any part of the configuration:
-
-- **System settings**: Modify `modules/darwin/default.nix`
-- **User environment**: Modify `modules/home/default.nix`
-- **Homebrew packages**: Modify `modules/darwin/homebrew.nix`
-- **Add more modules**: Create new files in `modules/` and import them in `flake.nix`
-
-## Known Issues
-
-### Swift Build Dependency
-
-Some packages (notably nixvim with all treesitter grammars) trigger Swift
-builds from source, which can take a very long time or fail. To avoid this:
-
-- Nixvim is currently disabled by default
-- If you want to enable it, uncomment it in `modules/home/default.nix`
-- Consider using a binary cache or accepting the long build time
-
-### Deprecated Options
-
-Recent nixpkgs versions have renamed several options:
-
-- `nerdfonts` → `nerd-fonts` (now individual packages)
-- `ruff-lsp` → `ruff` (LSP now built-in)
-- Various home-manager Git options now use `settings` namespace
-
-These have all been fixed in this configuration.
-
-## Troubleshooting
-
-### Bootstrap script fails
-
-If the bootstrap script fails, try the manual setup steps in the README.
-
-### Nix daemon issues
-
-If you encounter issues with the Nix daemon, restart it:
-
-```bash
-sudo launchctl kickstart -k system/org.nixos.nix-daemon
-```
-
-### Path issues
-
-Make sure `/run/current-system/sw/bin` is in your PATH. This should be
-handled automatically by nix-darwin.
-
-### Home-manager conflicts
-
-If home-manager complains about existing files, you may need to backup and
-remove conflicting dotfiles.
-
-### "nh: command not found"
-
-This usually means you need to reload your shell or the package isn't installed yet.
-If nix-darwin isn't installed yet, run the `bootstrap.sh` script to install it.
 
 ## Resources
 
 - [nix-darwin documentation](https://github.com/LnL7/nix-darwin)
 - [home-manager manual](https://nix-community.github.io/home-manager/)
-- [Nix language basics](https://nixos.org/manual/nix/stable/language/)
+- [Nix language guide](https://nix.dev/manual/nix/stable/language/)
 - [Nixpkgs search](https://search.nixos.org/packages)
-
-## License
-
-This configuration is provided as-is for personal use. Modify as needed for
-your own setup.
+- [sops-nix](https://github.com/Mic92/sops-nix)
