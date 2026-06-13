@@ -1,31 +1,39 @@
 { inputs, ... }:
 let
+  hosts = import ../hosts;
+  host = hosts.coruscant;
   nixos-raspberrypi = inputs.nixos-raspberrypi;
   mkPiSystem =
     modules:
     inputs.nixpkgs.lib.nixosSystem {
-      system = "aarch64-linux";
-      specialArgs = { inherit inputs nixos-raspberrypi; };
+      system = host.system;
+      specialArgs = {
+        inherit
+          inputs
+          host
+          nixos-raspberrypi
+          ;
+      };
       inherit modules;
     };
 in
 {
   flake.nixosConfigurations = {
-    coruscant = mkPiSystem [
+    "${host.hostName}" = mkPiSystem [
       nixos-raspberrypi.lib.inject-overlays
       nixos-raspberrypi.nixosModules.raspberry-pi-4.base
       nixos-raspberrypi.nixosModules.trusted-nix-caches
       inputs.sops-nix.nixosModules.sops
-      ../modules/nixos/coruscant/ssd.nix
+      ../modules/nixos/${host.hostName}/ssd.nix
     ];
 
-    coruscant-sd-image = mkPiSystem [
+    "${host.hostName}-sd-image" = mkPiSystem [
       nixos-raspberrypi.lib.inject-overlays
       nixos-raspberrypi.nixosModules.raspberry-pi-4.base
       nixos-raspberrypi.nixosModules.sd-image
       nixos-raspberrypi.nixosModules.trusted-nix-caches
       inputs.sops-nix.nixosModules.sops
-      ../modules/nixos/coruscant/installer.nix
+      ../modules/nixos/${host.hostName}/installer.nix
     ];
 
   };

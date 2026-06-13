@@ -47,16 +47,14 @@ modules/
     └── coruscant/         # host-specific NixOS modules
 ```
 
-> **Future goal — data-driven hosts:** currently, host-specific values
-> (username, system arch, hostname) are scattered across `flake-parts/` and
-> `modules/darwin/`. The intended target is a `hosts/` directory where each
-> machine declares only its identity; everything else comes from shared modules:
->
-> ```text
-> hosts/
-> ├── endor/           # Darwin workstation
-> └── coruscant/       # NixOS Raspberry Pi
-> ```
+Host identity is now data-driven via `hosts/`, where each machine declares only
+its identity and shared modules provide the behavior:
+
+```text
+hosts/
+├── endor/           # Darwin workstation identity (hostname, user, system)
+└── coruscant/       # NixOS Raspberry Pi identity (hostname, system)
+```
 
 ## Quick Start
 
@@ -132,9 +130,10 @@ editing, rotating keys, recovering access, adding a new machine, and backups.
 ├── flake.nix                 # Inputs and flake-parts wiring
 ├── flake.lock                # Locked dependency versions
 ├── flake-parts/
-│   ├── darwin.nix            # Darwin host: endor
-│   ├── nixos.nix             # NixOS hosts: coruscant, coruscant-sd-image
+│   ├── darwin.nix            # Darwin outputs built from hosts/ metadata
+│   ├── nixos.nix             # NixOS outputs built from hosts/ metadata
 │   └── pre-commit.nix        # Pre-commit hooks
+├── hosts/                    # Per-machine identity data
 ├── modules/
 │   ├── darwin/               # nix-darwin system modules
 │   ├── home/                 # home-manager user modules

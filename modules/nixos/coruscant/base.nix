@@ -1,4 +1,4 @@
-{ config, ... }:
+{ config, host, ... }:
 {
   imports = [
     ../common.nix
@@ -16,7 +16,7 @@
   hardware.bluetooth.enable = true;
 
   networking = {
-    hostName = "coruscant";
+    hostName = host.hostName;
   };
 
   services.tailscale = {

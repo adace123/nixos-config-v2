@@ -10,7 +10,8 @@ The Darwin host (`endor`) is an Apple Silicon Mac managed by
 lives under:
 
 ```text
-flake-parts/darwin.nix          # host entry point (hostname, username, system)
+hosts/endor/default.nix         # host identity (hostname, username, system)
+flake-parts/darwin.nix          # darwin output wiring from host metadata
 modules/darwin/                 # system-level nix-darwin modules
 modules/home/                   # home-manager user modules
 ```
@@ -92,19 +93,17 @@ Edit `modules/darwin/homebrew.nix`:
 
 ## Customising the Host
 
-Machine-specific values are currently set directly in `flake-parts/darwin.nix`
-(username `aaron`, system `aarch64-darwin`) and `modules/darwin/default.nix`
-(username reference, `primaryUser`).
-
-> **Future goal:** Move these per-host values into a `hosts/endor/` directory so
-> that adding a new machine is a copy-paste operation rather than editing shared
-> files. See the architecture overview in `README.md` for the intended layout.
+Machine-specific identity values are defined in `hosts/endor/default.nix` and
+consumed by shared wiring/modules (`flake-parts/darwin.nix`,
+`modules/darwin/default.nix`). Adding another Darwin machine should follow the
+same pattern: add host metadata, then reuse shared modules.
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `flake-parts/darwin.nix` | Host definition: system, username, home-manager wiring |
+| `hosts/endor/default.nix` | Host identity data (hostname, user, system) |
+| `flake-parts/darwin.nix` | Darwin output wiring from host metadata |
 | `modules/darwin/default.nix` | System packages, macOS defaults, Touch ID sudo |
 | `modules/darwin/homebrew.nix` | Homebrew formulae, casks, and MAS apps |
 | `modules/darwin/fonts.nix` | Nerd Font packages |

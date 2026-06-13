@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ host, pkgs, ... }:
 {
   imports = [
     ./homebrew.nix
@@ -7,9 +7,9 @@
   ];
 
   # User configuration
-  users.users.aaron = {
-    name = "aaron";
-    home = "/Users/aaron";
+  users.users.${host.user.name} = {
+    name = host.user.name;
+    home = host.user.homeDirectory;
   };
 
   # Nix configuration - Disabled because using Determinate Nix installer
@@ -33,7 +33,7 @@
   # System configuration
   system = {
     # Set primary user for system defaults
-    primaryUser = "aaron";
+    primaryUser = host.user.name;
 
     # Set Git commit hash for darwin-rebuild
     configurationRevision = null;
@@ -79,7 +79,7 @@
   programs.zsh.enable = true;
 
   # Auto-update service: use the explicit flake output key
-  services.nix-config-auto-update.darwinConfigName = "endor";
+  services.nix-config-auto-update.darwinConfigName = host.hostName;
 
   # Touch ID for sudo (also enables Apple Watch)
   security.pam.services.sudo_local.touchIdAuth = true;
