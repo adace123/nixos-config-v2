@@ -1,4 +1,9 @@
-{ host, lib, pkgs, ... }:
+{
+  host,
+  lib,
+  pkgs,
+  ...
+}:
 {
   imports = [
     ../common.nix

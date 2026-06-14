@@ -1,0 +1,59 @@
+# justfile - OCI Terraform infrastructure management
+# Run from infra/:  just <recipe>
+# Run from root:    just -f infra/justfile <recipe>
+
+# Default recipe
+default:
+    @just --list
+
+# Edit (or create) secrets/oci.yaml with sops
+# First run: this opens $EDITOR; paste in your OCI values and save
+# Required keys: oci-tenancy-ocid, oci-user-ocid, oci-fingerprint, oci-region,
+#                oci-compartment-ocid, oci-private-key
+edit-secrets:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    nix shell nixpkgs#sops nixpkgs#age -c sops ../secrets/oci.yaml
+
+# Decrypt secrets/oci.yaml and export OCI env vars for Terraform
+# Usage: eval "$(just get-secret)"
+# Then:   cd infra && terraform plan
+get-secret:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ ! -f ../secrets/oci.yaml ]; then
+        echo "ERROR: secrets/oci.yaml not found." >&2
+        echo "Create it with: just edit-secrets" >&2
+        echo "" >&2
+        echo "Required keys to add in the editor:" >&2
+        echo "  oci-tenancy-ocid     (tenancy OCID)" >&2
+        echo "  oci-user-ocid        (user OCID)" >&2
+        echo "  oci-fingerprint      (API key fingerprint)" >&2
+        echo "  oci-region           (region, e.g. us-sanjose-1)" >&2
+        echo "  oci-compartment-ocid (compartment OCID)" >&2
+        echo "  oci-private-key      (API private key PEM content)" >&2
+        exit 1
+    fi
+
+    OCI_KEY_FILE="/tmp/oci-private-key.pem"
+    export OCI_KEY_FILE
+
+    nix shell nixpkgs#sops nixpkgs#age nixpkgs#python3 -c bash -c '
+    set -euo pipefail
+    TMP=$(mktemp)
+    trap "rm -f $TMP" EXIT
+
+    sops --decrypt ../secrets/oci.yaml > "$TMP"
+
+    extract() { python3 -c "import sys,yaml; print(yaml.safe_load(open(sys.argv[1]))[\"$1\"])" "$TMP"; }
+
+    echo "export OCI_TENANCY_OCID=$(extract oci-tenancy-ocid)"
+    echo "export OCI_USER_OCID=$(extract oci-user-ocid)"
+    echo "export OCI_FINGERPRINT=$(extract oci-fingerprint)"
+    echo "export OCI_REGION=$(extract oci-region)"
+    echo "export TF_VAR_compartment_ocid=$(extract oci-compartment-ocid)"
+
+    extract oci-private-key > "$OCI_KEY_FILE"
+    chmod 600 "$OCI_KEY_FILE"
+    echo "export TF_VAR_private_key_path=$OCI_KEY_FILE"
+    '

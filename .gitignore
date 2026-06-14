@@ -59,3 +59,13 @@ nixos-files/
 
 # uv
 .venv
+
+# Terraform
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.*
+infra/crash.log
+infra/crash.*.log
+
+# Temporary sops plaintext
+secrets/*-plaintext.*

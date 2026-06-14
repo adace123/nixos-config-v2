@@ -1,0 +1,6 @@
+# Auth vars (tenancy_ocid, user_ocid, fingerprint, region, compartment_ocid, private_key_path)
+# are set via env vars from: cd infra && eval "$(just get-secret)"
+# Only instance-level config goes here:
+
+ssh_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA.... your-oci-key"
+image_path     = "./result/nixos.qcow2"

@@ -1,5 +1,5 @@
 {
-  description = "macOS system configuration with nix-darwin and Raspberry Pi 4 NixOS";
+  description = "macOS system configuration with nix-darwin, Raspberry Pi 4, and OCI NixOS";
 
   # Binary caches for building flake outputs
   # NOTE: Keep in sync with the home-manager nix config in modules/home/default.nix
@@ -74,16 +74,26 @@
 
   outputs =
     inputs@{ flake-parts, ... }:
-    flake-parts.lib.mkFlake { inherit inputs; } {
-      systems = [
-        "aarch64-darwin"
-        "aarch64-linux"
-      ];
+    let
+      flake = flake-parts.lib.mkFlake { inherit inputs; } {
+        systems = [
+          "aarch64-darwin"
+          "aarch64-linux"
+        ];
 
-      imports = [
-        ./flake-parts/darwin.nix
-        ./flake-parts/pre-commit.nix
-        ./flake-parts/nixos.nix
-      ];
+        imports = [
+          ./flake-parts/darwin.nix
+          ./flake-parts/pre-commit.nix
+          ./flake-parts/nixos.nix
+        ];
+      };
+    in
+    flake
+    // {
+      packages = flake.packages // {
+        aarch64-linux = (flake.packages.aarch64-linux or { }) // {
+          oci-image = flake.nixosConfigurations.oci-base.config.system.build.OCIImage;
+        };
+      };
     };
 }

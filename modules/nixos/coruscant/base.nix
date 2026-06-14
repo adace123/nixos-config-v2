@@ -2,6 +2,7 @@
 {
   imports = [
     ../common.nix
+    ../beszel.nix
     ./home-assistant.nix
     ./caddy.nix
   ];
@@ -11,6 +12,7 @@
   sops.secrets = {
     ts-auth-key = { };
     home-assistant-external-domain = { };
+    beszel-domain = { };
   };
 
   hardware.bluetooth.enable = true;

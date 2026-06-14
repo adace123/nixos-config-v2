@@ -3,6 +3,7 @@ let
   hosts = import ../hosts;
   host = hosts.coruscant;
   nixos-raspberrypi = inputs.nixos-raspberrypi;
+
   mkPiSystem =
     modules:
     inputs.nixpkgs.lib.nixosSystem {
@@ -14,6 +15,20 @@ let
           nixos-raspberrypi
           ;
       };
+      inherit modules;
+    };
+
+  mkSystem =
+    {
+      modules,
+      extraSpecialArgs ? { },
+    }:
+    inputs.nixpkgs.lib.nixosSystem {
+      system = host.system;
+      specialArgs = {
+        inherit inputs host;
+      }
+      // extraSpecialArgs;
       inherit modules;
     };
 in
@@ -36,5 +51,11 @@ in
       ../modules/nixos/${host.hostName}/installer.nix
     ];
 
+    oci-base = mkSystem {
+      modules = [
+        "${inputs.nixpkgs}/nixos/modules/virtualisation/oci-image.nix"
+        ../modules/nixos/oci-image/configuration.nix
+      ];
+    };
   };
 }
