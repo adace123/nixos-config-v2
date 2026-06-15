@@ -5,16 +5,14 @@
   trigger:
     - platform: state
       id: "started"
-      entity_id: binary_sensor.washer_vibration
+      entity_id: binary_sensor.washer_cleaning_state
       from: "off"
       to: "on"
     - platform: state
       id: "done"
-      entity_id: binary_sensor.washer_vibration
+      entity_id: binary_sensor.washer_cleaning_state
       from: "on"
       to: "off"
-      for:
-        minutes: 15
     - platform: numeric_state
       id: "battery_low"
       entity_id: sensor.washer_battery_level
@@ -26,13 +24,7 @@
         - conditions:
             - condition: trigger
               id: "started"
-            - condition: state
-              entity_id: input_boolean.washer_running
-              state: "off"
           sequence:
-            - action: input_boolean.turn_on
-              target:
-                entity_id: input_boolean.washer_running
             - action: persistent_notification.create
               data:
                 title: "Washer Started"
@@ -44,13 +36,7 @@
         - conditions:
             - condition: trigger
               id: "done"
-            - condition: state
-              entity_id: input_boolean.washer_running
-              state: "on"
           sequence:
-            - action: input_boolean.turn_off
-              target:
-                entity_id: input_boolean.washer_running
             - action: persistent_notification.create
               data:
                 title: "Washer Done"

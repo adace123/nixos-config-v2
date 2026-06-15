@@ -39,8 +39,14 @@ homeassistant:
   time_zone: __TIME_ZONE__
   external_url: https://__EXTERNAL_DOMAIN__
   internal_url: https://__EXTERNAL_DOMAIN__
-input_boolean:
-  washer_running:
-    name: Washer Running
-    icon: mdi:washing-machine
+template:
+  - binary_sensor:
+      - name: "Washer Cleaning State"
+        state: >
+          {{ is_state('binary_sensor.washer_vibration', 'on') }}
+
+        delay_off:
+          minutes: 15
+        delay_on:
+          seconds: 30
 automation: !include washer-automation.yaml
