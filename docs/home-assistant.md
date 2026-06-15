@@ -21,7 +21,8 @@ modules/nixos/coruscant/
 - **SOPS template rendering** — injects `time.timeZone` and
   `home-assistant-external-domain` into `configuration.yaml` before HA starts.
 - **Mosquitto** MQTT broker (port 1883, localhost only).
-- **Zigbee2MQTT** (port 8091, USB serial adapter `/dev/ttyUSB0`).
+- **Zigbee2MQTT** (port 8091, Sonoff Zigbee dongle via stable
+  `/dev/serial/by-id/...` path).
 - **ESPHome** (port 6052).
 - **Podman auto-update** — pulls newer images weekly.
 - **`hass` system user** with `dialout`, `gpio`, `i2c` group membership.
@@ -48,12 +49,58 @@ See [docs/secrets.md](secrets.md) for how to add or rotate secrets.
 ## Zigbee2MQTT
 
 The web UI is available at `http://coruscant.local:8091`. The Zigbee coordinator
-is expected on `/dev/ttyUSB0` (Ember adapter). Change the `serial.port` and
-`serial.adapter` settings in `home-assistant.nix` if using a different adapter.
+is expected at
+`/dev/serial/by-id/usb-Itead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_V2_9aff399ca0f3ef1187f6bb1b6d9880ab-if00-port0`
+(Ember adapter). Change the `serial.port` and `serial.adapter` settings in
+`home-assistant.nix` if using a different adapter.
+
+Home Assistant sees Zigbee2MQTT through MQTT discovery as the
+`Zigbee2MQTT Bridge` device; the physical USB dongle is owned by Zigbee2MQTT and
+does not appear as a raw Home Assistant hardware device.
 
 ## ESPHome
 
 The dashboard is available at `http://coruscant.local:6052`.
+
+## Alexa Devices (TTS)
+
+The official **Alexa Devices** integration (added in HA 2025.6) lets Home
+Assistant send TTS announcements to Echo devices. It is built-in — no custom
+components needed.
+
+### Setup
+
+1. In Home Assistant, go to **Settings > Devices & Services > Add Integration >
+   **Alexa Devices**.
+2. Enter your Amazon email and password.
+3. Complete MFA using an authenticator app (required by Amazon).
+4. Each Echo Dot appears as a `media_player` entity (e.g.
+   `media_player.echo_dot_kitchen`).
+
+### Sending TTS / Announcements
+
+```yaml
+# Text-to-speech via notify
+service: notify.echo_dot_kitchen
+data:
+  message: "The laundry is done"
+```
+
+```yaml
+# TTS via media_player
+service: media_player.play_media
+data:
+  media_content_id: "The laundry is done"
+  media_content_type: "tts"
+target:
+  entity_id: media_player.echo_dot_kitchen
+```
+
+### Troubleshooting
+
+- **Amazon authentication fails:** Ensure your Amazon account has MFA enabled
+  via an authenticator app (not SMS). Go to Amazon > Account > Login & Security
+  > 2-Step Verification to set it up.
 
 ## Monitoring Logs
 

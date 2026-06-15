@@ -18,7 +18,7 @@
       }
 
       ${config.sops.placeholder.home-assistant-external-domain} {
-        reverse_proxy localhost:8123
+        reverse_proxy 127.0.0.1:8123
       }
 
       ${config.sops.placeholder.beszel-domain} {

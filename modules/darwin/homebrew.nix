@@ -1,5 +1,4 @@
-{ ... }:
-{
+_: {
   # Homebrew configuration
   homebrew = {
     enable = true;
@@ -20,12 +19,6 @@
       brewfile = true;
     };
 
-    # Taps (additional repositories)
-    taps = [
-      "nikitabobko/tap" # AeroSpace window manager
-      "common-fate/granted" # AWS Granted
-    ];
-
     # Formulae (command-line packages)
     brews = [
       "awscli" # AWS CLI
@@ -34,7 +27,6 @@
       "pam-u2f" # YubiKey PAM module for sudo authentication
       "pre-commit" # Git hooks manager
       "ykman" # YubiKey Manager CLI
-      "common-fate/granted/granted" # AWS credentials manager
       "terminal-notifier" # macOS notification tool
 
       # Dependencies for ykman / pam-u2f (must be explicit with cleanup = "zap")
@@ -63,7 +55,6 @@
       "ngrok"
 
       # Productivity
-      "nikitabobko/tap/aerospace" # Tiling window manager
       "chatgpt" # OpenAI ChatGPT
       "claude" # Anthropic Claude
       "linear" # Issue tracking

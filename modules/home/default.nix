@@ -53,6 +53,7 @@
       trivy
       fzf
       tailscale
+      home-assistant-cli
 
       # Modern CLI replacements
       bat # cat replacement

@@ -70,6 +70,8 @@
       foldmethod = "expr";
       foldexpr = "nvim_treesitter#foldexpr()";
       foldenable = false;
+      foldlevel = 99;
+      foldlevelstart = 99;
     };
 
     # Color scheme
