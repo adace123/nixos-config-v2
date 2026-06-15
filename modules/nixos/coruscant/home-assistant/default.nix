@@ -6,6 +6,11 @@
 let
   hassDir = "/var/lib/hass";
   zigbeeDongle = "/dev/serial/by-id/usb-Itead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_V2_9aff399ca0f3ef1187f6bb1b6d9880ab-if00-port0";
+  hacs = pkgs.fetchzip {
+    url = "https://github.com/hacs/integration/releases/download/2.0.5/hacs.zip";
+    hash = "sha256-iMomioxH7Iydy+bzJDbZxt6BX31UkCvqhXrxYFQV8Gw=";
+    stripRoot = false;
+  };
   hassGenerated = pkgs.runCommand "hass-generated-config" { } ''
     mkdir -p $out/automations $out/scripts $out/scenes
     cp ${./automations/washer.yaml} $out/automations/washer.yaml
@@ -81,6 +86,7 @@ in
     "d ${hassDir}/backups 0755 hass hass -"
     "d ${hassDir}/logs 0755 hass hass -"
     "d ${hassDir}/www 0755 hass hass -"
+    "d ${hassDir}/custom_components 0755 hass hass -"
   ];
 
   system.activationScripts.home-assistant-config = {
@@ -92,9 +98,15 @@ in
       ${pkgs.coreutils}/bin/install -Dm644 ${
         config.sops.templates."hass-configuration.yaml".path
       } ${hassDir}/configuration.yaml
-      mkdir -p ${hassDir}/.storage ${hassDir}/backups ${hassDir}/logs ${hassDir}/www
+      mkdir -p ${hassDir}/.storage ${hassDir}/backups ${hassDir}/logs ${hassDir}/www ${hassDir}/custom_components
+      ${pkgs.findutils}/bin/find ${hassDir}/custom_components -maxdepth 1 -type f -delete
+      rm -rf ${hassDir}/custom_components/hacs ${hassDir}/custom_components/hacs_frontend ${hassDir}/custom_components/__pycache__
+      cp -r ${hacs} ${hassDir}/custom_components/hacs
     '';
-    deps = [ "users" ];
+    deps = [
+      "users"
+      "setupSecrets"
+    ];
   };
 
   networking.firewall.allowedTCPPorts = [ 8123 ];
