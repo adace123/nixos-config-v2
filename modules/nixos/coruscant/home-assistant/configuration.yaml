@@ -47,7 +47,7 @@ template:
           {{ is_state('binary_sensor.washer_vibration', 'on') }}
 
         delay_off:
-          minutes: 15
+          minutes: 10
         delay_on:
           seconds: 30
 automation: !include_dir_merge_list automations/
