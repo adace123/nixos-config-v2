@@ -6,9 +6,10 @@
 let
   hassDir = "/var/lib/hass";
   zigbeeDongle = "/dev/serial/by-id/usb-Itead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_V2_9aff399ca0f3ef1187f6bb1b6d9880ab-if00-port0";
-  washerAutomation = pkgs.writeText "washer-automation.yaml" (
-    builtins.readFile ./home-assistant/washer-automation.yaml
-  );
+  hassGenerated = pkgs.runCommand "hass-generated-config" { } ''
+    mkdir -p $out/automations $out/scripts $out/scenes
+    cp ${./automations/washer.yaml} $out/automations/washer.yaml
+  '';
 in
 {
   sops.templates."hass-configuration.yaml" = {
@@ -49,10 +50,7 @@ in
   };
 
   systemd.services."podman-home-assistant" = {
-    after = [
-      "mosquitto.service"
-      "copy-hass-config.service"
-    ];
+    after = [ "mosquitto.service" ];
     requires = [ "mosquitto.service" ];
     serviceConfig = {
       Restart = "on-failure";
@@ -60,8 +58,6 @@ in
     };
   };
 
-  # Podman auto-update: containers with io.containers.autoupdate=registry
-  # get their images pulled weekly and are restarted automatically.
   systemd.services."podman-auto-update" = {
     wants = [ "network-online.target" ];
     after = [ "network-online.target" ];
@@ -77,30 +73,26 @@ in
     timerConfig.OnCalendar = "weekly";
   };
 
-  # Copy rendered HA config before HA starts.  Sops templates are guaranteed
-  # to be rendered during activation, before any systemd service starts.
-  systemd.services."copy-hass-config" = {
-    description = "Copy rendered HA configuration";
-    before = [ "podman-home-assistant.service" ];
-    requiredBy = [ "podman-home-assistant.service" ];
-    serviceConfig = {
-      Type = "oneshot";
-    };
-    script = ''
-      ${pkgs.coreutils}/bin/cp ${
-        config.sops.templates."hass-configuration.yaml".path
-      } ${hassDir}/configuration.yaml
-      ${pkgs.coreutils}/bin/cp ${washerAutomation} ${hassDir}/washer-automation.yaml
-      ${pkgs.coreutils}/bin/chown -R hass:hass ${hassDir}
-    '';
-  };
+  systemd.tmpfiles.rules = [
+    "L+ ${hassDir}/automations - - - - ${hassGenerated}/automations"
+    "L+ ${hassDir}/scripts - - - - ${hassGenerated}/scripts"
+    "L+ ${hassDir}/scenes - - - - ${hassGenerated}/scenes"
+    "d ${hassDir}/.storage 0755 hass hass -"
+    "d ${hassDir}/backups 0755 hass hass -"
+    "d ${hassDir}/logs 0755 hass hass -"
+    "d ${hassDir}/www 0755 hass hass -"
+  ];
 
   system.activationScripts.home-assistant-config = {
     text = ''
       mkdir -p ${hassDir}
-      ${pkgs.coreutils}/bin/cp ${washerAutomation} ${hassDir}/washer-automation.yaml
-      touch ${hassDir}/automations.yaml ${hassDir}/scenes.yaml ${hassDir}/scripts.yaml
-      ${pkgs.coreutils}/bin/chown -R hass:hass ${hassDir}
+      ln -sfn ${hassGenerated}/automations ${hassDir}/automations
+      ln -sfn ${hassGenerated}/scripts ${hassDir}/scripts
+      ln -sfn ${hassGenerated}/scenes ${hassDir}/scenes
+      ${pkgs.coreutils}/bin/install -Dm644 ${
+        config.sops.templates."hass-configuration.yaml".path
+      } ${hassDir}/configuration.yaml
+      mkdir -p ${hassDir}/.storage ${hassDir}/backups ${hassDir}/logs ${hassDir}/www
     '';
     deps = [ "users" ];
   };

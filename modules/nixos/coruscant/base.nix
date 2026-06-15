@@ -3,7 +3,7 @@
   imports = [
     ../common.nix
     ../beszel.nix
-    ./home-assistant.nix
+    ./home-assistant
     ./caddy.nix
   ];
 

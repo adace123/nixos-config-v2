@@ -19,6 +19,12 @@
       below: 10
       for:
         minutes: 5
+    - platform: numeric_state
+      id: "battery_normal"
+      entity_id: sensor.washer_battery_level
+      above: 15
+      for:
+        minutes: 5
   action:
     - choose:
         - conditions:
@@ -51,7 +57,13 @@
         - conditions:
             - condition: trigger
               id: "battery_low"
+            - condition: state
+              entity_id: input_boolean.washer_battery_alerted
+              state: "off"
           sequence:
+            - action: input_boolean.turn_on
+              target:
+                entity_id: input_boolean.washer_battery_alerted
             - action: persistent_notification.create
               data:
                 title: "Washer Sensor Battery Low"
@@ -60,3 +72,10 @@
               data:
                 title: "Washer Sensor Battery Low"
                 message: "Replace the washer vibration sensor battery."
+        - conditions:
+            - condition: trigger
+              id: "battery_normal"
+          sequence:
+            - action: input_boolean.turn_off
+              target:
+                entity_id: input_boolean.washer_battery_alerted
