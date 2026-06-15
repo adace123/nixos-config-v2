@@ -51,7 +51,9 @@
               data:
                 title: "Washer Done"
                 message: "The washing machine has finished its cycle."
-            - action: notify.everywhere_announce
+            - action: notify.send_message
+              target:
+                entity_id: notify.everywhere_announce
               data:
                 message: "The washing machine has finished its cycle. Please move the clothes to the dryer."
         - conditions:
