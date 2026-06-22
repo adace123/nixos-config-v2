@@ -3,7 +3,7 @@
   home = {
     packages = with pkgs; [
       # Python version
-      python313 # Python 3.13 (only version)
+      python314 # Python 3.14 (only version)
 
       # UV - Fast Python package installer and resolver
       uv # Replaces pip, pip-tools, pipx, poetry, pyenv, virtualenv
@@ -13,8 +13,8 @@
       mypy # Static type checker
 
       # Python packages (these come with Python or should be installed via uv/pip in projects)
-      python313Packages.ipython # Enhanced Python REPL
-      python313Packages.requests # HTTP library for Python
+      python314Packages.ipython # Enhanced Python REPL
+      python314Packages.requests # HTTP library for Python
     ];
 
     # Python environment configuration
