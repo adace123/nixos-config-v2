@@ -35,7 +35,7 @@
               data:
                 title: "Washer Started"
                 message: "The washing machine has started its cycle."
-            - action: notify.washer_notifications
+            - action: notify.mobile_app_aaron_cell
               data:
                 title: "Washer Started"
                 message: "The washing machine has started its cycle."
@@ -47,7 +47,7 @@
               data:
                 title: "Washer Done"
                 message: "The washing machine has finished its cycle."
-            - action: notify.washer_notifications
+            - action: notify.mobile_app_aaron_cell
               data:
                 title: "Washer Done"
                 message: "The washing machine has finished its cycle."
@@ -70,7 +70,7 @@
               data:
                 title: "Washer Sensor Battery Low"
                 message: "Replace the washer vibration sensor battery."
-            - action: notify.washer_notifications
+            - action: notify.mobile_app_aaron_cell
               data:
                 title: "Washer Sensor Battery Low"
                 message: "Replace the washer vibration sensor battery."

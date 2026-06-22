@@ -21,11 +21,6 @@ system_health:
 frontend:
 config:
 mobile_app:
-notify:
-  - platform: group
-    name: washer_notifications
-    services:
-      - service: mobile_app_aaron_cell
 zeroconf:
 homeassistant:
   name: Coruscant
@@ -49,7 +44,7 @@ template:
         delay_off:
           minutes: 10
         delay_on:
-          seconds: 30
+          seconds: 20
 automation: !include_dir_merge_list automations/
 script: !include_dir_merge_named scripts/
 scene: !include_dir_merge_list scenes/
