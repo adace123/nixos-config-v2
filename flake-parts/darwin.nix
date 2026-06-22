@@ -6,7 +6,7 @@ in
 {
   flake.darwinConfigurations = {
     "${host.hostName}" = inputs.darwin.lib.darwinSystem {
-      system = host.system;
+      inherit (host) system;
       specialArgs = { inherit inputs host; };
       modules = [
         ../modules/darwin
@@ -20,7 +20,7 @@ in
           home-manager = {
             useGlobalPkgs = true;
             useUserPackages = true;
-            backupFileExtension = "backup";
+            backupFileExtension = "bak";
             sharedModules = [
               inputs.sops-nix.homeManagerModules.sops
               inputs.zed-extensions.homeManagerModules.default
