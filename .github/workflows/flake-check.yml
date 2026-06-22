@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v16
+        uses: DeterminateSystems/nix-installer-action@v22
         with:
           flakehub: false
       - name: Flake eval smoke check
@@ -27,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v16
+        uses: DeterminateSystems/nix-installer-action@v22
         with:
           flakehub: false
       - name: Check Nix flake (Linux)
@@ -37,7 +37,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v16
+        uses: DeterminateSystems/nix-installer-action@v22
         with:
           flakehub: false
       - name: Check Nix flake (Darwin)
