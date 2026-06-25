@@ -73,6 +73,18 @@ in
         ];
       };
       hooks = {
+        Notification = [
+          {
+            matcher = "";
+            hooks = [
+              {
+                type = "command";
+                timeout = 10;
+                command = "'/Applications/Muxy.app/Contents/Resources/Muxy_Muxy.bundle/muxy-claude-hook.sh' notification # muxy-notification-hook";
+              }
+            ];
+          }
+        ];
         PostToolUse = [
           {
             matcher = "Edit|Write";
@@ -103,6 +115,42 @@ in
                       ;;
                   esac
                 '';
+              }
+            ];
+          }
+        ];
+        PreToolUse = [
+          {
+            matcher = "";
+            hooks = [
+              {
+                type = "command";
+                timeout = 10;
+                command = "'/Applications/Muxy.app/Contents/Resources/Muxy_Muxy.bundle/muxy-claude-hook.sh' pre-tool-use # muxy-notification-hook";
+              }
+            ];
+          }
+        ];
+        Stop = [
+          {
+            matcher = "";
+            hooks = [
+              {
+                type = "command";
+                timeout = 10;
+                command = "'/Applications/Muxy.app/Contents/Resources/Muxy_Muxy.bundle/muxy-claude-hook.sh' stop # muxy-notification-hook";
+              }
+            ];
+          }
+        ];
+        UserPromptSubmit = [
+          {
+            matcher = "";
+            hooks = [
+              {
+                type = "command";
+                timeout = 10;
+                command = "'/Applications/Muxy.app/Contents/Resources/Muxy_Muxy.bundle/muxy-claude-hook.sh' user-prompt-submit # muxy-notification-hook";
               }
             ];
           }

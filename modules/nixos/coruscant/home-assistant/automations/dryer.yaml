@@ -1,0 +1,134 @@
+- id: "dryer_monitor"
+  alias: "Dryer Monitor"
+  description: "Detect dryer start/done using Third Reality vibration sensor"
+  mode: "queued" # Changed to queued so battery and cycle triggers don't block each other
+  max: 10
+  trigger:
+    - platform: state
+      id: "started"
+      entity_id: binary_sensor.dryer_cleaning_state
+      from: "off"
+      to: "on"
+      for:
+        seconds: 30
+    - platform: state
+      id: "done"
+      entity_id: binary_sensor.dryer_cleaning_state
+      from: "on"
+      to: "off"
+      for:
+        minutes: 3 # 💡 Prevents false positives during drum reversals or wrinkles-guard pauses
+    - platform: numeric_state
+      id: "battery_low"
+      entity_id: sensor.dryer_battery_level
+      below: 10
+      for:
+        minutes: 5
+    - platform: numeric_state
+      id: "battery_normal"
+      entity_id: sensor.dryer_battery_level
+      above: 15
+      for:
+        minutes: 5
+    - platform: state
+      id: "watchdog"
+      entity_id: input_boolean.dryer_running
+      to: "on"
+      for:
+        hours: 2
+  action:
+    - choose:
+        # --- DRYER STARTED ---
+        - conditions:
+            - condition: trigger
+              id: "started"
+            - condition: state
+              entity_id: input_boolean.dryer_running
+              state: "off"
+          sequence:
+            - action: input_boolean.turn_on
+              target:
+                entity_id: input_boolean.dryer_running
+            - action: input_datetime.set_datetime
+              target:
+                entity_id: input_datetime.dryer_cycle_start
+              data:
+                datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+            - action: notify.mobile_app_aaron_cell
+              data:
+                title: "Dryer Started"
+                message: "The dryer has started its cycle."
+        # --- DRYER DONE ---
+        - conditions:
+            - condition: trigger
+              id: "done"
+            - condition: state
+              entity_id: input_boolean.dryer_running
+              state: "on"
+          sequence:
+            - variables:
+                duration_min: >-
+                  {% set start = states('input_datetime.dryer_cycle_start') %} {% if start in ['unknown', 'unavailable', ''] %} unknown {% else %} {{ ((as_timestamp(now()) - as_timestamp(start)) / 60) | int }} {% endif %}
+            - action: input_boolean.turn_off
+              target:
+                entity_id: input_boolean.dryer_running
+            - action: persistent_notification.create
+              data:
+                title: "Dryer Done"
+                message: "The dryer has finished its cycle ({{ duration_min }} min)."
+            - action: notify.mobile_app_aaron_cell
+              data:
+                title: "Dryer Done"
+                message: "The dryer has finished its cycle ({{ duration_min }} min)."
+            - action: notify.everywhere_announce
+              data:
+                message: "The dryer has finished its cycle ({{ duration_min }} min). Please remove the clothes."
+        # --- BATTERY LOW ---
+        - conditions:
+            - condition: trigger
+              id: "battery_low"
+            - condition: state
+              entity_id: input_boolean.dryer_battery_alerted
+              state: "off"
+          sequence:
+            - action: input_boolean.turn_on
+              target:
+                entity_id: input_boolean.dryer_battery_alerted
+            - action: persistent_notification.create
+              data:
+                title: "Dryer Sensor Battery Low"
+                message: "Replace the dryer vibration sensor battery."
+            - action: notify.mobile_app_aaron_cell
+              data:
+                title: "Dryer Sensor Battery Low"
+                message: "Replace the dryer vibration sensor battery."
+        # --- BATTERY NORMAL ---
+        - conditions:
+            - condition: trigger
+              id: "battery_normal"
+            - condition: state
+              entity_id: input_boolean.dryer_battery_alerted
+              state: "on"
+          sequence:
+            - action: input_boolean.turn_off
+              target:
+                entity_id: input_boolean.dryer_battery_alerted
+        # --- DRYER STUCK (WATCHDOG) ---
+        - conditions:
+            - condition: trigger
+              id: "watchdog"
+          sequence:
+            - variables:
+                duration_min: >-
+                  {% set start = states('input_datetime.dryer_cycle_start') %} {% if start in ['unknown', 'unavailable', ''] %} unknown {% else %} {{ ((as_timestamp(now()) - as_timestamp(start)) / 60) | int }} {% endif %}
+            - action: input_boolean.turn_off
+              target:
+                entity_id: input_boolean.dryer_running
+            - action: persistent_notification.create
+              data:
+                title: "Dryer May Be Stuck"
+                message: "The dryer has been running {{ duration_min }} min. Check if it's still running or if the sensor failed."
+            - action: notify.mobile_app_aaron_cell
+              data:
+                title: "Dryer May Be Stuck"
+                message: "The dryer has been running {{ duration_min }} min. Check it."

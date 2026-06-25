@@ -11,11 +11,11 @@
     ./aerospace.nix
     ./ghostty.nix
     ./fastfetch.nix
-    ./nvf
     ./zellij.nix
     ./ai
     ./zed
     ./1password-agent.nix
+    ./nixvim.nix
   ];
 
   # Home Manager needs a bit of information about you and the paths it should
