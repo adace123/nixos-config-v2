@@ -290,6 +290,15 @@
           desc = "Telescope code outline";
         };
       }
+      # Telescope resume
+      {
+        mode = "n";
+        key = "<leader>.";
+        action = "<cmd>Telescope resume<cr>";
+        options = {
+          desc = "Resume last telescope search";
+        };
+      }
 
       # Yazi
       {

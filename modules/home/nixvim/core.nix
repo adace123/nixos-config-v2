@@ -8,7 +8,14 @@
     globals = {
       mapleader = " ";
       maplocalleader = " ";
+      loaded_matchit = 1;
+      loaded_netrw = 1;
+      loaded_netrwPlugin = 1;
     };
+
+    luaLoader.enable = true;
+
+    performance.byteCompileLua.enable = true;
 
     # Options
     opts = {
