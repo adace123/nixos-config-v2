@@ -46,7 +46,7 @@ jobs:
           extra-conf: |
             system-features = kvm benchmark big-parallel nixos-test uid-range
       - name: Build NixOS OCI image
-        run: nix shell nixpkgs#just -c just build-image
+        run: nix develop .#infra -c just build-image
         working-directory: infra
       - name: Stage image artifact
         run: |
@@ -64,23 +64,13 @@ jobs:
   plan:
     needs: build-image
     runs-on: ubuntu-latest
-    env:
-      # OCI provider auth — standard env vars
-      OCI_TENANCY_OCID: ${{ secrets.OCI_TENANCY_OCID }}
-      OCI_USER_OCID: ${{ secrets.OCI_USER_OCID }}
-      OCI_FINGERPRINT: ${{ secrets.OCI_FINGERPRINT }}
-      OCI_REGION: ${{ secrets.OCI_REGION }}
-      OCI_PRIVATE_KEY: ${{ secrets.OCI_PRIVATE_KEY }}
-      # OpenTofu variables
-      OCI_COMPARTMENT_OCID: ${{ secrets.OCI_COMPARTMENT_OCID }}
-      TF_VAR_ssh_public_key: ${{ secrets.TF_VAR_SSH_PUBLIC_KEY }}
-      # R2 backend auth (S3-compatible)
-      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-      R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
     steps:
       - uses: actions/checkout@v7
+      - name: Setup SOPS age key
+        run: |
+          echo "${{ secrets.SOPS_AGE_KEY }}" > /tmp/age-key.txt
+          chmod 600 /tmp/age-key.txt
+          echo "SOPS_AGE_KEY_FILE=/tmp/age-key.txt" >> "$GITHUB_ENV"
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v22
         with:
@@ -91,11 +81,10 @@ jobs:
           name: nixos-oci-image
           path: infra/result
       - name: OpenTofu Init
-        run: nix shell nixpkgs#opentofu -c ./tofu-env.sh init
+        run: nix develop .#infra -c sops exec-env ../secrets/oci.yaml ./tofu-env.sh init
         working-directory: infra
       - name: OpenTofu Plan
-        run: >-
-          nix shell nixpkgs#opentofu -c ./tofu-env.sh tofu plan -input=false -no-color
+        run: nix develop .#infra -c sops exec-env ../secrets/oci.yaml ./tofu-env.sh tofu plan -input=false -no-color
         working-directory: infra
   apply:
     needs:
@@ -105,23 +94,13 @@ jobs:
       github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.apply)
     runs-on: ubuntu-latest
     environment: oci-production
-    env:
-      # OCI provider auth — standard env vars
-      OCI_TENANCY_OCID: ${{ secrets.OCI_TENANCY_OCID }}
-      OCI_USER_OCID: ${{ secrets.OCI_USER_OCID }}
-      OCI_FINGERPRINT: ${{ secrets.OCI_FINGERPRINT }}
-      OCI_REGION: ${{ secrets.OCI_REGION }}
-      OCI_PRIVATE_KEY: ${{ secrets.OCI_PRIVATE_KEY }}
-      # OpenTofu variables
-      OCI_COMPARTMENT_OCID: ${{ secrets.OCI_COMPARTMENT_OCID }}
-      TF_VAR_ssh_public_key: ${{ secrets.TF_VAR_SSH_PUBLIC_KEY }}
-      # R2 backend auth (S3-compatible)
-      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-      R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
     steps:
       - uses: actions/checkout@v7
+      - name: Setup SOPS age key
+        run: |
+          echo "${{ secrets.SOPS_AGE_KEY }}" > /tmp/age-key.txt
+          chmod 600 /tmp/age-key.txt
+          echo "SOPS_AGE_KEY_FILE=/tmp/age-key.txt" >> "$GITHUB_ENV"
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v22
         with:
@@ -132,13 +111,11 @@ jobs:
           name: nixos-oci-image
           path: infra/result
       - name: OpenTofu Init
-        run: nix shell nixpkgs#opentofu -c ./tofu-env.sh init
+        run: nix develop .#infra -c sops exec-env ../secrets/oci.yaml ./tofu-env.sh init
         working-directory: infra
       - name: OpenTofu Plan
-        run: >-
-          nix shell nixpkgs#opentofu -c ./tofu-env.sh tofu plan -input=false -out=tfplan
+        run: nix develop .#infra -c sops exec-env ../secrets/oci.yaml ./tofu-env.sh tofu plan -input=false -out=tfplan
         working-directory: infra
       - name: OpenTofu Apply
-        run: >-
-          nix shell nixpkgs#opentofu -c ./tofu-env.sh tofu apply -input=false tfplan
+        run: nix develop .#infra -c sops exec-env ../secrets/oci.yaml ./tofu-env.sh tofu apply -input=false tfplan
         working-directory: infra

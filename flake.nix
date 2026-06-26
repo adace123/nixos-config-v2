@@ -78,10 +78,12 @@
         systems = [
           "aarch64-darwin"
           "aarch64-linux"
+          "x86_64-linux"
         ];
 
         imports = [
           ./flake-parts/darwin.nix
+          ./flake-parts/infra.nix
           ./flake-parts/pre-commit.nix
           ./flake-parts/nixos.nix
         ];
