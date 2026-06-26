@@ -80,20 +80,15 @@ jobs:
         with:
           name: nixos-oci-image
           path: infra/result
-      - name: Debug - check file exists
-        run: |
-          echo "CWD: $(pwd)"
-          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
-          ls -la "$GITHUB_WORKSPACE/secrets/"
-          ls -la ../secrets/ 2>&1 || true
-          echo "---"
-          file "$GITHUB_WORKSPACE/secrets/oci.yaml" 2>&1 || true
+      - name: Debug - check sops decrypt
+        working-directory: infra
+        run: nix develop "${{ github.workspace }}#infra" -c sh -c 'echo "=== CWD ===" && pwd && echo "=== files ===" && ls -la ../secrets/ && echo "=== sops test ===" && sops -d --verbose ../secrets/oci.yaml 2>&1 | head -3 || sops -d ../secrets/oci.yaml 2>&1 | head -3'
       - name: OpenTofu Init
         working-directory: infra
-        run: nix develop .#infra -c sops exec-env ../secrets/oci.yaml ./tofu-env.sh init
+        run: nix develop "${{ github.workspace }}#infra" -c sops exec-env "${{ github.workspace }}/secrets/oci.yaml" ./tofu-env.sh init
       - name: OpenTofu Plan
         working-directory: infra
-        run: nix develop .#infra -c sops exec-env ../secrets/oci.yaml ./tofu-env.sh tofu plan -input=false -no-color
+        run: nix develop "${{ github.workspace }}#infra" -c sops exec-env "${{ github.workspace }}/secrets/oci.yaml" ./tofu-env.sh tofu plan -input=false -no-color
   apply:
     needs:
       - build-image
@@ -120,10 +115,10 @@ jobs:
           path: infra/result
       - name: OpenTofu Init
         working-directory: infra
-        run: nix develop .#infra -c sops exec-env ../secrets/oci.yaml ./tofu-env.sh init
+        run: nix develop "${{ github.workspace }}#infra" -c sops exec-env "${{ github.workspace }}/secrets/oci.yaml" ./tofu-env.sh init
       - name: OpenTofu Plan
         working-directory: infra
-        run: nix develop .#infra -c sops exec-env ../secrets/oci.yaml ./tofu-env.sh tofu plan -input=false -out=tfplan
+        run: nix develop "${{ github.workspace }}#infra" -c sops exec-env "${{ github.workspace }}/secrets/oci.yaml" ./tofu-env.sh tofu plan -input=false -out=tfplan
       - name: OpenTofu Apply
         working-directory: infra
-        run: nix develop .#infra -c sops exec-env ../secrets/oci.yaml ./tofu-env.sh tofu apply -input=false tfplan
+        run: nix develop "${{ github.workspace }}#infra" -c sops exec-env "${{ github.workspace }}/secrets/oci.yaml" ./tofu-env.sh tofu apply -input=false tfplan
