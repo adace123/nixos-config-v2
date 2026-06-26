@@ -80,6 +80,14 @@ jobs:
         with:
           name: nixos-oci-image
           path: infra/result
+      - name: Debug - check file exists
+        run: |
+          echo "CWD: $(pwd)"
+          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
+          ls -la "$GITHUB_WORKSPACE/secrets/"
+          ls -la ../secrets/ 2>&1 || true
+          echo "---"
+          file "$GITHUB_WORKSPACE/secrets/oci.yaml" 2>&1 || true
       - name: OpenTofu Init
         working-directory: infra
         run: nix develop .#infra -c sops exec-env ../secrets/oci.yaml ./tofu-env.sh init
