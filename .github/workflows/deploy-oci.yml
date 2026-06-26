@@ -81,11 +81,11 @@ jobs:
           name: nixos-oci-image
           path: infra/result
       - name: OpenTofu Init
-        run: nix develop .#infra -c sops exec-env ../secrets/oci.yaml ./tofu-env.sh init
         working-directory: infra
+        run: nix develop "$GITHUB_WORKSPACE#infra" -c sops exec-env "$GITHUB_WORKSPACE/secrets/oci.yaml" ./tofu-env.sh init
       - name: OpenTofu Plan
-        run: nix develop .#infra -c sops exec-env ../secrets/oci.yaml ./tofu-env.sh tofu plan -input=false -no-color
         working-directory: infra
+        run: nix develop "$GITHUB_WORKSPACE#infra" -c sops exec-env "$GITHUB_WORKSPACE/secrets/oci.yaml" ./tofu-env.sh tofu plan -input=false -no-color
   apply:
     needs:
       - build-image
@@ -111,11 +111,11 @@ jobs:
           name: nixos-oci-image
           path: infra/result
       - name: OpenTofu Init
-        run: nix develop .#infra -c sops exec-env ../secrets/oci.yaml ./tofu-env.sh init
         working-directory: infra
+        run: nix develop "$GITHUB_WORKSPACE#infra" -c sops exec-env "$GITHUB_WORKSPACE/secrets/oci.yaml" ./tofu-env.sh init
       - name: OpenTofu Plan
-        run: nix develop .#infra -c sops exec-env ../secrets/oci.yaml ./tofu-env.sh tofu plan -input=false -out=tfplan
         working-directory: infra
+        run: nix develop "$GITHUB_WORKSPACE#infra" -c sops exec-env "$GITHUB_WORKSPACE/secrets/oci.yaml" ./tofu-env.sh tofu plan -input=false -out=tfplan
       - name: OpenTofu Apply
-        run: nix develop .#infra -c sops exec-env ../secrets/oci.yaml ./tofu-env.sh tofu apply -input=false tfplan
         working-directory: infra
+        run: nix develop "$GITHUB_WORKSPACE#infra" -c sops exec-env "$GITHUB_WORKSPACE/secrets/oci.yaml" ./tofu-env.sh tofu apply -input=false tfplan
