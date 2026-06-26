@@ -46,7 +46,7 @@ _: {
       "bruno" # API client
       "codex" # OpenAI Codex CLI
       "codex-app" # OpenAI Codex App
-      "cmux"
+      "muxy-app/tap/muxy" # muxy terminal
       "docker-desktop" # Docker
       "ghostty" # Terminal emulator
       "warp" # AI terminal
