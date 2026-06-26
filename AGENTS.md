@@ -65,9 +65,6 @@ This is a Nix flake-based configuration for managing macOS systems using nix-dar
     # Local modules first
     ./module1.nix
     ./module2.nix
-
-    # External inputs
-    inputs.nvf.homeManagerModules.default
   ];
 }
 ```
@@ -203,7 +200,6 @@ modules/
     ├── ghostty.nix      # Ghostty terminal emulator
     ├── git.nix          # Git configuration
     ├── nodejs.nix       # Node.js development
-    ├── nvf/             # Neovim (nvf) configuration
     ├── nixvim.nix       # Nixvim module (disabled)
     ├── python.nix       # Python development
     ├── starship/        # Starship prompt config
