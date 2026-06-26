@@ -1,59 +1,65 @@
-# justfile - OCI Terraform infrastructure management
-# Run from infra/:  just <recipe>
-# Run from root:    just -f infra/justfile <recipe>
+# justfile - OCI OpenTofu infrastructure management
+# Run from root:  just -f infra/justfile <recipe>
+# Run from infra/: just <recipe>
 
 # Default recipe
 default:
     @just --list
 
+# ── Secrets ────────────────────────────────────────────────────────────────────
+
 # Edit (or create) secrets/oci.yaml with sops
-# First run: this opens $EDITOR; paste in your OCI values and save
-# Required keys: oci-tenancy-ocid, oci-user-ocid, oci-fingerprint, oci-region,
-#                oci-compartment-ocid, oci-private-key
+# Required keys: oci-tenancy-id (or oci-tenancy-ocid), oci-user-ocid,
+#                oci-fingerprint, oci-region, oci-compartment-ocid,
+#                oci-private-key, oci-public-key, r2-access-key-id,
+#                r2-secret-access-key, r2-account-id, r2-bucket-name
 edit-secrets:
-    #!/usr/bin/env bash
-    set -euo pipefail
     nix shell nixpkgs#sops nixpkgs#age -c sops ../secrets/oci.yaml
 
-# Decrypt secrets/oci.yaml and export OCI env vars for Terraform
-# Usage: eval "$(just get-secret)"
-# Then:   cd infra && terraform plan
-get-secret:
+# ── OCI image ─────────────────────────────────────────────────────────────────
+
+# Build the NixOS OCI qcow2 image expected by var.image_path.
+# Produces ./result/nixos.qcow2 as a symlink to the Nix store output.
+# Requires an aarch64-linux builder; Darwin without one cannot build this.
+build-image:
     #!/usr/bin/env bash
     set -euo pipefail
-    if [ ! -f ../secrets/oci.yaml ]; then
-        echo "ERROR: secrets/oci.yaml not found." >&2
-        echo "Create it with: just edit-secrets" >&2
-        echo "" >&2
-        echo "Required keys to add in the editor:" >&2
-        echo "  oci-tenancy-ocid     (tenancy OCID)" >&2
-        echo "  oci-user-ocid        (user OCID)" >&2
-        echo "  oci-fingerprint      (API key fingerprint)" >&2
-        echo "  oci-region           (region, e.g. us-sanjose-1)" >&2
-        echo "  oci-compartment-ocid (compartment OCID)" >&2
-        echo "  oci-private-key      (API private key PEM content)" >&2
+
+    out_link="result-vps-image"
+    image_dir="result"
+    image_name="$(nix eval ..#nixosConfigurations.dathomir.config.image.fileName --raw)"
+
+    nix build ..#packages.aarch64-linux.vps-image \
+        --system aarch64-linux \
+        --accept-flake-config \
+        --out-link "$out_link"
+
+    if [ ! -e "$out_link/$image_name" ]; then
+        echo "ERROR: expected image not found: $out_link/$image_name" >&2
         exit 1
     fi
 
-    OCI_KEY_FILE="/tmp/oci-private-key.pem"
-    export OCI_KEY_FILE
+    rm -rf "$image_dir"
+    mkdir -p "$image_dir"
+    ln -s "../$out_link/$image_name" "$image_dir/nixos.qcow2"
 
-    nix shell nixpkgs#sops nixpkgs#age nixpkgs#python3 -c bash -c '
-    set -euo pipefail
-    TMP=$(mktemp)
-    trap "rm -f $TMP" EXIT
+    echo "OCI image ready: $image_dir/nixos.qcow2 -> ../$out_link/$image_name"
 
-    sops --decrypt ../secrets/oci.yaml > "$TMP"
+# ── OpenTofu commands ─────────────────────────────────────────────────────────
 
-    extract() { python3 -c "import sys,yaml; print(yaml.safe_load(open(sys.argv[1]))[\"$1\"])" "$TMP"; }
+# Initialize OpenTofu with S3-compatible R2 backend
+# Uses secrets/oci.yaml via sops exec-env and infra/tofu-env.sh.
+init *ARGS:
+    nix shell nixpkgs#sops nixpkgs#opentofu -c sops exec-env ../secrets/oci.yaml './tofu-env.sh init {{ARGS}}'
 
-    echo "export OCI_TENANCY_OCID=$(extract oci-tenancy-ocid)"
-    echo "export OCI_USER_OCID=$(extract oci-user-ocid)"
-    echo "export OCI_FINGERPRINT=$(extract oci-fingerprint)"
-    echo "export OCI_REGION=$(extract oci-region)"
-    echo "export TF_VAR_compartment_ocid=$(extract oci-compartment-ocid)"
+# Run any tofu command with env from sops secrets
+# Usage: just tf plan [-out=tfplan]
+#        just tf apply [-auto-approve]
+#        just tf destroy
+# The OCI private key is written to a temp file and cleaned up on exit.
+tf CMD *ARGS:
+    nix shell nixpkgs#sops nixpkgs#opentofu -c sops exec-env ../secrets/oci.yaml './tofu-env.sh tofu {{CMD}} {{ARGS}}'
 
-    extract oci-private-key > "$OCI_KEY_FILE"
-    chmod 600 "$OCI_KEY_FILE"
-    echo "export TF_VAR_private_key_path=$OCI_KEY_FILE"
-    '
+# Alias for explicit OpenTofu naming: just tofu plan
+tofu CMD *ARGS:
+    nix shell nixpkgs#sops nixpkgs#opentofu -c sops exec-env ../secrets/oci.yaml './tofu-env.sh tofu {{CMD}} {{ARGS}}'

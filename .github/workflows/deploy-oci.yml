@@ -1,0 +1,141 @@
+name: Build and Deploy OCI Image
+"on":
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Apply after planning"
+        default: false
+        type: boolean
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/deploy-oci.yml
+      - flake.nix
+      - flake.lock
+      - flake-parts/**
+      - hosts/dathomir/**
+      - infra/**
+      - modules/nixos/**
+      - secrets/oci.yaml
+permissions:
+  contents: read
+concurrency:
+  group: oci-deploy
+  cancel-in-progress: false
+env:
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+jobs:
+  build-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v22
+        with:
+          flakehub: false
+          extra-conf: |
+            extra-platforms = aarch64-linux
+            sandbox = false
+      - name: Enable aarch64-linux emulation
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+      - name: Build NixOS OCI image
+        run: nix shell nixpkgs#just -c just build-image
+        working-directory: infra
+      - name: Stage image artifact
+        run: |
+          mkdir -p /tmp/oci-image
+          cp -L result/nixos.qcow2 /tmp/oci-image/nixos.qcow2
+        working-directory: infra
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: nixos-oci-image
+          path: /tmp/oci-image/nixos.qcow2
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+  plan:
+    needs: build-image
+    runs-on: ubuntu-latest
+    env:
+      # OCI provider auth — standard env vars
+      OCI_TENANCY_OCID: ${{ secrets.OCI_TENANCY_OCID }}
+      OCI_USER_OCID: ${{ secrets.OCI_USER_OCID }}
+      OCI_FINGERPRINT: ${{ secrets.OCI_FINGERPRINT }}
+      OCI_REGION: ${{ secrets.OCI_REGION }}
+      OCI_PRIVATE_KEY: ${{ secrets.OCI_PRIVATE_KEY }}
+      # OpenTofu variables
+      OCI_COMPARTMENT_OCID: ${{ secrets.OCI_COMPARTMENT_OCID }}
+      TF_VAR_ssh_public_key: ${{ secrets.TF_VAR_SSH_PUBLIC_KEY }}
+      # R2 backend auth (S3-compatible)
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v22
+        with:
+          flakehub: false
+      - name: Download image artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: nixos-oci-image
+          path: infra/result
+      - name: OpenTofu Init
+        run: nix shell nixpkgs#opentofu -c ./tofu-env.sh init
+        working-directory: infra
+      - name: OpenTofu Plan
+        run: >-
+          nix shell nixpkgs#opentofu -c ./tofu-env.sh tofu plan -input=false -no-color
+        working-directory: infra
+  apply:
+    needs:
+      - build-image
+      - plan
+    if: >-
+      github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.apply)
+    runs-on: ubuntu-latest
+    environment: oci-production
+    env:
+      # OCI provider auth — standard env vars
+      OCI_TENANCY_OCID: ${{ secrets.OCI_TENANCY_OCID }}
+      OCI_USER_OCID: ${{ secrets.OCI_USER_OCID }}
+      OCI_FINGERPRINT: ${{ secrets.OCI_FINGERPRINT }}
+      OCI_REGION: ${{ secrets.OCI_REGION }}
+      OCI_PRIVATE_KEY: ${{ secrets.OCI_PRIVATE_KEY }}
+      # OpenTofu variables
+      OCI_COMPARTMENT_OCID: ${{ secrets.OCI_COMPARTMENT_OCID }}
+      TF_VAR_ssh_public_key: ${{ secrets.TF_VAR_SSH_PUBLIC_KEY }}
+      # R2 backend auth (S3-compatible)
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v22
+        with:
+          flakehub: false
+      - name: Download image artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: nixos-oci-image
+          path: infra/result
+      - name: OpenTofu Init
+        run: nix shell nixpkgs#opentofu -c ./tofu-env.sh init
+        working-directory: infra
+      - name: OpenTofu Plan
+        run: >-
+          nix shell nixpkgs#opentofu -c ./tofu-env.sh tofu plan -input=false -out=tfplan
+        working-directory: infra
+      - name: OpenTofu Apply
+        run: >-
+          nix shell nixpkgs#opentofu -c ./tofu-env.sh tofu apply -input=false tfplan
+        working-directory: infra

@@ -9,12 +9,12 @@ Home Assistant runs as a rootless Podman container managed by NixOS. The relevan
 files are:
 
 ```text
-modules/nixos/coruscant/
-├── home-assistant.nix    # Container, MQTT, Zigbee2MQTT, ESPHome, user setup
+modules/nixos/home-assistant/
+├── default.nix           # Container, MQTT, Zigbee2MQTT, ESPHome, user setup
 └── configuration.yaml    # HA base config template (secrets injected by SOPS)
 ```
 
-`home-assistant.nix` covers:
+`default.nix` covers:
 
 - **Podman container** (`ghcr.io/home-assistant/home-assistant:stable`)  
   Auto-starts, mounts `/var/lib/hass`, uses host networking for device discovery.
@@ -52,7 +52,7 @@ The web UI is available at `http://coruscant.local:8091`. The Zigbee coordinator
 is expected at
 `/dev/serial/by-id/usb-Itead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_V2_9aff399ca0f3ef1187f6bb1b6d9880ab-if00-port0`
 (Ember adapter). Change the `serial.port` and `serial.adapter` settings in
-`home-assistant.nix` if using a different adapter.
+`default.nix` if using a different adapter.
 
 Home Assistant sees Zigbee2MQTT through MQTT discovery as the
 `Zigbee2MQTT Bridge` device; the physical USB dongle is owned by Zigbee2MQTT and
@@ -120,7 +120,7 @@ grows (automations, dashboards, custom scripts, Lovelace cards, etc.).
 When the configuration outgrows a single file, restructure as follows:
 
 ```text
-modules/nixos/coruscant/home-assistant/
+modules/nixos/home-assistant/
 ├── default.nix           # Container, SOPS wiring, systemd services, user setup
 ├── mosquitto.nix         # Mosquitto MQTT broker
 ├── zigbee2mqtt.nix       # Zigbee2MQTT bridge
@@ -136,10 +136,10 @@ modules/nixos/coruscant/home-assistant/
     └── packages/             # HA package includes (grouping by domain)
 ```
 
-**Trigger for restructuring:** when `home-assistant.nix` exceeds ~200 lines or
+**Trigger for restructuring:** when `default.nix` exceeds ~200 lines or
 when you start maintaining more than a handful of automations. Until then,
 keeping everything in one file is simpler.
 
-**How to restructure:** split `home-assistant.nix` into the files above, update
+**How to restructure:** split `default.nix` into the files above, update
 the `imports` list in `base.nix`, and move `configuration.yaml` into
 `config/configuration.yaml`. No Nix semantics change — it is a mechanical split.

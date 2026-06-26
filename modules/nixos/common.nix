@@ -1,4 +1,4 @@
-{ config, ... }:
+{ config, host, ... }:
 {
   # System state version
   system.stateVersion = "24.11";
@@ -11,11 +11,12 @@
       PasswordAuthentication = false;
     };
   };
-  users.users.root.openssh.authorizedKeys.keys = [
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC6DWf0lf4vWTAUmjkulvvZrhCifTS8eFqkDlHPSawrU"
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILRSOuLiLN+rY14q+55fd7XUH3rfA54nx3gZJjfmwa7G"
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIH6NoE7HzOLf05FzjkbsQQkMSbe6AJEm2fgNZeaO6RAe"
-  ];
+  users.users.root.openssh.authorizedKeys.keys = host.sshPublicKeys or [ ];
+  users.users.nixos = {
+    isNormalUser = true;
+    extraGroups = [ "wheel" ];
+    openssh.authorizedKeys.keys = host.sshPublicKeys or [ ];
+  };
 
   # Enable automatic updates
   system.autoUpgrade = {
@@ -108,4 +109,6 @@
     algorithm = "zstd";
     memoryPercent = 50;
   };
+  # Wheel users don't need a password for sudo (single-user machine)
+  security.sudo.wheelNeedsPassword = false;
 }

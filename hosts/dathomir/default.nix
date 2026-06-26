@@ -1,5 +1,5 @@
 {
-  hostName = "coruscant";
+  hostName = "dathomir";
   system = "aarch64-linux";
 
   sshPublicKeys = [

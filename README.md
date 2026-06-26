@@ -42,10 +42,13 @@ modules/
 ├── darwin/       # nix-darwin system config (macOS)
 ├── home/         # home-manager user config (macOS)
 └── nixos/
-    ├── common.nix         # shared NixOS settings (SSH, firewall, NTP, GC…)
-    ├── beszel.nix         # Beszel monitoring
-    └── coruscant/         # host-specific NixOS modules
-```
+    ├── common.nix              # shared NixOS settings (SSH, firewall, NTP, GC…)
+    ├── beszel.nix              # Beszel monitoring
+    ├── base.nix                # hostname, SOPS, Tailscale auth
+    ├── caddy.nix               # Caddy reverse proxy (Cloudflare DNS)
+    ├── installer.nix           # SD-card installer image
+    ├── ssd.nix                 # Disko SSD partition layout + boot config
+    └── home-assistant/         # HA container, MQTT, Zigbee2MQTT, ESPHome
 
 Host identity is now data-driven via `hosts/`, where each machine declares only
 its identity and shared modules provide the behavior:
@@ -133,14 +136,17 @@ editing, rotating keys, recovering access, adding a new machine, and backups.
 │   ├── darwin.nix            # Darwin outputs built from hosts/ metadata
 │   ├── nixos.nix             # NixOS outputs built from hosts/ metadata
 │   └── pre-commit.nix        # Pre-commit hooks
-├── hosts/                    # Per-machine identity data
 ├── modules/
 │   ├── darwin/               # nix-darwin system modules
 │   ├── home/                 # home-manager user modules
 │   └── nixos/
 │       ├── common.nix
 │       ├── beszel.nix
-│       └── coruscant/        # Raspberry Pi host modules
+│       ├── base.nix
+│       ├── caddy.nix
+│       ├── installer.nix
+│       ├── ssd.nix
+│       └── home-assistant/
 ├── secrets/
 │   └── default.yaml          # SOPS-encrypted secrets
 ├── scripts/                  # Helper shell scripts

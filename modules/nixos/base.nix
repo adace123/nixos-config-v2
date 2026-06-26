@@ -1,13 +1,13 @@
 { config, host, ... }:
 {
   imports = [
-    ../common.nix
-    ../beszel.nix
+    ./common.nix
+    ./beszel.nix
     ./home-assistant
     ./caddy.nix
   ];
 
-  sops.defaultSopsFile = ../../../secrets/default.yaml;
+  sops.defaultSopsFile = ../../secrets/default.yaml;
   sops.age.keyFile = "/var/lib/sops-nix/key.txt";
   sops.secrets = {
     ts-auth-key = { };

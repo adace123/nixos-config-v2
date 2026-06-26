@@ -1,5 +1,5 @@
 {
-  description = "macOS system configuration with nix-darwin, Raspberry Pi 4, and OCI NixOS";
+  description = "macOS system configuration with nix-darwin, Raspberry Pi, and VPS NixOS";
 
   # Binary caches for building flake outputs
   # NOTE: Keep in sync with the home-manager nix config in modules/home/default.nix
@@ -91,7 +91,7 @@
     // {
       packages = flake.packages // {
         aarch64-linux = (flake.packages.aarch64-linux or { }) // {
-          oci-image = flake.nixosConfigurations.oci-base.config.system.build.OCIImage;
+          vps-image = flake.nixosConfigurations.dathomir.config.system.build.OCIImage;
         };
       };
     };

@@ -6,7 +6,7 @@
 }:
 {
   imports = [
-    ../common.nix
+    ./common.nix
   ];
 
   # Use stock kernel (from cache.nixos.org) instead of vendor RPi kernel

@@ -107,6 +107,34 @@ just nixos-init 192.168.1.50     # explicit IP
 
 ---
 
+## OCI VPS (`dathomir`)
+
+The `Build and Deploy OCI Image` GitHub Actions workflow builds
+`.#packages.aarch64-linux.vps-image`, uploads the resulting `nixos.qcow2` as a
+short-lived workflow artifact, then runs OpenTofu from `infra/` against Oracle
+Cloud Infrastructure.
+
+Manual dry-run:
+
+```bash
+gh workflow run deploy-oci.yml -f apply=false
+```
+
+Manual deploy:
+
+```bash
+gh workflow run deploy-oci.yml -f apply=true
+```
+
+Pushes to `main` that touch the OCI image, host, or `infra/` paths deploy after
+the plan job succeeds. The apply job uses the `oci-production` GitHub
+environment, so configure any required reviewers there.
+
+GitHub Actions uses repository secrets for OCI and R2 credentials. See
+[docs/secrets.md](secrets.md#github-actions-secrets-for-oci-deploy).
+
+---
+
 ## SD Card Image
 
 ### Build via GitHub Actions (recommended)

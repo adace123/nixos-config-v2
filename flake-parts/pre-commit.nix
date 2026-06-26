@@ -64,8 +64,7 @@
         yamlfmt = {
           enable = true;
           types = [ "yaml" ]; # Format YAML files
-          files = ''.*\.(yaml|yml)$''; # Regex to match both .yaml and .yml files
-          args = [ ]; # Default args, yamlfmt should format by default
+          settings.lint-only = false; # Actually format files, not just check
         };
       };
 

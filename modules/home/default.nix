@@ -50,11 +50,13 @@
       lazygit
       sshpass
       jujutsu
+      lazyjj
       trivy
       fzf
       tailscale
       home-assistant-cli
       opentofu
+      sops
 
       # Modern CLI replacements
       bat # cat replacement

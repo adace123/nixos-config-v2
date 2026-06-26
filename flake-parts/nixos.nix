@@ -1,11 +1,12 @@
 { inputs, ... }:
 let
   hosts = import ../hosts;
-  host = hosts.coruscant;
+  coruscantHost = hosts.coruscant;
+  dathomirHost = hosts.dathomir;
   nixos-raspberrypi = inputs.nixos-raspberrypi;
 
   mkPiSystem =
-    modules:
+    host: modules:
     inputs.nixpkgs.lib.nixosSystem {
       system = host.system;
       specialArgs = {
@@ -19,6 +20,7 @@ let
     };
 
   mkSystem =
+    host:
     {
       modules,
       extraSpecialArgs ? { },
@@ -34,27 +36,31 @@ let
 in
 {
   flake.nixosConfigurations = {
-    "${host.hostName}" = mkPiSystem [
+    "${coruscantHost.hostName}" = mkPiSystem coruscantHost [
       nixos-raspberrypi.lib.inject-overlays
       nixos-raspberrypi.nixosModules.raspberry-pi-4.base
       nixos-raspberrypi.nixosModules.trusted-nix-caches
       inputs.sops-nix.nixosModules.sops
-      ../modules/nixos/${host.hostName}/ssd.nix
+      ../modules/nixos/ssd.nix
     ];
 
-    "${host.hostName}-sd-image" = mkPiSystem [
+    "${coruscantHost.hostName}-sd-image" = mkPiSystem coruscantHost [
       nixos-raspberrypi.lib.inject-overlays
       nixos-raspberrypi.nixosModules.raspberry-pi-4.base
       nixos-raspberrypi.nixosModules.sd-image
       nixos-raspberrypi.nixosModules.trusted-nix-caches
       inputs.sops-nix.nixosModules.sops
-      ../modules/nixos/${host.hostName}/installer.nix
+      ../modules/nixos/installer.nix
     ];
 
-    oci-base = mkSystem {
+    "${dathomirHost.hostName}" = mkSystem dathomirHost {
       modules = [
         "${inputs.nixpkgs}/nixos/modules/virtualisation/oci-image.nix"
-        ../modules/nixos/oci-image/configuration.nix
+        ({ host, ... }: {
+          networking.hostName = host.hostName;
+          services.cloud-init.enable = true;
+          services.openssh.settings.PermitRootLogin = "no";
+        })
       ];
     };
   };

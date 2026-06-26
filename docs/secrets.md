@@ -92,6 +92,34 @@ nix shell nixpkgs#sops nixpkgs#age -c sops updatekeys secrets/default.yaml
    # Then use config.sops.secrets.my-new-secret.path in services
    ```
 
+## GitHub Actions Secrets for OCI Deploy
+
+The OCI image deploy workflow reads plain GitHub Actions repository secrets; it
+does not decrypt `secrets/oci.yaml` in CI. Add them under
+**Repository Settings → Secrets and variables → Actions → Repository secrets**.
+
+Required secrets:
+
+| Secret | Source / value |
+|--------|----------------|
+| `OCI_TENANCY_OCID` | OCI tenancy OCID (`ocid1.tenancy...`) |
+| `OCI_USER_OCID` | OCI API user OCID |
+| `OCI_FINGERPRINT` | Fingerprint for that OCI API key |
+| `OCI_REGION` | OCI region, for example `us-ashburn-1` |
+| `OCI_PRIVATE_KEY` | Full PEM private key for the OCI API key, including header/footer |
+| `OCI_COMPARTMENT_OCID` | OCI compartment OCID to deploy into |
+| `TF_VAR_SSH_PUBLIC_KEY` | Public SSH key content for the instance metadata |
+| `R2_ACCESS_KEY_ID` | Cloudflare R2 access key for the OpenTofu S3 backend |
+| `R2_SECRET_ACCESS_KEY` | Cloudflare R2 secret key for the OpenTofu S3 backend |
+| `R2_ACCOUNT_ID` | Cloudflare account ID used to form the R2 endpoint |
+| `R2_BUCKET_NAME` | Existing R2 bucket containing OpenTofu state |
+
+The workflow also references the `oci-production` GitHub environment on the
+apply job. Use that environment for required reviewers or wait timers. Keep the
+secrets above as repository secrets unless the plan job also gets the same
+environment; environment-scoped secrets are only available to jobs that declare
+that environment.
+
 ## Editing an Existing Secret
 
 ```bash

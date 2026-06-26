@@ -12,13 +12,13 @@ hosts/coruscant/default.nix          # host identity (hostname, system)
 flake-parts/nixos.nix                # NixOS output wiring from host metadata
 modules/nixos/common.nix             # shared NixOS settings
 modules/nixos/beszel.nix             # Beszel monitoring hub
-modules/nixos/coruscant/             # host-specific modules
-  base.nix                           # hostname, SOPS, Tailscale auth
-  home-assistant.nix                 # HA container + MQTT + Zigbee2MQTT + ESPHome
-  caddy.nix                          # Caddy reverse proxy (Cloudflare DNS)
-  ssd.nix                            # Disko SSD partition layout + boot config
-  installer.nix                      # Minimal SD-card installer image
-  configuration.yaml                 # Home Assistant base configuration template
+modules/nixos/                  # host-specific modules
+  base.nix                      # hostname, SOPS, Tailscale auth
+  home-assistant/               # HA container + MQTT + Zigbee2MQTT + ESPHome
+  caddy.nix                     # Caddy reverse proxy (Cloudflare DNS)
+  ssd.nix                       # Disko SSD partition layout + boot config
+  installer.nix                 # Minimal SD-card installer image
+  configuration.yaml            # Home Assistant base configuration template
 ```
 
 ## Hardware
@@ -32,12 +32,12 @@ modules/nixos/coruscant/             # host-specific modules
 
 | Service | Port | NixOS module |
 |---------|------|--------------|
-| Home Assistant | 8123 | `coruscant/home-assistant.nix` (podman) |
-| Mosquitto (MQTT) | 1883 | `coruscant/home-assistant.nix` |
-| Zigbee2MQTT | 8091 | `coruscant/home-assistant.nix` |
-| ESPHome | 6052 | `coruscant/home-assistant.nix` |
+| Home Assistant | 8123 | `home-assistant/` (podman) |
+| Mosquitto (MQTT) | 1883 | `home-assistant/` |
+| Zigbee2MQTT | 8091 | `home-assistant/` |
+| ESPHome | 6052 | `home-assistant/` |
 | Beszel Hub | 8090 | `nixos/beszel.nix` |
-| Caddy (HTTPS proxy) | 443 | `coruscant/caddy.nix` |
+| Caddy (HTTPS proxy) | 443 | `caddy.nix` |
 | Tailscale | — | `nixos/common.nix` |
 
 ## Initial Provisioning

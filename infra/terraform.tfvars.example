@@ -1,6 +1,11 @@
-# Auth vars (tenancy_ocid, user_ocid, fingerprint, region, compartment_ocid, private_key_path)
-# are set via env vars from: cd infra && eval "$(just get-secret)"
-# Only instance-level config goes here:
+# Auth/backend vars come from secrets/oci.yaml via sops exec-env locally,
+# and from GitHub Secrets in CI. infra/tofu-env.sh maps them for OpenTofu.
+# Run:  just build-image  # produce ./result/nixos.qcow2
+#       just init         # one-time backend setup
+#       just tf plan      # plan with OpenTofu
+#       just tf apply     # apply with OpenTofu
+#
+# Only non-secret instance config goes here. ssh_public_key is sourced from
+# secrets/oci.yaml key `oci-public-key` by infra/tofu-env.sh.
 
-ssh_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA.... your-oci-key"
-image_path     = "./result/nixos.qcow2"
+image_path = "./result/nixos.qcow2"

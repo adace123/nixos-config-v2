@@ -1,7 +1,13 @@
 keys:
   - &admin age1sgfy6dm4jg72eqx2rw0003cxrt8rkr6q0pp395djh99jwsulw52sc5pv7l
+  - &github_actions_oci age1xkf06j67yhw2n5twmyudkqr6gvavukfyuzradkyjagfqt4c8uslqgqve9d
 creation_rules:
-  - path_regex: secrets/.*
+  - path_regex: secrets/oci.yaml$
+    key_groups:
+      - age:
+          - *admin
+          - *github_actions_oci
+  - path_regex: secrets/default.yaml$
     key_groups:
       - age:
           - *admin
