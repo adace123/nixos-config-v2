@@ -7,7 +7,7 @@
   ];
 
   programs.zed-editor = {
-    enable = true;
+    enable = false;
 
     extraPackages = with pkgs; [
       nixd
@@ -24,7 +24,6 @@
       nix
       toml
       git-firefly
-      opencode
       catppuccin
       catppuccin-icons
       just

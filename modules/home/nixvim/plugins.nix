@@ -454,7 +454,7 @@
         };
       };
 
-      # Highlight same word under cursor (matches nvf's illuminate)
+      # Highlight same word under cursor
       illuminate.enable = true;
 
       # Workspace diagnostics list

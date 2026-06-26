@@ -455,6 +455,14 @@
       }
       {
         mode = "n";
+        key = "<leader>w";
+        action = "<cmd>Telescope live_grep<cr>";
+        options = {
+          desc = "Live grep";
+        };
+      }
+      {
+        mode = "n";
         key = "<leader>gtb";
         action = "<cmd>Gitsigns toggle_current_line_blame<cr>";
         options = {
