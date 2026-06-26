@@ -54,6 +54,7 @@
       fzf
       tailscale
       home-assistant-cli
+      opentofu
 
       # Modern CLI replacements
       bat # cat replacement
@@ -163,6 +164,7 @@
         py = "ipython";
         cat = "bat";
         ts = "tailscale";
+        tf = "tofu";
         assume = "source assume";
         # Note: zoxide commands available:
         # - 'z <query>' - Jump to directory (with tab completion)
