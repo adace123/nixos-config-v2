@@ -42,14 +42,14 @@ in
   ];
 
   home = {
-    packages = [
-      llmAgents.antigravity-cli
-      llmAgents.claude-code
-      llmAgents.ccstatusline
-      llmAgents.ccusage
+    packages = with llmAgents; [
+      claude-code
+      ccstatusline
+      ccusage
       hermesAgentWithDesktop
       hermesDesktop
-      llmAgents.pi
+      pi
+      omp
     ];
 
     sessionVariables = {
