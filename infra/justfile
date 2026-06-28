@@ -47,10 +47,9 @@ build-image:
 
 # ── OpenTofu commands ─────────────────────────────────────────────────────────
 
-# Initialize OpenTofu with S3-compatible R2 backend
-# Uses secrets/oci.yaml via sops exec-env and infra/tofu-env.sh.
+# Initialize OpenTofu with S3-compatible R2 backend.
 init *ARGS:
-    nix shell nixpkgs#sops nixpkgs#opentofu -c sops exec-env ../secrets/oci.yaml './tofu-env.sh init {{ARGS}}'
+    nix develop ../#infra -c env OCI_SECRETS_FILE=../secrets/oci.yaml ./tofu-env.sh init {{ARGS}}
 
 # Run any tofu command with env from sops secrets
 # Usage: just tf plan [-out=tfplan]
@@ -58,8 +57,12 @@ init *ARGS:
 #        just tf destroy
 # The OCI private key is written to a temp file and cleaned up on exit.
 tf CMD *ARGS:
-    nix shell nixpkgs#sops nixpkgs#opentofu -c sops exec-env ../secrets/oci.yaml './tofu-env.sh tofu {{CMD}} {{ARGS}}'
+    nix develop ../#infra -c env OCI_SECRETS_FILE=../secrets/oci.yaml ./tofu-env.sh tofu {{CMD}} {{ARGS}}
 
 # Alias for explicit OpenTofu naming: just tofu plan
 tofu CMD *ARGS:
-    nix shell nixpkgs#sops nixpkgs#opentofu -c sops exec-env ../secrets/oci.yaml './tofu-env.sh tofu {{CMD}} {{ARGS}}'
+    nix develop ../#infra -c env OCI_SECRETS_FILE=../secrets/oci.yaml ./tofu-env.sh tofu {{CMD}} {{ARGS}}
+
+# Destroy all OpenTofu-managed OCI resources after showing the plan.
+destroy *ARGS:
+    nix develop ../#infra -c env OCI_SECRETS_FILE=../secrets/oci.yaml ./tofu-env.sh tofu destroy {{ARGS}}
