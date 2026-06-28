@@ -8,6 +8,8 @@ data "oci_objectstorage_namespace" "ns" {
   compartment_id = var.compartment_ocid
 }
 
+data "oci_core_compute_global_image_capability_schemas" "default" {}
+
 # ── Networking ────────────────────────────────────────────────────────────────
 
 resource "oci_core_vcn" "nixos" {
@@ -115,7 +117,7 @@ resource "oci_core_shape_management" "nixos_a1_compat" {
 resource "oci_core_compute_image_capability_schema" "nixos_caps" {
   compartment_id                                      = var.compartment_ocid
   image_id                                            = oci_core_image.nixos.id
-  compute_global_image_capability_schema_version_name = "2024-03-27"
+  compute_global_image_capability_schema_version_name = data.oci_core_compute_global_image_capability_schemas.default.compute_global_image_capability_schemas[0].current_version_name
 
   schema_data = {
     "Compute.Firmware" = jsonencode({
