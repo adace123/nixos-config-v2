@@ -65,4 +65,22 @@ tofu CMD *ARGS:
 
 # Destroy all OpenTofu-managed OCI resources after showing the plan.
 destroy *ARGS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    placeholder_created=0
+    if [ ! -e result/nixos.qcow2 ]; then
+        mkdir -p result
+        touch result/nixos.qcow2
+        placeholder_created=1
+    fi
+
+    cleanup() {
+        if [ "$placeholder_created" -eq 1 ]; then
+            rm -f result/nixos.qcow2
+            rmdir result 2>/dev/null || true
+        fi
+    }
+    trap cleanup EXIT
+
     nix develop ../#infra -c env OCI_SECRETS_FILE=../secrets/oci.yaml ./tofu-env.sh tofu destroy {{ARGS}}
