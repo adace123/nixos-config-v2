@@ -1,36 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-_env_variants() {
-	printf '%s\n' "$1"
-	printf '%s\n' "$1" | sed 's/-/_/g'
-	printf '%s\n' "$1" | tr '[:lower:]' '[:upper:]' | sed 's/-/_/g'
-}
-
-_secret_try() {
-	local name="$1"
-	printenv "$name" 2>/dev/null || true
-}
-
 secret() {
-	local value name variant
+	local value
+	local name
 
 	for name in "$@"; do
-		while IFS= read -r variant; do
-			value="$(_secret_try "$variant")"
-			if [ -n "$value" ]; then
-				printf '%s' "$value"
-				return 0
-			fi
-		done < <(_env_variants "$name")
+		value="$(printenv "$name" 2>/dev/null || true)"
+		if [ -n "$value" ]; then
+			printf '%s' "$value"
+			return 0
+		fi
 	done
 
 	printf 'ERROR: missing required secret/env var; tried:' >&2
-	for name in "$@"; do
-		while IFS= read -r variant; do
-			printf ' %s' "$variant" >&2
-		done < <(_env_variants "$name")
-	done
+	printf ' %s' "$@" >&2
 	printf '\n' >&2
 	return 1
 }
@@ -41,14 +25,10 @@ if [ "$#" -eq 0 ]; then
 fi
 
 compartment_ocid="${TF_VAR_compartment_ocid:-${OCI_COMPARTMENT_OCID:-$(secret oci-compartment-ocid)}}"
-tenancy_ocid="${OCI_TENANCY_OCID:-}"
-while IFS= read -r variant; do
-	value="$(_secret_try "$variant")"
-	[ -n "$value" ] && {
-		tenancy_ocid="$value"
-		break
-	}
-done < <(printf '%s\n' oci-tenancy-ocid oci-tenancy-id | while IFS= read -r n; do _env_variants "$n"; done | sort -u)
+tenancy_ocid="${OCI_TENANCY_OCID:-$(printenv oci-tenancy-ocid 2>/dev/null || true)}"
+if [ -z "$tenancy_ocid" ]; then
+	tenancy_ocid="$(printenv oci-tenancy-id 2>/dev/null || true)"
+fi
 if [[ $tenancy_ocid != ocid1.tenancy.oc1* && $compartment_ocid == ocid1.tenancy.oc1* ]]; then
 	tenancy_ocid="$compartment_ocid"
 fi
