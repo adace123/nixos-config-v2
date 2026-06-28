@@ -80,9 +80,9 @@ variable "instance_memory_gbs" {
 }
 
 variable "availability_domain_number" {
-  description = "Index into the availability domains list (0, 1, 2) to try. Bump this if the current AD is out of host capacity."
+  description = "Index into the availability domains list to try. Bump this if the current AD is out of host capacity (only useful in multi-AD regions)."
   type        = number
-  default     = 1
+  default     = 0
 
   validation {
     condition     = var.availability_domain_number >= 0 && var.availability_domain_number <= 2
