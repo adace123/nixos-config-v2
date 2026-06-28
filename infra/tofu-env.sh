@@ -19,9 +19,42 @@ secret() {
 	return 1
 }
 
+yq_secret() {
+	yq -r ".[\"$1\"]" "$2"
+}
+
+load_secrets_file() {
+	local secrets_file="$1"
+	local decrypted_file
+
+	decrypted_file="$(mktemp "${TMPDIR:-/tmp}/oci-secrets.XXXXXX")"
+	sops -d "$secrets_file" >"$decrypted_file"
+
+	R2_ACCESS_KEY_ID="$(yq_secret r2-access-key-id "$decrypted_file")"
+	R2_SECRET_ACCESS_KEY="$(yq_secret r2-secret-access-key "$decrypted_file")"
+	R2_ACCOUNT_ID="$(yq_secret r2-account-id "$decrypted_file")"
+	R2_BUCKET_NAME="$(yq_secret r2-bucket-name "$decrypted_file")"
+	OCI_TENANCY_OCID="$(yq_secret oci-tenancy-id "$decrypted_file")"
+	OCI_COMPARTMENT_OCID="$(yq_secret oci-compartment-ocid "$decrypted_file")"
+	OCI_USER_OCID="$(yq_secret oci-user-ocid "$decrypted_file")"
+	OCI_FINGERPRINT="$(yq_secret oci-fingerprint "$decrypted_file")"
+	OCI_REGION="$(yq_secret oci-region "$decrypted_file")"
+	OCI_PUBLIC_KEY="$(yq_secret oci-public-key "$decrypted_file")"
+	OCI_PRIVATE_KEY="$(yq_secret oci-private-key "$decrypted_file")"
+	export R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_ACCOUNT_ID R2_BUCKET_NAME
+	export OCI_TENANCY_OCID OCI_COMPARTMENT_OCID OCI_USER_OCID OCI_FINGERPRINT
+	export OCI_REGION OCI_PUBLIC_KEY OCI_PRIVATE_KEY
+
+	rm -f "$decrypted_file"
+}
+
 if [ "$#" -eq 0 ]; then
 	printf 'Usage: %s init|tofu|<command> [args...]\n' "$0" >&2
 	exit 64
+fi
+
+if [ -n "${OCI_SECRETS_FILE:-}" ]; then
+	load_secrets_file "$OCI_SECRETS_FILE"
 fi
 
 compartment_ocid="${TF_VAR_compartment_ocid:-${OCI_COMPARTMENT_OCID:-$(secret oci-compartment-ocid)}}"

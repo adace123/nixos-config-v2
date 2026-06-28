@@ -10,6 +10,7 @@
           opentofu
           sops
           age
+          yq-go
         ];
         shellHook = ''
           echo "Infra shell — tools for OCI image builds and OpenTofu"
