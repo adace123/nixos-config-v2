@@ -115,7 +115,7 @@ jobs:
         run: nix develop "${{ github.workspace }}#infra" -c env OCI_SECRETS_FILE=../secrets/oci.yaml ./tofu-env.sh init
       - name: OpenTofu Plan
         working-directory: infra
-        run: nix develop "${{ github.workspace }}#infra" -c env OCI_SECRETS_FILE=../secrets/oci.yaml ./tofu-env.sh tofu plan -input=false -out=tfplan
-      - name: OpenTofu Apply
+        run: nix develop "${{ github.workspace }}#infra" -c env OCI_SECRETS_FILE=../secrets/oci.yaml ./tofu-env.sh plan-apply
+      - name: OpenTofu Apply Completed
         working-directory: infra
-        run: nix develop "${{ github.workspace }}#infra" -c env OCI_SECRETS_FILE=../secrets/oci.yaml ./tofu-env.sh tofu apply -input=false tfplan
+        run: true

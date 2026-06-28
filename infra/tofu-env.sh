@@ -120,6 +120,11 @@ init)
 		-backend-config="endpoint=$R2_ENDPOINT" \
 		"$@"
 	;;
+plan-apply)
+	shift
+	tofu plan -input=false -out=tfplan "$@"
+	tofu apply -input=false tfplan
+	;;
 tofu)
 	shift
 	tofu "$@"
