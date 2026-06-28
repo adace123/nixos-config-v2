@@ -82,7 +82,8 @@ jobs:
           path: infra/result
       - name: Debug - check sops decrypt
         working-directory: infra
-        run: nix develop "${{ github.workspace }}#infra" -c sh -c 'echo "=== CWD ===" && pwd && echo "=== files ===" && ls -la ../secrets/ && echo "=== sops test ===" && sops -d --verbose ../secrets/oci.yaml 2>&1 | head -3 || sops -d ../secrets/oci.yaml 2>&1 | head -3'
+        run: |
+          nix develop "${{ github.workspace }}#infra" -c sh -c 'echo "CWD: $(pwd)"; echo "---"; ls -la ../secrets/; echo "---"; sops exec-env --verbose ../secrets/oci.yaml -- sh -c "echo sops-exec-env-OK" 2>&1; echo "EXIT: EXIT_CODE=$?"'
       - name: OpenTofu Init
         working-directory: infra
         run: nix develop "${{ github.workspace }}#infra" -c sops exec-env "${{ github.workspace }}/secrets/oci.yaml" ./tofu-env.sh init
