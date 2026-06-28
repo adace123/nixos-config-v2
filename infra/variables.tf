@@ -79,6 +79,17 @@ variable "instance_memory_gbs" {
   }
 }
 
+variable "availability_domain_number" {
+  description = "Index into the availability domains list (0, 1, 2) to try. Bump this if the current AD is out of host capacity."
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.availability_domain_number >= 0 && var.availability_domain_number <= 2
+    error_message = "availability_domain_number must be 0, 1, or 2."
+  }
+}
+
 variable "assign_public_ip" {
   description = "Whether to assign a public IPv4 address. Keep false when accessing through Tailscale."
   type        = bool
