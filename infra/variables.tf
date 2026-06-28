@@ -29,8 +29,15 @@ variable "private_key_path" {
 }
 
 variable "ssh_public_key" {
-  description = "Public SSH key content for the nixos user (set by infra/tofu-env.sh via TF_VAR_ssh_public_key)"
+  description = "OpenSSH public key content for instance metadata. Defaults to the primary dathomir access key."
   type        = string
+  default     = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC6DWf0lf4vWTAUmjkulvvZrhCifTS8eFqkDlHPSawrU"
+}
+
+variable "tailscale_auth_key" {
+  description = "Tailscale auth key used by cloud-init to join the tailnet."
+  type        = string
+  sensitive   = true
 }
 
 variable "image_path" {

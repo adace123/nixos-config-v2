@@ -56,9 +56,41 @@ in
     "${dathomirHost.hostName}" = mkSystem dathomirHost {
       modules = [
         "${inputs.nixpkgs}/nixos/modules/virtualisation/oci-image.nix"
-        ({ host, ... }: {
+        ({ host, pkgs, ... }: {
           networking.hostName = host.hostName;
           services.cloud-init.enable = true;
+          services.tailscale = {
+            enable = true;
+            openFirewall = true;
+          };
+          systemd.services.tailscale-autoconnect = {
+            description = "Connect to Tailscale";
+            after = [
+              "cloud-final.service"
+              "network-online.target"
+              "tailscaled.service"
+            ];
+            wants = [
+              "network-online.target"
+              "tailscaled.service"
+            ];
+            wantedBy = [ "multi-user.target" ];
+            path = [ pkgs.tailscale ];
+            serviceConfig = {
+              Type = "oneshot";
+              RemainAfterExit = true;
+            };
+            script = ''
+              if tailscale status --peers=false >/dev/null 2>&1; then
+                exit 0
+              fi
+              for _ in $(seq 1 120); do
+                [ -s /var/lib/tailscale/authkey ] && break
+                sleep 1
+              done
+              tailscale up --auth-key "$(cat /var/lib/tailscale/authkey)" --ssh --hostname ${host.hostName}
+            '';
+          };
           services.openssh.settings.PermitRootLogin = "no";
         })
       ];

@@ -170,6 +170,16 @@ resource "oci_core_instance" "nixos" {
 
   metadata = {
     ssh_authorized_keys = var.ssh_public_key
+    user_data = base64encode(<<-EOT
+      #cloud-config
+      write_files:
+        - path: /var/lib/tailscale/authkey
+          owner: root:root
+          permissions: '0600'
+          content: |
+            ${var.tailscale_auth_key}
+    EOT
+    )
   }
 
   create_vnic_details {

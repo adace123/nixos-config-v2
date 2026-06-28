@@ -41,9 +41,11 @@ load_secrets_file() {
 	OCI_REGION="$(yq_secret oci-region "$decrypted_file")"
 	OCI_PUBLIC_KEY="$(yq_secret oci-public-key "$decrypted_file")"
 	OCI_PRIVATE_KEY="$(yq_secret oci-private-key "$decrypted_file")"
+	TF_VAR_tailscale_auth_key="$(yq_secret ts-auth-key "$decrypted_file")"
 	export R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_ACCOUNT_ID R2_BUCKET_NAME
 	export OCI_TENANCY_OCID OCI_COMPARTMENT_OCID OCI_USER_OCID OCI_FINGERPRINT
 	export OCI_REGION OCI_PUBLIC_KEY OCI_PRIVATE_KEY
+	export TF_VAR_tailscale_auth_key
 
 	rm -f "$decrypted_file"
 }
@@ -84,7 +86,9 @@ export TF_VAR_user_ocid="${TF_VAR_user_ocid:-$user_ocid}"
 export TF_VAR_fingerprint="${TF_VAR_fingerprint:-$fingerprint}"
 export TF_VAR_region="${TF_VAR_region:-$region}"
 export TF_VAR_compartment_ocid="$compartment_ocid"
-export TF_VAR_ssh_public_key="${TF_VAR_ssh_public_key:-${OCI_SSH_PUBLIC_KEY:-${OCI_PUBLIC_KEY:-$(secret oci-public-key)}}}"
+if [ -n "${OCI_SSH_PUBLIC_KEY:-}" ]; then
+	export TF_VAR_ssh_public_key="${TF_VAR_ssh_public_key:-$OCI_SSH_PUBLIC_KEY}"
+fi
 
 r2_account_id="${R2_ACCOUNT_ID:-$(secret r2-account-id)}"
 r2_access_key_id="${R2_ACCESS_KEY_ID:-$(secret r2-access-key-id)}"
