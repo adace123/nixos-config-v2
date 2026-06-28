@@ -45,3 +45,42 @@ variable "image_path" {
   type        = string
   default     = "./result/nixos.qcow2"
 }
+
+variable "instance_shape" {
+  description = "OCI instance shape. Must remain Always Free eligible."
+  type        = string
+  default     = "VM.Standard.A1.Flex"
+
+  validation {
+    condition     = var.instance_shape == "VM.Standard.A1.Flex"
+    error_message = "Only VM.Standard.A1.Flex is allowed to keep this deployment inside Always Free compute."
+  }
+}
+
+variable "instance_ocpus" {
+  description = "A1 Flex OCPUs. Always Free-only tenancies include 2 total A1 OCPUs."
+  type        = number
+  default     = 2
+
+  validation {
+    condition     = var.instance_ocpus > 0 && var.instance_ocpus <= 2
+    error_message = "instance_ocpus must be <= 2 for Always Free A1 compute."
+  }
+}
+
+variable "instance_memory_gbs" {
+  description = "A1 Flex memory. Always Free-only tenancies include 12 GB total A1 memory."
+  type        = number
+  default     = 12
+
+  validation {
+    condition     = var.instance_memory_gbs > 0 && var.instance_memory_gbs <= 12
+    error_message = "instance_memory_gbs must be <= 12 for Always Free A1 compute."
+  }
+}
+
+variable "assign_public_ip" {
+  description = "Whether to assign a public IPv4 address. Keep false when accessing through Tailscale."
+  type        = bool
+  default     = false
+}

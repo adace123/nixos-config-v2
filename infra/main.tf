@@ -40,16 +40,7 @@ resource "oci_core_route_table" "public" {
 resource "oci_core_security_list" "public" {
   compartment_id = var.compartment_ocid
   vcn_id         = oci_core_vcn.nixos.id
-  display_name   = "nixos-ssh"
-
-  ingress_security_rules {
-    protocol = "6"
-    source   = "0.0.0.0/0"
-    tcp_options {
-      min = 22
-      max = 22
-    }
-  }
+  display_name   = "nixos-egress"
 
   egress_security_rules {
     destination = "0.0.0.0/0"
@@ -155,12 +146,12 @@ resource "oci_core_compute_image_capability_schema" "nixos_caps" {
 resource "oci_core_instance" "nixos" {
   compartment_id      = var.compartment_ocid
   availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
-  shape               = "VM.Standard.A1.Flex"
+  shape               = var.instance_shape
   display_name        = "dathomir"
 
   shape_config {
-    memory_in_gbs = 12
-    ocpus         = 2
+    memory_in_gbs = var.instance_memory_gbs
+    ocpus         = var.instance_ocpus
   }
 
   source_details {
@@ -184,7 +175,14 @@ resource "oci_core_instance" "nixos" {
 
   create_vnic_details {
     subnet_id        = oci_core_subnet.public.id
-    assign_public_ip = true
+    assign_public_ip = var.assign_public_ip
+  }
+
+  lifecycle {
+    precondition {
+      condition     = var.instance_shape == "VM.Standard.A1.Flex" && var.instance_ocpus <= 2 && var.instance_memory_gbs <= 12
+      error_message = "Refusing to create non-Always-Free compute: use VM.Standard.A1.Flex with <= 2 OCPUs and <= 12 GB RAM."
+    }
   }
 
   launch_options {
