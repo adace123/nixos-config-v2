@@ -139,6 +139,10 @@
             javascriptreact = [ "prettierd" ];
             typescriptreact = [ "prettierd" ];
             lua = [ "stylua" ];
+            python = [ "ruff_format" ];
+            terraform = [ "tofu_fmt" ];
+            tf = [ "tofu_fmt" ];
+            "terraform-vars" = [ "tofu_fmt" ];
             sh = [ "shfmt" ];
             bash = [ "shfmt" ];
             "_" = [ "trim_whitespace" ];

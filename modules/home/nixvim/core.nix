@@ -17,6 +17,14 @@
 
     performance.byteCompileLua.enable = true;
 
+    # Reuse home-manager's pkgs instance instead of nixvim constructing its
+    # own separate nixpkgs evaluation. Without this, nixvim's internal
+    # neovim-unwrapped/luajit and our manually-added plugins (e.g.
+    # plenary-nvim) can resolve to two different luajit derivations, causing
+    # a `pkgs.buildEnv` collision ("two given paths contain a conflicting
+    # subpath") when nixvim assembles the Lua package env.
+    nixpkgs.useGlobalPackages = true;
+
     # Options
     opts = {
       # Line numbers
@@ -105,6 +113,7 @@
     stylua
     prettierd
     shfmt
+    opentofu
   ];
 
   # Shell aliases

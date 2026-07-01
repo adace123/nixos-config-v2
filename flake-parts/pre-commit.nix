@@ -60,6 +60,12 @@
           ];
         };
 
+        # Terraform lint
+        tflint = {
+          enable = true;
+          types = [ "terraform" ]; # Lint Terraform files
+        };
+
         # yaml - auto-formats yaml files
         yamlfmt = {
           enable = true;

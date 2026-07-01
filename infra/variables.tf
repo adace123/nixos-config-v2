@@ -85,8 +85,8 @@ variable "availability_domain_number" {
   default     = 0
 
   validation {
-    condition     = var.availability_domain_number >= 0 && var.availability_domain_number <= 2
-    error_message = "availability_domain_number must be 0, 1, or 2."
+    condition     = var.availability_domain_number >= 0
+    error_message = "availability_domain_number must be >= 0."
   }
 }
 
