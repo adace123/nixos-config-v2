@@ -14,7 +14,7 @@ in
 
     settings = {
       theme = "dark";
-      model = "claude-sonnet-4-6";
+      model = "claude-sonnet-5";
       defaultMode = "auto";
       skipAutoPermissionPrompt = true;
       statusLine = {
