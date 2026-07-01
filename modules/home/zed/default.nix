@@ -19,7 +19,7 @@
   };
 
   programs.zed-editor-extensions = {
-    enable = true;
+    enable = false;
     packages = with pkgs.zed-extensions; [
       nix
       toml
