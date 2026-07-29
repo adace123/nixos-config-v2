@@ -32,7 +32,9 @@ in
   };
 
   # Install pi extensions using activation script
+  # Note: git/npm may not be in PATH yet (before installPackages), so we add them explicitly
   home.activation.installPiExtensions = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    PATH="${pkgs.git}/bin:${pkgs.nodejs}/bin:$PATH"
     $DRY_RUN_CMD ${llmAgents.pi}/bin/pi install git:github.com/otahontas/pi-coding-agent-catppuccin
     $DRY_RUN_CMD ${llmAgents.pi}/bin/pi install npm:statusline-pi
     $DRY_RUN_CMD ${llmAgents.pi}/bin/pi install npm:pi-powerline-footer
