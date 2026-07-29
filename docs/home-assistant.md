@@ -10,6 +10,7 @@ files are:
 
 ```text
 modules/nixos/home-assistant/
+├── automations/          # Declarative, version-controlled automations
 ├── default.nix           # Container, MQTT, Zigbee2MQTT, ESPHome, user setup
 └── configuration.yaml    # HA base config template (secrets injected by SOPS)
 ```
@@ -26,6 +27,11 @@ modules/nixos/home-assistant/
 - **ESPHome** (port 6052).
 - **Podman auto-update** — pulls newer images weekly.
 - **`hass` system user** with `dialout`, `gpio`, `i2c` group membership.
+
+Automations use a hybrid model. Files under `automations/` are deployed read-only
+through the Nix store. Automations created in the Home Assistant UI are stored in
+the persistent, writable `/var/lib/hass/automations.yaml`; activation initializes
+that file only when it does not exist, so later deployments preserve UI changes.
 
 Caddy provides HTTPS reverse-proxy access to HA on port 443 using Cloudflare
 DNS-01 ACME (see `caddy.nix`).

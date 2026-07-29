@@ -64,6 +64,27 @@
           '';
         };
       }
+
+      # Show diagnostic in floating window on hover
+      {
+        event = "CursorHold";
+        pattern = "*";
+        callback = {
+          __raw = ''
+            function()
+              vim.diagnostic.open_float(nil, {
+                focusable = false,
+                close_events = {
+                  "BufLeave",
+                  "CursorMoved",
+                  "InsertEnter",
+                  "FocusLost",
+                },
+              })
+            end
+          '';
+        };
+      }
     ];
 
     # Extra configuration (raw Lua)

@@ -95,6 +95,11 @@ in
       ln -sfn ${hassGenerated}/automations ${hassDir}/automations
       ln -sfn ${hassGenerated}/scripts ${hassDir}/scripts
       ln -sfn ${hassGenerated}/scenes ${hassDir}/scenes
+      if [ ! -e ${hassDir}/automations.yaml ]; then
+        printf '[]\n' > ${hassDir}/automations.yaml
+      fi
+      chown hass:hass ${hassDir}/automations.yaml
+      chmod 0644 ${hassDir}/automations.yaml
       ${pkgs.coreutils}/bin/install -Dm644 ${
         config.sops.templates."hass-configuration.yaml".path
       } ${hassDir}/configuration.yaml

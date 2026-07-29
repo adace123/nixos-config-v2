@@ -326,6 +326,7 @@ nixos-deploy TARGET="":
     if [ -z "$TARGET" ]; then
         TARGET="{{ NHOST }}.local"
     fi
+    export NIX_SSHOPTS="${NIX_SSHOPTS:+$NIX_SSHOPTS }-4"
     nix run nixpkgs#nixos-rebuild -- switch --flake .#{{ NHOST }} --target-host root@$TARGET --build-host root@$TARGET --elevate=sudo
 
 # Deploy NixOS configuration to Raspberry Pi with custom IP
@@ -338,12 +339,14 @@ nixos-deploy-ip IP:
 nixos-generations:
     #!/usr/bin/env bash
     set -euo pipefail
+    export NIX_SSHOPTS="${NIX_SSHOPTS:+$NIX_SSHOPTS }-4"
     nix run nixpkgs#nixos-rebuild -- --list-generations --flake .#{{ NHOST }} --target-host root@{{ NHOST }}.local
 
 # Rollback NixOS on remote host
 nixos-rollback:
     #!/usr/bin/env bash
     set -euo pipefail
+    export NIX_SSHOPTS="${NIX_SSHOPTS:+$NIX_SSHOPTS }-4"
     nix run nixpkgs#nixos-rebuild -- --rollback --flake .#{{ NHOST }} --target-host root@{{ NHOST }}.local
 
 # Tail Home Assistant logs on remote NixOS host via journalctl
@@ -352,11 +355,11 @@ nixos-rollback:
 hass-logs FILTER="" LINES="50":
     #!/usr/bin/env bash
     set -euo pipefail
-    CMD="journalctl -u podman-home-assistant.service -n {{ LINES }} --no-hostname --output cat 2>&1"
+    CMD="journalctl -flu podman-home-assistant.service -n {{ LINES }} --no-hostname --output cat 2>&1"
     if [ -n "{{ FILTER }}" ]; then
         CMD="$CMD | grep -iE '{{ FILTER }}'"
     fi
-    ssh root@{{ NHOST }}.local "$CMD"
+    ssh -4 root@{{ NHOST }}.local "$CMD"
 
 # Show available system generations
 generations:

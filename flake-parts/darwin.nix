@@ -17,6 +17,8 @@ in
             inputs.zed-extensions.overlays.default
           ];
 
+          nixpkgs.config.allowBroken = true;
+
           home-manager = {
             useGlobalPkgs = true;
             useUserPackages = true;
