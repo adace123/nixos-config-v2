@@ -78,8 +78,8 @@
   # Shell configuration
   programs.zsh.enable = true;
 
-  # Auto-update service: use the explicit flake output key
-  services.nix-config-auto-update.darwinConfigName = host.hostName;
+  # Disabled for now
+  services.nix-config-auto-update.enable = false;
 
   # Touch ID for sudo (also enables Apple Watch)
   security.pam.services.sudo_local.touchIdAuth = true;
