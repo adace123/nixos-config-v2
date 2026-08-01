@@ -24,6 +24,7 @@ _: {
       "awscli" # AWS CLI
       "colima" # Lightweight container runtime
       "gh" # GitHub CLI
+      "podman" # Container engine (remote client for coruscant)
       "pam-u2f" # YubiKey PAM module for sudo authentication
       "pre-commit" # Git hooks manager
       "ykman" # YubiKey Manager CLI

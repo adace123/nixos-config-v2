@@ -5,6 +5,7 @@
     ./beszel.nix
     ./home-assistant
     ./caddy.nix
+    ./podman.nix
   ];
 
   sops.defaultSopsFile = ../../secrets/default.yaml;
