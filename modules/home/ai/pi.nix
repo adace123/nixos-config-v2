@@ -20,8 +20,8 @@ in
     ];
     settings = {
       hideThinkingBlock = true;
-      defaultProvider = "opencode";
-      defaultModel = "deepseek-v4-flash-free";
+      defaultProvider = "opencode-go";
+      defaultModel = "deepseek-v4-flash";
       defaultThinkingLevel = "high";
       quietStartup = true;
       mcpServers = {
