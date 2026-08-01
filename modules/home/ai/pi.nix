@@ -24,16 +24,6 @@ in
       defaultModel = "deepseek-v4-flash";
       defaultThinkingLevel = "high";
       quietStartup = true;
-      mcpServers = {
-        context7 = {
-          type = "remote";
-          url = "https://mcp.context7.com/mcp";
-        };
-        grep-mcp = {
-          type = "remote";
-          url = "https://mcp.grep.app";
-        };
-      };
       packages = [
         "git:github.com/otahontas/pi-coding-agent-catppuccin"
         "npm:pi-tool-display"
@@ -44,6 +34,19 @@ in
         "npm:context-mode"
         "npm:@juicesharp/rpiv-todo"
       ];
+    };
+  };
+
+  # pi-mcp-adapter reads MCP servers from mcp.json, not Pi's settings.json.
+  # Keep this in the Pi agent directory so the configuration is global for Pi.
+  home.file.".pi/agent/mcp.json".text = builtins.toJSON {
+    mcpServers = {
+      context7 = {
+        url = "https://mcp.context7.com/mcp";
+      };
+      grep-mcp = {
+        url = "https://mcp.grep.app";
+      };
     };
   };
 
