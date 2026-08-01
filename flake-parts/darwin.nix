@@ -23,6 +23,12 @@ in
             useGlobalPkgs = true;
             useUserPackages = true;
             backupFileExtension = "bak";
+            # Hermes (and other tools) atomic-replace their config symlink and
+            # leave a read-only .bak (0444). Home-manager's backup step is
+            # `mv target target.bak` (no -f); BSD mv prompts on a read-only
+            # destination and hangs activation. overwriteBackup makes it `rm`
+            # the stale .bak first, so the mv is a clean rename.
+            overwriteBackup = true;
             sharedModules = [
               inputs.sops-nix.homeManagerModules.sops
               inputs.zed-extensions.homeManagerModules.default
