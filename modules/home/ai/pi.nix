@@ -1,6 +1,7 @@
 {
   pkgs,
   inputs,
+  config,
   ...
 }:
 
@@ -18,15 +19,46 @@ in
       pkgs.bun
     ];
     settings = {
-      defaultModel = "opencode/deepseek-v4-flash-free";
+      hideThinkingBlock = true;
+      defaultProvider = "opencode";
+      defaultModel = "deepseek-v4-flash-free";
+      defaultThinkingLevel = "high";
+      quietStartup = true;
+      mcpServers = {
+        context7 = {
+          type = "remote";
+          url = "https://mcp.context7.com/mcp";
+        };
+        grep-mcp = {
+          type = "remote";
+          url = "https://mcp.grep.app";
+        };
+      };
       packages = [
         "git:github.com/otahontas/pi-coding-agent-catppuccin"
         "npm:pi-tool-display"
         "npm:pi-powerline-footer"
-        "npm:pi-web-access"
+        "npm:pi-mcp-adapter"
+        # npm's latest pi-web-access (0.13.0) predates TinyFish support (added in 0.14.0) — pin the GitHub release
+        "git:github.com/nicobailon/pi-web-access@v0.17.1"
         "npm:context-mode"
         "npm:@juicesharp/rpiv-todo"
       ];
     };
+  };
+
+  sops.secrets = {
+    tinyfish-api-key = { };
+  };
+
+  # Render the TinyFish API key into ~/.pi/web-search.json at activation.
+  # config.sops.secrets.<name> is a module option, not the decrypted value —
+  # the placeholder is substituted with the real key by sops-install-secrets.
+  sops.templates.".config/pi/web-search.json" = {
+    content = builtins.toJSON {
+      tinyfishApiKey = config.sops.placeholder.tinyfish-api-key;
+      provider = "tinyfish";
+    };
+    path = "${config.home.homeDirectory}/.pi/web-search.json";
   };
 }
