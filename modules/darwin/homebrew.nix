@@ -5,8 +5,8 @@ _: {
 
     # Automatically update Homebrew and packages
     onActivation = {
-      autoUpdate = true;
-      upgrade = true;
+      autoUpdate = false;
+      upgrade = false;
       # Remove unlisted packages and casks
       cleanup = "zap";
       # Newer Homebrew requires --force-cleanup to actually apply cleanup (HOMEBREW_ASK
