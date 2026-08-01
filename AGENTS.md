@@ -203,8 +203,7 @@ modules/
     ├── nixvim.nix       # Nixvim module (disabled)
     ├── python.nix       # Python development
     ├── starship/        # Starship prompt config
-    ├── zed/             # Zed editor settings and keybindings
-    └── zellij.nix       # Zellij terminal multiplexer
+    └── zed/             # Zed editor settings and keybindings
 ```
 
 ### Module Creation Guidelines

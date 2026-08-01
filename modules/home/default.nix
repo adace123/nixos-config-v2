@@ -11,7 +11,6 @@
     ./aerospace.nix
     ./ghostty.nix
     ./fastfetch.nix
-    ./zellij.nix
     ./ai
     ./zed
     ./1password-agent.nix

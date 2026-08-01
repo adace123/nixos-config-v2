@@ -1,8 +1,5 @@
-{ pkgs, ... }:
+{ ... }:
 
-let
-  zellijPath = "${pkgs.zellij}/bin/zellij";
-in
 {
   # Ghostty terminal emulator configuration
   # Ghostty is a fast, native, GPU-accelerated terminal emulator
@@ -84,8 +81,6 @@ in
 
     # ===== Terminal Features =====
     # Shell to use (empty = login shell)
-    # Zellij disabled - using default shell
-    # command = ${zellijPath} attach --create main
     shell-integration = detect
     shell-integration-features = sudo,title,no-cursor
 
