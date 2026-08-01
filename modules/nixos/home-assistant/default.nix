@@ -117,6 +117,17 @@ in
   };
 
   networking.firewall.allowedTCPPorts = [ 8123 ];
+  # TP-Link Kasa/Tapo discovery (python-kasa): broadcasts go out on UDP 9999/20002,
+  # but devices reply to the source's ephemeral port (modern python-kasa binds a
+  # random port, and broadcast replies aren't matched by conntrack ESTABLISHED).
+  # Open both the discovery port and the Linux ephemeral range inbound.
+  networking.firewall.allowedUDPPorts = [ 9999 ];
+  networking.firewall.allowedUDPPortRanges = [
+    {
+      from = 32768;
+      to = 60999;
+    }
+  ];
 
   users.users.hass = {
     isSystemUser = true;

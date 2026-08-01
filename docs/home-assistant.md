@@ -19,6 +19,10 @@ modules/nixos/home-assistant/
 
 - **Podman container** (`ghcr.io/home-assistant/home-assistant:latest`)  
   Auto-starts, mounts `/var/lib/hass`, uses host networking for device discovery.
+- **Firewall** — opens TCP 8123 plus UDP 9999 and the ephemeral range
+  (32768–60999) for TP-Link Kasa/Tapo broadcast discovery; modern python-kasa
+  binds a random source port and devices reply there, which conntrack does not
+  treat as ESTABLISHED.
 - **SOPS template rendering** — injects `time.timeZone` and
   `home-assistant-external-domain` into `configuration.yaml` before HA starts.
 - **Mosquitto** MQTT broker (port 1883, localhost only).
