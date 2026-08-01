@@ -18,8 +18,10 @@ in
       pkgs.bun
     ];
     settings = {
+      defaultModel = "opencode/deepseek-v4-flash-free";
       packages = [
         "git:github.com/otahontas/pi-coding-agent-catppuccin"
+        "npm:pi-tool-display"
         "npm:pi-powerline-footer"
         "npm:pi-web-access"
         "npm:context-mode"
