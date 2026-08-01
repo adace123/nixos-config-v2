@@ -17,7 +17,7 @@ modules/nixos/home-assistant/
 
 `default.nix` covers:
 
-- **Podman container** (`ghcr.io/home-assistant/home-assistant:stable`)  
+- **Podman container** (`ghcr.io/home-assistant/home-assistant:latest`)  
   Auto-starts, mounts `/var/lib/hass`, uses host networking for device discovery.
 - **SOPS template rendering** — injects `time.timeZone` and
   `home-assistant-external-domain` into `configuration.yaml` before HA starts.

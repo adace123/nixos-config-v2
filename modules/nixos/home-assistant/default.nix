@@ -32,7 +32,7 @@ in
     oci-containers = {
       backend = "podman";
       containers.home-assistant = {
-        image = "ghcr.io/home-assistant/home-assistant:stable";
+        image = "ghcr.io/home-assistant/home-assistant:latest";
         autoStart = true;
         volumes = [
           "${hassDir}:/config"
