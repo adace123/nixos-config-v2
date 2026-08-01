@@ -38,6 +38,7 @@ in
           "${hassDir}:/config"
           "/etc/localtime:/etc/localtime:ro"
           "/run/dbus:/run/dbus:ro"
+          "/media:/media"
         ];
         pull = "newer";
         labels = {
@@ -87,6 +88,7 @@ in
     "d ${hassDir}/logs 0755 hass hass -"
     "d ${hassDir}/www 0755 hass hass -"
     "d ${hassDir}/custom_components 0755 hass hass -"
+    "d /media 0755 hass hass -"
   ];
 
   system.activationScripts.home-assistant-config = {
