@@ -33,7 +33,10 @@ _: {
       "cryptography"
       "libcbor"
       "libfido2"
+      "fwdcloudsec/granted/granted" # Granted AWS access
     ];
+
+    taps = [ "fwdcloudsec/granted" ];
 
     # Casks (GUI applications)
     casks = [
@@ -53,6 +56,7 @@ _: {
       "lm-studio" # Local LLMs
       "session-manager-plugin" # AWS SSM
       "ngrok"
+      "stablyai/orca/orca"
 
       # Productivity
       "chatgpt" # OpenAI ChatGPT
