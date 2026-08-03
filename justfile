@@ -84,6 +84,18 @@ switch:
         echo "Homebrew not installed. Installing it..."
         just install-brew
     fi
+
+    # Heads-up: activation runs sudo, which now triggers the YubiKey PAM
+    # prompt (when a key is registered). Send a notification so the key is
+    # at hand when the touch is requested.
+    if [ -f "$HOME/.config/Yubico/u2f_keys" ]; then
+        if command -v terminal-notifier &> /dev/null; then
+            terminal-notifier -title "🔐 YubiKey Touch Required" -message "Activation needs sudo — touch your YubiKey when prompted." -timeout 8 -sound default
+        elif command -v osascript &> /dev/null; then
+            osascript -e 'display notification "Activation needs sudo — touch your YubiKey when prompted." with title "🔐 YubiKey Touch Required" sound name "Ping"'
+        fi
+    fi
+
     if command -v nh &> /dev/null; then
         nh darwin switch .#darwinConfigurations.{{ HOST }}
     else

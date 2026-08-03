@@ -90,6 +90,18 @@ variable "availability_domain_number" {
   }
 }
 
+variable "fault_domain" {
+  description = "Optional OCI fault domain to try when automatic placement reports insufficient capacity."
+  type        = string
+  default     = null
+  nullable    = true
+
+  validation {
+    condition     = var.fault_domain == null || can(regex("^FAULT-DOMAIN-[1-3]$", var.fault_domain))
+    error_message = "fault_domain must be FAULT-DOMAIN-1, FAULT-DOMAIN-2, or FAULT-DOMAIN-3."
+  }
+}
+
 variable "assign_public_ip" {
   description = "Whether to assign a public IPv4 address. Keep false when accessing through Tailscale."
   type        = bool

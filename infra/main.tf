@@ -146,6 +146,7 @@ resource "oci_core_compute_image_capability_schema" "nixos_caps" {
 resource "oci_core_instance" "nixos" {
   compartment_id      = var.compartment_ocid
   availability_domain = data.oci_identity_availability_domains.ads.availability_domains[var.availability_domain_number].name
+  fault_domain        = var.fault_domain
   shape               = var.instance_shape
   display_name        = "dathomir"
 

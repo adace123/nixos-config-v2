@@ -81,10 +81,14 @@
   # Disabled for now
   services.nix-config-auto-update.enable = false;
 
-  # Touch ID for sudo (also enables Apple Watch)
-  security.pam.services.sudo_local.touchIdAuth = true;
-
-  # Reattach to user session - fixes Touch ID in tmux/screen
-  security.pam.services.sudo_local.reattach = true;
+  # Touch ID + YubiKey for sudo (also enables Apple Watch).
+  # `text` fully overrides nix-darwin's auto-generated lines, so all auth
+  # rules are listed explicitly. Fallback order: Touch ID -> YubiKey -> password.
+  security.pam.services.sudo_local.text = ''
+    # Fixes Touch ID/YubiKey auth in tmux/screen
+    auth       optional       ${pkgs.pam-reattach}/lib/pam/pam_reattach.so
+    auth       sufficient     pam_tid.so
+    auth       sufficient     /opt/homebrew/lib/pam/pam_u2f.so cue
+  '';
 
 }

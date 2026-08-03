@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# OpenTofu stores the object source timestamp in UTC. Keep local source
+# timestamps stable across plan/apply runs and machines.
+export TZ=UTC
+
 secret() {
 	local value
 	local name

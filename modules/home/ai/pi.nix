@@ -29,6 +29,7 @@ in
         "npm:pi-tool-display"
         "npm:pi-powerline-footer"
         "npm:pi-mcp-adapter"
+        "npm:pi-subagents"
         # npm's latest pi-web-access (0.13.0) predates TinyFish support (added in 0.14.0) — pin the GitHub release
         "git:github.com/nicobailon/pi-web-access@v0.17.1"
         "npm:context-mode"
@@ -50,6 +51,15 @@ in
     };
   };
 
+  # Custom skills. ~/.pi/agent/skills/ is a global pi skill location, so
+  # skills placed there are auto-discovered at startup (no settings change
+  # needed). Each skill is a directory containing a SKILL.md per the Agent
+  # Skills spec (https://agentskills.io/specification).
+  home.file.".pi/agent/skills/commit-all" = {
+    source = ./skills/commit-all;
+    recursive = true;
+  };
+
   sops.secrets = {
     tinyfish-api-key = { };
   };
@@ -61,6 +71,8 @@ in
     content = builtins.toJSON {
       tinyfishApiKey = config.sops.placeholder.tinyfish-api-key;
       provider = "tinyfish";
+      autoOpenBrowser = false;
+      summaryModel = "opencode-go/deepseek-v4-flash";
     };
     path = "${config.home.homeDirectory}/.pi/web-search.json";
   };

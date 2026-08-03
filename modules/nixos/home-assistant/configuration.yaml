@@ -27,7 +27,7 @@ homeassistant:
   latitude: 34.05
   longitude: -118.24
   elevation: 71
-  unit_system: metric
+  unit_system: us_customary
   time_zone: __TIME_ZONE__
   external_url: https://__EXTERNAL_DOMAIN__
   internal_url: https://__EXTERNAL_DOMAIN__

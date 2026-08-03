@@ -63,6 +63,10 @@ tf CMD *ARGS:
 tofu CMD *ARGS:
     nix develop ../#infra -c env OCI_SECRETS_FILE=../secrets/oci.yaml ./tofu-env.sh tofu {{CMD}} {{ARGS}}
 
+# Plan and apply in one process so the temporary OCI private-key path matches.
+plan-apply *ARGS:
+    nix develop ../#infra -c env OCI_SECRETS_FILE=../secrets/oci.yaml ./tofu-env.sh plan-apply {{ARGS}}
+
 # Destroy all OpenTofu-managed OCI resources after showing the plan.
 destroy *ARGS:
     #!/usr/bin/env bash
