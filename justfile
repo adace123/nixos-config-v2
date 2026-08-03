@@ -85,15 +85,17 @@ switch:
         just install-brew
     fi
 
-    # Heads-up: activation runs sudo, which now triggers the YubiKey PAM
-    # prompt (when a key is registered). Send a notification so the key is
-    # at hand when the touch is requested.
+    # YubiKey touch heads-up at the nh→sudo boundary.
+    # nh resolves `sudo` via PATH (which::which in nh-core), so a shim dir
+    # prepended here fires a notification at the exact moment nh elevates
+    # (right before the key blinks), then execs the real sudo. The terminal
+    # password prompt is untouched. See scripts/yubikey-sudo-shim.sh.
     if [ -f "$HOME/.config/Yubico/u2f_keys" ]; then
-        if command -v terminal-notifier &> /dev/null; then
-            terminal-notifier -title "🔐 YubiKey Touch Required" -message "Activation needs sudo — touch your YubiKey when prompted." -timeout 8 -sound default
-        elif command -v osascript &> /dev/null; then
-            osascript -e 'display notification "Activation needs sudo — touch your YubiKey when prompted." with title "🔐 YubiKey Touch Required" sound name "Ping"'
-        fi
+        SHIM_DIR="$(mktemp -d)"
+        trap 'rm -rf "$SHIM_DIR"' EXIT
+        cp scripts/yubikey-sudo-shim.sh "$SHIM_DIR/sudo"
+        chmod +x "$SHIM_DIR/sudo"
+        export PATH="$SHIM_DIR:$PATH"
     fi
 
     if command -v nh &> /dev/null; then
