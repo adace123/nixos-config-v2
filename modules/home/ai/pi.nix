@@ -64,7 +64,13 @@ in
     tinyfish-api-key = { };
   };
 
-  # Render the TinyFish API key into ~/.pi/web-search.json at activation.
+  # Render the TinyFish API key into web-search.json at activation.
+  # pi-web-access v0.17+ resolves the config file from PI_CODING_AGENT_DIR,
+  # then $XDG_CONFIG_HOME/pi, before falling back to ~/.pi — and this
+  # machine exports XDG_CONFIG_HOME=/Users/aaron/.config, so the runtime
+  # reads ~/.config/pi/web-search.json, NOT ~/.pi/web-search.json. Writing
+  # to the wrong path silently ignores summaryModel and falls back to
+  # github-copilot/claude-haiku-4.5 for summaries.
   # config.sops.secrets.<name> is a module option, not the decrypted value —
   # the placeholder is substituted with the real key by sops-install-secrets.
   sops.templates.".config/pi/web-search.json" = {
@@ -74,6 +80,6 @@ in
       autoOpenBrowser = false;
       summaryModel = "opencode-go/deepseek-v4-flash";
     };
-    path = "${config.home.homeDirectory}/.pi/web-search.json";
+    path = "${config.home.homeDirectory}/.config/pi/web-search.json";
   };
 }

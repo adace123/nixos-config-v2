@@ -70,6 +70,11 @@
       zsh-autopair # Auto-close and delete matching delimiters
     ];
 
+    # Prepend to PATH
+    sessionPath = [
+      "$HOME/.npm-global/bin" # Global npm packages (e.g. @coinbase/coinbase-cli)
+    ];
+
     # Environment variables
     sessionVariables = {
       DIRENV_LOG_FORMAT = ""; # Hide direnv export output
