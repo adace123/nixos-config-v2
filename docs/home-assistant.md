@@ -32,10 +32,11 @@ modules/nixos/home-assistant/
 - **Podman auto-update** — pulls newer images weekly.
 - **`hass` system user** with `dialout`, `gpio`, `i2c` group membership.
 
-Automations use a hybrid model. Files under `automations/` are deployed read-only
-through the Nix store. Automations created in the Home Assistant UI are stored in
-the persistent, writable `/var/lib/hass/automations.yaml`; activation initializes
-that file only when it does not exist, so later deployments preserve UI changes.
+Automations use a hybrid model. Files under `automations/` are declarative and
+copied into the persistent Home Assistant config directory during NixOS activation.
+Automations created in the Home Assistant UI are stored in the persistent, writable
+`/var/lib/hass/automations.yaml`; activation initializes that file only when it does
+not exist, so later deployments preserve UI changes.
 
 Caddy provides HTTPS reverse-proxy access to HA on port 443 using Cloudflare
 DNS-01 ACME (see `caddy.nix`).

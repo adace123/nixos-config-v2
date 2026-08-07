@@ -14,6 +14,7 @@ let
   hassGenerated = pkgs.runCommand "hass-generated-config" { } ''
     mkdir -p $out/automations $out/scripts $out/scenes
     cp ${./automations/washer.yaml} $out/automations/washer.yaml
+    cp ${./automations/system-monitor-alerts.yaml} $out/automations/system-monitor-alerts.yaml
   '';
 in
 {
@@ -80,7 +81,7 @@ in
   };
 
   systemd.tmpfiles.rules = [
-    "L+ ${hassDir}/automations - - - - ${hassGenerated}/automations"
+    "d ${hassDir}/automations 0755 hass hass -"
     "L+ ${hassDir}/scripts - - - - ${hassGenerated}/scripts"
     "L+ ${hassDir}/scenes - - - - ${hassGenerated}/scenes"
     "d ${hassDir}/.storage 0755 hass hass -"
@@ -94,7 +95,9 @@ in
   system.activationScripts.home-assistant-config = {
     text = ''
       mkdir -p ${hassDir}
-      ln -sfn ${hassGenerated}/automations ${hassDir}/automations
+      rm -rf ${hassDir}/automations
+      mkdir -p ${hassDir}/automations
+      cp -r ${hassGenerated}/automations/. ${hassDir}/automations/
       ln -sfn ${hassGenerated}/scripts ${hassDir}/scripts
       ln -sfn ${hassGenerated}/scenes ${hassDir}/scenes
       if [ ! -e ${hassDir}/automations.yaml ]; then

@@ -1,0 +1,80 @@
+- id: "coruscant_cpu_high"
+  alias: "Coruscant - High CPU"
+  description: "Alert when Coruscant CPU usage remains high."
+  mode: "single"
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.system_monitor_processor_use
+      above: 90
+      for:
+        minutes: 10
+  action:
+    - action: persistent_notification.create
+      data:
+        notification_id: coruscant_cpu_high
+        title: "Coruscant CPU usage high"
+        message: "CPU usage has been above 90% for 10 minutes (currently {{ states('sensor.system_monitor_processor_use') }}%)."
+    - action: notify.mobile_app_aaron_cell
+      data:
+        title: "Coruscant CPU usage high"
+        message: "CPU usage has been above 90% for 10 minutes (currently {{ states('sensor.system_monitor_processor_use') }}%)."
+- id: "coruscant_memory_high"
+  alias: "Coruscant - High Memory"
+  description: "Alert when Coruscant memory usage remains high."
+  mode: "single"
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.system_monitor_memory_usage
+      above: 90
+      for:
+        minutes: 10
+  action:
+    - action: persistent_notification.create
+      data:
+        notification_id: coruscant_memory_high
+        title: "Coruscant memory usage high"
+        message: "Memory usage has been above 90% for 10 minutes (currently {{ states('sensor.system_monitor_memory_usage') }}%)."
+    - action: notify.mobile_app_aaron_cell
+      data:
+        title: "Coruscant memory usage high"
+        message: "Memory usage has been above 90% for 10 minutes (currently {{ states('sensor.system_monitor_memory_usage') }}%)."
+- id: "coruscant_disk_high"
+  alias: "Coruscant - Disk Nearly Full"
+  description: "Alert when Coruscant root disk usage remains high."
+  mode: "single"
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.system_monitor_disk_usage
+      above: 80
+      for:
+        minutes: 15
+  action:
+    - action: persistent_notification.create
+      data:
+        notification_id: coruscant_disk_high
+        title: "Coruscant disk nearly full"
+        message: "Disk usage has been above 80% for 15 minutes (currently {{ states('sensor.system_monitor_disk_usage') }}%, {{ states('sensor.system_monitor_disk_use') }} GiB used)."
+    - action: notify.mobile_app_aaron_cell
+      data:
+        title: "Coruscant disk nearly full"
+        message: "Disk usage has been above 80% for 15 minutes (currently {{ states('sensor.system_monitor_disk_usage') }}%, {{ states('sensor.system_monitor_disk_use') }} GiB used)."
+- id: "coruscant_swap_high"
+  alias: "Coruscant - High Swap Usage"
+  description: "Alert when Coruscant swap usage remains elevated."
+  mode: "single"
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.system_monitor_swap_usage
+      above: 25
+      for:
+        minutes: 10
+  action:
+    - action: persistent_notification.create
+      data:
+        notification_id: coruscant_swap_high
+        title: "Coruscant swap usage high"
+        message: "Swap usage has been above 25% for 10 minutes (currently {{ states('sensor.system_monitor_swap_usage') }}%)."
+    - action: notify.mobile_app_aaron_cell
+      data:
+        title: "Coruscant swap usage high"
+        message: "Swap usage has been above 25% for 10 minutes (currently {{ states('sensor.system_monitor_swap_usage') }}%)."
