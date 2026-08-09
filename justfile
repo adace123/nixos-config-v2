@@ -413,6 +413,40 @@ metadata:
 dev:
     nix develop
 
+# List objects in the configured Cloudflare R2 bucket
+r2-list PREFIX="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    R2_PREFIX="{{ PREFIX }}" sops exec-env secrets/cloudflare.yaml bash <<'SCRIPT'
+    set -euo pipefail
+    prefix="${R2_PREFIX:-}"
+    endpoint="$(printenv 'cloudflare-endpoint')"
+    bucket="$(printenv 'cloudflare-bucket-name')"
+    export AWS_ACCESS_KEY_ID="$(printenv 'cloudflare-access-key-id')"
+    export AWS_SECRET_ACCESS_KEY="$(printenv 'cloudflare-secret-access-key')"
+    export AWS_DEFAULT_REGION=auto
+
+    args=(
+      --endpoint-url "$endpoint"
+      s3api list-objects-v2
+      --bucket "$bucket"
+      --no-cli-pager
+      --output json
+    )
+    if [[ -n "$prefix" ]]; then
+      args+=(--prefix "$prefix")
+    fi
+    if ! command -v jq >/dev/null 2>&1; then
+      echo "ERROR: jq is required to format object sizes. Install it with: brew install jq" >&2
+      exit 1
+    fi
+    aws "${args[@]}" | jq -r '
+      ["Key", "Size (MB)", "Last Modified"],
+      (.Contents[]? | [.Key, ((.Size / 1000000) * 100 | round / 100), .LastModified])
+      | @tsv
+    ' | column -t -s $'\t'
+    SCRIPT
+
 # Backup the sops age key to 1Password as a document
 backup-key:
     #!/usr/bin/env bash

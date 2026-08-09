@@ -13,14 +13,17 @@ the macOS integration uses the sops-nix darwin module.
 
 ```text
 .sops.yaml                    ← lists which age public keys can decrypt which files
-secrets/default.yaml          ← SOPS-encrypted YAML committed to git
+secrets/default.yaml          ← general SOPS-encrypted YAML committed to git
+secrets/cloudflare.yaml       ← Cloudflare R2 and Restic backup credentials
+secrets/oci.yaml              ← OCI and OpenTofu R2 state credentials
 ~/.config/sops/age/keys.txt   ← your age private key (NEVER commit this)
 /var/lib/sops-nix/key.txt     ← age private key on the NixOS host
 ```
 
-At activation time, sops-nix decrypts `secrets/default.yaml` and writes each
-secret as a file under `/run/secrets/` (mode 0400 by default, owned by the
-requesting service user).
+At activation time, sops-nix decrypts the files referenced by each Nix module
+and writes each requested secret as a file under `/run/secrets/` (mode 0400 by
+default, owned by the requesting service user). Cloudflare R2 backup credentials
+are kept separately from the OCI/OpenTofu state credentials.
 
 ## Prerequisites
 

@@ -15,9 +15,12 @@ let
     mkdir -p $out/automations $out/scripts $out/scenes
     cp ${./automations/washer.yaml} $out/automations/washer.yaml
     cp ${./automations/system-monitor-alerts.yaml} $out/automations/system-monitor-alerts.yaml
+    cp ${./automations/front-door-light-motion.yaml} $out/automations/front-door-light-motion.yaml
   '';
 in
 {
+  imports = [ ./restic.nix ];
+
   sops.templates."hass-configuration.yaml" = {
     content =
       builtins.replaceStrings
