@@ -1,0 +1,38 @@
+log_oil_change:
+  alias: "Log oil change"
+  description: "Record an oil change in the maintenance calendar using the current helper values"
+  mode: single
+  sequence:
+    - variables:
+        log_date: "{{ states('input_datetime.car_last_oil_change') }}"
+        log_odo: "{{ states('input_number.car_last_oil_change_odometer') | int(0) }}"
+        log_notes: "{{ states('input_text.car_service_notes') | default('', true) }}"
+    - action: calendar.create_event
+      target:
+        entity_id: calendar.car_maintenance
+      data:
+        summary: "Oil change @ {{ log_odo }} mi"
+        description: "{{ log_notes }}"
+        start_date: "{{ log_date }}"
+        end_date: "{{ (as_datetime(log_date) + timedelta(days=1)).strftime('%Y-%m-%d') }}"
+    - action: persistent_notification.create
+      data:
+        title: "Oil change logged"
+        message: "Recorded {{ log_date }} @ {{ log_odo }} mi in the maintenance calendar."
+add_oil_change_reminder:
+  alias: "Add oil change reminder"
+  description: "Add the next oil-change due date as an event in the maintenance calendar"
+  mode: single
+  sequence:
+    - variables:
+        due: "{{ state_attr('sensor.car_next_oil_change', 'due_date') | default('', true) }}"
+    - condition: template
+      value_template: "{{ due != '' and as_datetime(due) is not none }}"
+    - action: calendar.create_event
+      target:
+        entity_id: calendar.car_maintenance
+      data:
+        summary: "Oil change due"
+        description: "Estimated from {{ state_attr('sensor.car_next_oil_change', 'driving_conditions') | lower }} conditions ({{ state_attr('sensor.car_next_oil_change', 'interval_miles') }} mi interval). Target: {{ state_attr('sensor.car_next_oil_change', 'target_miles') }} mi."
+        start_date: "{{ due }}"
+        end_date: "{{ (as_datetime(due) + timedelta(days=1)).strftime('%Y-%m-%d') }}"

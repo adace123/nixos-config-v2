@@ -1,0 +1,73 @@
+- id: "car_refuel_detected"
+  alias: "Car refuel detected"
+  description: "Detect fuel fill-ups and track miles per gallon per tank"
+  mode: single
+  trigger:
+    - platform: state
+      entity_id: sensor.2022_elantra_fuel_level
+  condition:
+    - condition: template
+      value_template: "{{ trigger.to_state is defined and (trigger.to_state.state | float(0)) - (trigger.from_state.state | float(0)) > 15 }}"
+  action:
+    - variables:
+        added: "{{ (trigger.to_state.state | float(0)) - (trigger.from_state.state | float(0)) }}"
+        odo_now: "{{ states('sensor.2022_elantra_odometer') | float(0) }}"
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.car_mpg_last_tank
+      data:
+        value: "{% set tank = 12.4 %} {% set last_odo = states('input_number.car_last_refuel_odometer') | float(0) %} {% set dist = odo_now - last_odo %} {{ (dist / (added / 100 * tank)) | round(1) if added > 0 and dist > 0 else 0 }}"
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.car_last_refuel_odometer
+      data:
+        value: "{{ odo_now }}"
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.car_last_refuel_fuel
+      data:
+        value: "{{ trigger.to_state.state }}"
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.car_last_refuel_added
+      data:
+        value: "{{ added }}"
+    - action: persistent_notification.create
+      data:
+        title: "Refuel detected"
+        message: "Tank +{{ '%.0f' | format(added) }}%. Last tank: {{ states('input_number.car_mpg_last_tank') }} mpg."
+- id: "car_trip_sampler"
+  alias: "Car trip sampler"
+  description: "Hourly odometer sampling to estimate the short-trip share (short = <5 mi between samples)"
+  mode: restart
+  trigger:
+    - platform: time_pattern
+      hours: "*"
+      minutes: "0"
+      seconds: "0"
+  condition:
+    - condition: template
+      value_template: "{{ has_value('sensor.2022_elantra_odometer') }}"
+  action:
+    - variables:
+        cur: "{{ states('sensor.2022_elantra_odometer') | float(0) }}"
+        last: "{{ states('input_number.car_last_sample_odometer') | float(0) }}"
+    - if:
+        - condition: template
+          value_template: "{{ (cur - last) >= 0.5 }}"
+      then:
+        - action: counter.increment
+          target:
+            entity_id: counter.car_trips_total
+        - if:
+            - condition: template
+              value_template: "{{ (cur - last) < 5 }}"
+          then:
+            - action: counter.increment
+              target:
+                entity_id: counter.car_trips_short
+        - action: input_number.set_value
+          target:
+            entity_id: input_number.car_last_sample_odometer
+          data:
+            value: "{{ cur }}"

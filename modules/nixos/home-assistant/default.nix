@@ -12,10 +12,14 @@ let
     stripRoot = false;
   };
   hassGenerated = pkgs.runCommand "hass-generated-config" { } ''
-    mkdir -p $out/automations $out/scripts $out/scenes
+    mkdir -p $out/automations $out/scripts $out/scenes $out/car_scripts $out/dashboards
     cp ${./automations/washer.yaml} $out/automations/washer.yaml
     cp ${./automations/system-monitor-alerts.yaml} $out/automations/system-monitor-alerts.yaml
     cp ${./automations/front-door-light-motion.yaml} $out/automations/front-door-light-motion.yaml
+    cp ${./automations/car-maintenance.yaml} $out/automations/car-maintenance.yaml
+    cp ${./scripts/car-maintenance.yaml} $out/scripts/car-maintenance.yaml
+    cp ${./dashboards/system.yaml} $out/dashboards/system.yaml
+    install -m0755 ${./car_scripts/car_rate.py} $out/car_scripts/car_rate.py
   '';
 in
 {
@@ -85,8 +89,10 @@ in
 
   systemd.tmpfiles.rules = [
     "d ${hassDir}/automations 0755 hass hass -"
-    "L+ ${hassDir}/scripts - - - - ${hassGenerated}/scripts"
-    "L+ ${hassDir}/scenes - - - - ${hassGenerated}/scenes"
+    "d ${hassDir}/car_scripts 0755 hass hass -"
+    "d ${hassDir}/scripts 0755 hass hass -"
+    "d ${hassDir}/scenes 0755 hass hass -"
+    "d ${hassDir}/dashboards 0755 hass hass -"
     "d ${hassDir}/.storage 0755 hass hass -"
     "d ${hassDir}/backups 0755 hass hass -"
     "d ${hassDir}/logs 0755 hass hass -"
@@ -101,8 +107,18 @@ in
       rm -rf ${hassDir}/automations
       mkdir -p ${hassDir}/automations
       cp -r ${hassGenerated}/automations/. ${hassDir}/automations/
-      ln -sfn ${hassGenerated}/scripts ${hassDir}/scripts
-      ln -sfn ${hassGenerated}/scenes ${hassDir}/scenes
+      rm -rf ${hassDir}/scripts
+      mkdir -p ${hassDir}/scripts
+      cp -r ${hassGenerated}/scripts/. ${hassDir}/scripts/
+      rm -rf ${hassDir}/scenes
+      mkdir -p ${hassDir}/scenes
+      cp -r ${hassGenerated}/scenes/. ${hassDir}/scenes/
+      rm -rf ${hassDir}/dashboards
+      mkdir -p ${hassDir}/dashboards
+      cp -r ${hassGenerated}/dashboards/. ${hassDir}/dashboards/
+      chown -R hass:hass ${hassDir}/dashboards
+      install -m0755 ${hassGenerated}/car_scripts/car_rate.py ${hassDir}/car_scripts/car_rate.py
+      chown hass:hass ${hassDir}/car_scripts/car_rate.py
       if [ ! -e ${hassDir}/automations.yaml ]; then
         printf '[]\n' > ${hassDir}/automations.yaml
       fi

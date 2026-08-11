@@ -7,7 +7,7 @@ logger:
 system_log:
   fire_event: true
 recorder:
-  purge_keep_days: 10
+  purge_keep_days: 60
   db_url: sqlite:////config/home-assistant_v2.db
 history:
 logbook:
@@ -30,6 +30,85 @@ input_boolean:
   washer_battery_alerted:
     name: "Washer Battery Low Alerted"
     initial: off
+# --- Car maintenance helpers (2022 Elantra) ---
+input_datetime:
+  car_last_oil_change:
+    name: "Last oil change date"
+    icon: mdi:oil
+    has_date: true
+    has_time: false
+    initial: "2026-08-02"
+input_number:
+  car_last_oil_change_odometer:
+    name: "Last oil change odometer"
+    icon: mdi:counter
+    min: 0
+    max: 500000
+    mode: box
+    unit_of_measurement: "mi"
+    initial: 31100
+  car_last_refuel_odometer:
+    name: "Last refuel odometer"
+    icon: mdi:gas-station
+    min: 0
+    max: 500000
+    mode: box
+    unit_of_measurement: "mi"
+    initial: 31329
+  car_last_refuel_fuel:
+    name: "Last refuel fuel level"
+    icon: mdi:fuel
+    min: 0
+    max: 100
+    mode: box
+    unit_of_measurement: "%"
+    initial: 30
+  car_last_refuel_added:
+    name: "Last refuel added"
+    icon: mdi:fuel
+    min: 0
+    max: 100
+    mode: box
+    unit_of_measurement: "%"
+    initial: 0
+  car_last_sample_odometer:
+    name: "Last trip sample odometer"
+    icon: mdi:speedometer
+    min: 0
+    max: 500000
+    mode: box
+    unit_of_measurement: "mi"
+    initial: 31329
+  car_mpg_last_tank:
+    name: "Last tank MPG"
+    icon: mdi:gas-station
+    min: 0
+    max: 100
+    mode: box
+    unit_of_measurement: "mpg"
+    initial: 0
+input_select:
+  car_driving_conditions:
+    name: "Driving conditions"
+    icon: mdi:road-variant
+    options:
+      - Normal
+      - Severe
+    initial: Normal
+input_text:
+  car_service_notes:
+    name: "Service notes"
+    icon: mdi:note-text
+    max: 200
+counter:
+  car_trips_total:
+    name: "Total driving sessions"
+    icon: mdi:car
+    initial: 0
+  car_trips_short:
+    name: "Short driving sessions (<5 mi)"
+    icon: mdi:map-marker-radius
+    initial: 0
 template:
   - binary_sensor:
       - name: "Washer Cleaning State"
@@ -40,6 +119,118 @@ template:
           minutes: 10
         delay_on:
           seconds: 20
+      - name: "Car Severe Duty Suggested"
+        unique_id: car_severe_duty_suggested
+        icon: mdi:alert-circle-outline
+        state: >-
+          {% set total = states('counter.car_trips_total') | int(0) %} {% set short = states('counter.car_trips_short') | int(0) %} {{ 'on' if total >= 10 and short / total > 0.5 else 'off' }}
+        attributes:
+          short_trips: "{{ states('counter.car_trips_short') | int(0) }}"
+          total_trips: "{{ states('counter.car_trips_total') | int(0) }}"
+          short_trip_share: >-
+            {% set total = states('counter.car_trips_total') | int(0) %} {% set short = states('counter.car_trips_short') | int(0) %} {{ (short / total * 100) | round(0) if total > 0 else 0 }}
+      - name: "Car Oil Change Due"
+        unique_id: car_oil_change_due_bs
+        icon: mdi:oil-alert
+        state: >-
+          {{ 'on' if (states('sensor.car_miles_left_until_oil_change') | int(0) <= 0) or (states('sensor.car_days_to_time_based_due') | int(0) <= 0) else 'off' }}
+  - sensor:
+      # Oil change interval depends on driving conditions: Hyundai normal 7,500 mi /
+      # 12 mo, severe 3,750 mi / 6 mo (short trips, stop-and-go).
+      - name: "Car Oil Change Interval"
+        unique_id: car_oil_change_interval_miles
+        unit_of_measurement: "mi"
+        icon: mdi:oil
+        state: >-
+          {{ 3750 if is_state('input_select.car_driving_conditions', 'Severe') else 7500 }}
+        attributes:
+          driving_conditions: "{{ states('input_select.car_driving_conditions') }}"
+      - name: "Car Oil Change Target"
+        unique_id: car_oil_change_target_miles
+        unit_of_measurement: "mi"
+        icon: mdi:flag-checkered
+        state: >-
+          {{ ((states('input_number.car_last_oil_change_odometer') | float(0)) + (states('sensor.car_oil_change_interval') | float(7500))) | round(0) }}
+      - name: "Car Miles Since Oil Change"
+        unique_id: car_miles_since_oil_change
+        unit_of_measurement: "mi"
+        icon: mdi:counter
+        state: >-
+          {{ [(states('sensor.2022_elantra_odometer') | float(0)) - (states('input_number.car_last_oil_change_odometer') | float(0)), 0] | max | round(0) }}
+      - name: "Car Miles Left Until Oil Change"
+        unique_id: car_miles_left_until_oil_change
+        unit_of_measurement: "mi"
+        icon: mdi:oil-level
+        state: >-
+          {{ [(states('sensor.car_oil_change_target') | float(0)) - (states('sensor.2022_elantra_odometer') | float(0)), 0] | max | round(0) }}
+      - name: "Car Days Since Oil Change"
+        unique_id: car_days_since_oil_change
+        unit_of_measurement: "d"
+        icon: mdi:calendar-clock
+        state: >-
+          {% set _ = states('sun.sun') %} {% set d = as_datetime(states('input_datetime.car_last_oil_change'), none) %} {{ ((now().date() - d.date()).days) if d is not none else 'unknown' }}
+      - name: "Car Days To Time-Based Due"
+        unique_id: car_days_to_time_due
+        unit_of_measurement: "d"
+        icon: mdi:calendar-alert
+        state: >-
+          {% set _ = states('sun.sun') %} {% set days = states('sensor.car_days_since_oil_change') | int(-1) %} {% set limit = 182 if is_state('input_select.car_driving_conditions', 'Severe') else 365 %} {{ [limit - days, 0] | max }}
+      # Mileage rate comes from the command_line sensor car_mileage_rate (see
+      # command_line: below) which computes it from recorder history.
+      - name: "Car Days To Mileage-Based Due"
+        unique_id: car_days_to_miles_due
+        unit_of_measurement: "d"
+        icon: mdi:oil
+        state: >-
+          {% set rate = states('sensor.car_mileage_rate') | float(0) %} {% set miles = states('sensor.car_miles_left_until_oil_change') | float(0) %} {% if rate > 0 %}{{ (miles / rate * 30.44) | round(0) }}{% else %}99999{% endif %}
+      - name: "Car Next Oil Change"
+        unique_id: car_next_oil_change
+        icon: mdi:oil
+        state: >-
+          {% set _ = states('sun.sun') %} {% set dm = states('sensor.car_days_to_mileage_based_due') | int(-1) %} {% set dt = states('sensor.car_days_to_time_based_due') | int(-1) %} {% set ml = states('sensor.car_miles_left_until_oil_change') | int(-1) %} {% if ml <= 0 or dt <= 0 %}Due now{% elif dm > 0 and dm <= dt %}{{ (now() + timedelta(days=dm)).strftime('%b %d, %Y') }}{% else %}{{ (now() + timedelta(days=dt)).strftime('%b %d, %Y') }}{% endif %}
+        attributes:
+          due_date: >-
+            {% set _ = states('sun.sun') %} {% set dm = states('sensor.car_days_to_mileage_based_due') | int(-1) %} {% set dt = states('sensor.car_days_to_time_based_due') | int(-1) %} {% set ml = states('sensor.car_miles_left_until_oil_change') | int(-1) %} {% if ml <= 0 or dt <= 0 %}{{ now().strftime('%Y-%m-%d') }}{% elif dm > 0 and dm <= dt %}{{ (now() + timedelta(days=dm)).strftime('%Y-%m-%d') }}{% else %}{{ (now() + timedelta(days=dt)).strftime('%Y-%m-%d') }}{% endif %}
+          target_miles: "{{ states('sensor.car_oil_change_target') | int(0) }}"
+          miles_left: "{{ states('sensor.car_miles_left_until_oil_change') | int(0) }}"
+          interval_miles: "{{ states('sensor.car_oil_change_interval') | int(0) }}"
+          miles_per_month: "{{ states('sensor.car_mileage_rate') | int(0) }}"
+          driving_conditions: "{{ states('input_select.car_driving_conditions') }}"
+          last_change_date: "{{ states('input_datetime.car_last_oil_change') }}"
+          last_change_odometer: "{{ states('input_number.car_last_oil_change_odometer') | int(0) }}"
+# Mileage rate computed from recorder history by a small python script.
+command_line:
+  - sensor:
+      name: "Car Mileage Rate"
+      unique_id: car_mileage_rate
+      command: /config/car_scripts/car_rate.py
+      command_timeout: 30
+      scan_interval: 3600
+      unit_of_measurement: "mi/mo"
+  - sensor:
+      name: "RPi CPU Temperature"
+      unique_id: rpi_cpu_temperature
+      command: "cat /sys/class/thermal/thermal_zone0/temp"
+      unit_of_measurement: "°C"
+      device_class: temperature
+      value_template: "{{ (value | float / 1000) | round(1) }}"
+  - sensor:
+      name: "RPi CPU Frequency"
+      unique_id: rpi_cpu_frequency
+      command: "cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq"
+      unit_of_measurement: "MHz"
+      icon: mdi:speedometer
+      value_template: "{{ (value | float / 1000) | round(0) }}"
+# System dashboard is declaratively managed in dashboards/system.yaml
+lovelace:
+  dashboards:
+    # YAML dashboard url paths must contain a hyphen (HA requirement)
+    system-dashboard:
+      mode: yaml
+      title: System
+      icon: mdi:server
+      show_in_sidebar: true
+      filename: dashboards/system.yaml
 automation manual: !include_dir_merge_list automations/
 automation ui: !include automations.yaml
 script: !include_dir_merge_named scripts/

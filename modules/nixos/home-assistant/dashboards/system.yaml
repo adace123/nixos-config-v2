@@ -1,0 +1,119 @@
+views:
+  - title: System
+    icon: mdi:server
+    path: system
+    type: sections
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: System
+            heading_style: title
+            icon: mdi:server
+          - type: gauge
+            entity: sensor.system_monitor_processor_use
+            name: CPU use
+            min: 0
+            max: 100
+            severity:
+              green: 0
+              yellow: 60
+              red: 90
+          - type: gauge
+            entity: sensor.rpi_cpu_temperature
+            name: CPU temp
+            min: 0
+            max: 200
+            severity:
+              green: 0
+              yellow: 135
+              red: 175
+          - type: gauge
+            entity: sensor.system_monitor_memory_usage
+            name: Memory use
+            min: 0
+            max: 100
+            severity:
+              green: 0
+              yellow: 60
+              red: 90
+          - type: gauge
+            entity: sensor.system_monitor_disk_usage
+            name: Disk use
+            min: 0
+            max: 100
+            severity:
+              green: 0
+              yellow: 60
+              red: 90
+          - type: tile
+            entity: sensor.system_monitor_disk_use
+            name: Disk used (GiB)
+            vertical: false
+            features_position: bottom
+          - type: gauge
+            entity: sensor.system_monitor_swap_usage
+            name: Swap use
+            min: 0
+            max: 100
+            severity:
+              green: 0
+              yellow: 60
+              red: 90
+          - type: tile
+            entity: sensor.rpi_cpu_frequency
+            name: CPU clock
+            vertical: false
+            features_position: bottom
+      - type: grid
+        cards:
+          - type: heading
+            heading: Load
+            heading_style: title
+            icon: mdi:chart-bell-curve-cumulative
+          - type: tile
+            entity: sensor.system_monitor_load_1_min
+            name: 1 minute
+            vertical: false
+            features_position: bottom
+          - type: tile
+            entity: sensor.system_monitor_load_5_min
+            name: 5 minutes
+            vertical: false
+            features_position: bottom
+          - type: tile
+            entity: sensor.system_monitor_load_15_min
+            name: 15 minutes
+            vertical: false
+            features_position: bottom
+      - type: grid
+        cards:
+          - type: heading
+            heading: Network
+            heading_style: title
+            icon: mdi:lan-connect
+          - type: tile
+            entity: sensor.system_monitor_uptime
+            name: Last boot
+            vertical: false
+            features_position: bottom
+          - type: tile
+            entity: sensor.system_monitor_ipv4_address_end0
+            name: Ethernet IPv4
+            vertical: false
+            features_position: bottom
+          - type: tile
+            entity: sensor.system_monitor_ipv4_address_tailscale0
+            name: Tailscale IPv4
+            vertical: false
+            features_position: bottom
+          - type: tile
+            entity: sensor.system_monitor_network_throughput_in_end0
+            name: Ethernet in
+            vertical: false
+            features_position: bottom
+          - type: tile
+            entity: sensor.system_monitor_network_throughput_out_end0
+            name: Ethernet out
+            vertical: false
+            features_position: bottom
