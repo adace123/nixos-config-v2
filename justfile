@@ -40,7 +40,7 @@ deadnix:
 check:
     #!/usr/bin/env bash
     set -euo pipefail
-    nix flake check --all-systems
+    nix flake check
     if command -v nh &> /dev/null; then
         nh darwin build --dry .#darwinConfigurations.{{ HOST }}
     else

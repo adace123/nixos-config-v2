@@ -40,6 +40,10 @@ Temporary Items
 *.bak
 *.backup
 
+# Python
+__pycache__/
+*.py[cod]
+
 # Secrets (plaintext/temporary only — encrypted sops files are tracked)
 secrets/*.txt
 secrets/*.plaintext

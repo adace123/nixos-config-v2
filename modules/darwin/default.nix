@@ -78,8 +78,12 @@
   # Shell configuration
   programs.zsh.enable = true;
 
-  # Disabled for now
-  services.nix-config-auto-update.enable = false;
+  # Disabled for now. When re-enabled, the launchd service rebuilds from the
+  # flake below and (optionally) auto-switches.
+  services.nix-config-auto-update = {
+    enable = false;
+    darwinConfigName = host.hostName;
+  };
 
   # Touch ID + YubiKey for sudo (also enables Apple Watch).
   # `text` fully overrides nix-darwin's auto-generated lines, so all auth

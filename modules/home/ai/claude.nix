@@ -124,7 +124,7 @@ in
 
   home = {
     # Allow home-manager to overwrite .bak files from previous activations
-    file."/Users/aaron/.claude/settings.json".force = true;
+    file."${config.home.homeDirectory}/.claude/settings.json".force = true;
 
     sessionVariables = {
       CLAUDE_CODE_CONFIG = "${config.home.homeDirectory}/.config/claude-code";

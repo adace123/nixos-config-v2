@@ -92,6 +92,8 @@
   # Nix configuration
   # Written to ~/.config/nix/nix.conf since nix-darwin has nix.enable = false
   # (using Determinate Nix installer instead)
+  # Keep substituters/keys in sync with flake.nix `nixConfig` and
+  # modules/nixos/common.nix.
   xdg.configFile."nix/nix.conf".text = ''
     experimental-features = nix-command flakes
     max-jobs = auto
@@ -166,8 +168,7 @@
         ls = "${pkgs.eza}/bin/eza --color=always --icons=always";
         lg = "${pkgs.lazygit}/bin/lazygit";
         update = "nh darwin switch";
-        python = "python3"; # Use ipython as default
-        py = "ipython";
+        python = "python3";
         cat = "bat";
         ts = "tailscale";
         tf = "tofu";

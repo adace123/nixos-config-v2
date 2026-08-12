@@ -40,6 +40,7 @@
     auto-optimise-store = true;
     max-jobs = 4;
     cores = 4;
+    # Keep in sync with flake.nix `nixConfig` and modules/home/default.nix.
     extra-substituters = [
       "https://cache.numtide.com"
       "https://cache.nixos.org"

@@ -1,7 +1,7 @@
 # nixos-config-v2
 
-Personal Nix flake managing a macOS workstation and a Raspberry Pi 4 home
-server. Uses [nix-darwin](https://github.com/LnL7/nix-darwin),
+Personal Nix flake managing a macOS workstation, a Raspberry Pi 4 home server,
+and an Oracle Cloud VPS. Uses [nix-darwin](https://github.com/LnL7/nix-darwin),
 [home-manager](https://nix-community.github.io/home-manager/), and
 [SOPS](https://getsops.io/) for secrets.
 
@@ -16,13 +16,14 @@ flake.nix
 │           ├── Neovim (nvf), Zed, Ghostty
 │           └── AI tools (Claude, Hermes, opencode)
 └── NixOS   (aarch64-linux)
-    └── coruscant      — Raspberry Pi 4 home server
-        ├── Home Assistant  (podman container, port 8123)
-        ├── Mosquitto       (MQTT broker, port 1883)
-        ├── Zigbee2MQTT     (Zigbee bridge, port 8091)
-        ├── ESPHome         (ESP device manager, port 6052)
-        ├── Beszel Hub      (server monitoring, port 8090)
-        └── Caddy           (HTTPS reverse proxy, Cloudflare DNS-01)
+    ├── coruscant      — Raspberry Pi 4 home server
+    │   ├── Home Assistant  (podman container, port 8123)
+    │   ├── Mosquitto       (MQTT broker, port 1883)
+    │   ├── Zigbee2MQTT     (Zigbee bridge, port 8091)
+    │   ├── ESPHome         (ESP device manager, port 6052)
+    │   ├── Beszel Hub      (server monitoring, port 8090)
+    │   └── Caddy           (HTTPS reverse proxy, Cloudflare DNS-01)
+    └── dathomir       — Oracle Cloud VPS (OCI image, OpenTofu)
 ```
 
 ### How the pieces fit together
@@ -56,7 +57,8 @@ its identity and shared modules provide the behavior:
 ```text
 hosts/
 ├── endor/           # Darwin workstation identity (hostname, user, system)
-└── coruscant/       # NixOS Raspberry Pi identity (hostname, system)
+├── coruscant/       # NixOS Raspberry Pi identity (hostname, system)
+└── dathomir/        # NixOS OCI VPS identity (hostname, system)
 ```
 
 ## Quick Start

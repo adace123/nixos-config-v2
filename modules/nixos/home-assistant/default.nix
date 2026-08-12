@@ -5,6 +5,8 @@
 }:
 let
   hassDir = "/var/lib/hass";
+  # Hardcoded USB by-id path: swapping the dongle (or a different port) breaks
+  # this. Prefer a stable udev symlink and update here if the dongle is replaced.
   zigbeeDongle = "/dev/serial/by-id/usb-Itead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_V2_9aff399ca0f3ef1187f6bb1b6d9880ab-if00-port0";
   hacs = pkgs.fetchzip {
     url = "https://github.com/hacs/integration/releases/download/2.0.5/hacs.zip";
@@ -13,7 +15,6 @@ let
   };
   hassGenerated = pkgs.runCommand "hass-generated-config" { } ''
     mkdir -p $out/automations $out/scripts $out/scenes $out/car_scripts $out/dashboards
-    cp ${./automations/washer.yaml} $out/automations/washer.yaml
     cp ${./automations/system-monitor-alerts.yaml} $out/automations/system-monitor-alerts.yaml
     cp ${./automations/front-door-light-motion.yaml} $out/automations/front-door-light-motion.yaml
     cp ${./automations/car-maintenance.yaml} $out/automations/car-maintenance.yaml
@@ -33,10 +34,6 @@ in
         (builtins.readFile ./configuration.yaml);
   };
   virtualisation = {
-    podman.autoPrune = {
-      enable = true;
-      dates = "weekly";
-    };
     oci-containers = {
       backend = "podman";
       containers.home-assistant = {

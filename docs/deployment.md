@@ -130,7 +130,8 @@ Pushes to `main` that touch the OCI image, host, or `infra/` paths deploy after
 the plan job succeeds. The apply job uses the `oci-production` GitHub
 environment, so configure any required reviewers there.
 
-GitHub Actions uses repository secrets for OCI and R2 credentials. See
+GitHub Actions decrypts `secrets/oci.yaml` in CI with a single `SOPS_AGE_KEY`
+repository secret. See
 [docs/secrets.md](secrets.md#github-actions-secrets-for-oci-deploy).
 
 ---
@@ -178,19 +179,23 @@ just nixos-deploy
 
 ### Darwin
 
-A launchd service runs daily at 10:00 AM, checks for changes in `flake.lock`
-on `origin/main`, and sends a macOS notification when updates are available.
-You then apply them manually with `just switch`.
+The launchd auto-update service (`services.nix-config-auto-update`) is defined
+in `modules/darwin/auto-update.nix` but is **currently disabled** in
+`modules/darwin/default.nix` (`enable = false`). For a manual update check, use
+`just check-updates`, which runs `scripts/check-for-updates.sh` to pull
+`flake.lock` changes and notify you.
 
 ```bash
-just auto-update-status   # view service status and optionally trigger now
+just check-updates         # manual check for flake.lock updates
+just auto-update-status    # view the (disabled) service status
 ```
 
 ### NixOS (coruscant)
 
 `system.autoUpgrade` is enabled in `modules/nixos/common.nix`. The host
-automatically pulls and applies changes from `github:adace123/nixos-config-v2`
-on the default branch.
+rebuilds and applies its local flake checkout automatically (it does not fetch
+new commits from GitHub — push updates by running `just nixos-deploy` or
+rsync-ing the flake to the host first).
 
 ---
 

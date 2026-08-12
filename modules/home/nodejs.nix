@@ -109,9 +109,9 @@
   # Shell aliases for JavaScript development
   programs.zsh.shellAliases = {
     # Node version management (use bun as default, node via explicit versions)
-    node = "bun"; # Bun can run Node.js code
+    # NOTE: `node`/`npm` are intentionally NOT aliased to bun — many tools shell
+    # out to the real binaries and break under bun.
     node22 = "${pkgs.nodejs_22}/bin/node";
-    npm = "bun"; # Bun replaces npm
     npm22 = "${pkgs.nodejs_22}/bin/npm";
 
     # npm shortcuts (using bun)

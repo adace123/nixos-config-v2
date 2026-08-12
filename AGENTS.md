@@ -200,7 +200,7 @@ modules/
     ├── ghostty.nix      # Ghostty terminal emulator
     ├── git.nix          # Git configuration
     ├── nodejs.nix       # Node.js development
-    ├── nixvim.nix       # Nixvim module (disabled)
+    ├── nixvim.nix       # Nixvim module (enabled; Swift grammar excluded)
     ├── python.nix       # Python development
     ├── starship/        # Starship prompt config
     └── zed/             # Zed editor settings and keybindings
@@ -300,9 +300,9 @@ The `build-sd-image.yml` workflow builds an aarch64-linux SD image on
 
 ### Nixvim Module
 
-- Currently disabled due to Swift build dependency issues
-- To enable: uncomment `./nixvim.nix` in `modules/home/default.nix`
-- Consider binary cache if enabling
+- Enabled via `./nixvim.nix` in `modules/home/default.nix`
+- Treesitter grammars exclude Swift to avoid the Swift build dependency
+- If Swift grammar support is needed, consider a binary cache
 
 ### Determinate Nix
 

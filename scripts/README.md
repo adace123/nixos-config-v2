@@ -11,9 +11,11 @@ This directory contains utility scripts for the Nix configuration.
 
 ## Auto-Update Service
 
-The automatic update functionality has been moved to `modules/darwin/auto-update.nix` as a nix-darwin launchd service.
+The automatic update functionality lives in `modules/darwin/auto-update.nix` as a nix-darwin launchd service, but is **currently disabled** (`services.nix-config-auto-update.enable = false` in `modules/darwin/default.nix`).
 
-### How It Works
+For a manual check, run `just check-updates` (which calls `check-for-updates.sh`).
+
+### How It Works (when enabled)
 
 - **Schedule**: Runs daily at 10:00 AM
 - **Function**: Checks if `flake.lock` has changes on `origin/main`

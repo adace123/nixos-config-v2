@@ -32,6 +32,8 @@ load_secrets_file() {
 	local decrypted_file
 
 	decrypted_file="$(mktemp "${TMPDIR:-/tmp}/oci-secrets.XXXXXX")"
+	# Guarantee the decrypted secrets are removed even if a later step fails.
+	trap 'rm -f "$decrypted_file"' RETURN
 	sops -d "$secrets_file" >"$decrypted_file"
 
 	R2_ACCESS_KEY_ID="$(yq_secret r2-access-key-id "$decrypted_file")"
