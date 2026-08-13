@@ -14,13 +14,14 @@ let
     stripRoot = false;
   };
   hassGenerated = pkgs.runCommand "hass-generated-config" { } ''
-    mkdir -p $out/automations $out/scripts $out/scenes $out/car_scripts $out/dashboards
+    mkdir -p $out/automations $out/scripts $out/scenes $out/car_scripts $out/dashboards $out/custom_components
     cp ${./automations/system-monitor-alerts.yaml} $out/automations/system-monitor-alerts.yaml
     cp ${./automations/front-door-light-motion.yaml} $out/automations/front-door-light-motion.yaml
     cp ${./automations/car-maintenance.yaml} $out/automations/car-maintenance.yaml
     cp ${./scripts/car-maintenance.yaml} $out/scripts/car-maintenance.yaml
     cp ${./dashboards/system.yaml} $out/dashboards/system.yaml
     install -m0755 ${./car_scripts/car_rate.py} $out/car_scripts/car_rate.py
+    cp -r ${./custom_components/google_health_workouts} $out/custom_components/google_health_workouts
   '';
 in
 {
@@ -128,6 +129,9 @@ in
       ${pkgs.findutils}/bin/find ${hassDir}/custom_components -maxdepth 1 -type f -delete
       rm -rf ${hassDir}/custom_components/hacs ${hassDir}/custom_components/hacs_frontend ${hassDir}/custom_components/__pycache__
       cp -r ${hacs} ${hassDir}/custom_components/hacs
+      rm -rf ${hassDir}/custom_components/google_health_workouts
+      cp -r ${hassGenerated}/custom_components/google_health_workouts ${hassDir}/custom_components/google_health_workouts
+      chown -R hass:hass ${hassDir}/custom_components/google_health_workouts
     '';
     deps = [
       "users"

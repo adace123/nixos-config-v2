@@ -11,6 +11,8 @@ files are:
 ```text
 modules/nixos/home-assistant/
 ├── automations/          # Declarative, version-controlled automations
+├── custom_components/    # Git-tracked custom components (copied on activation)
+│   └── google_health_workouts/  # Per-workout sensors from the Google Health API
 ├── default.nix           # Container, MQTT, Zigbee2MQTT, ESPHome, user setup
 └── configuration.yaml    # HA base config template (secrets injected by SOPS)
 ```
@@ -112,6 +114,30 @@ target:
 - **Amazon authentication fails:** Ensure your Amazon account has MFA enabled
   via an authenticator app (not SMS). Go to Amazon > Account > Login & Security
   > 2-Step Verification to set it up.
+
+## Google Health Workouts (custom component)
+
+A small git-tracked custom integration (`google_health_workouts`) that exposes
+per-workout sensors from the [Google Health API](https://developers.google.com/health)
+`exercise` data type — the things the stock `google_health` and Health Sync
+integrations do not provide (they only expose daily rollups and last-workout
+type/duration).
+
+Sensors created per workout: type, duration, distance (mi), average speed
+(mph), average heart rate (bpm), calories (kcal), elevation (ft), plus a
+30-day session count. The type sensor also carries session attributes
+(display name, start/end time, active duration, GPS flag).
+
+- Reuses the **same Google Cloud OAuth client** as the stock `google_health`
+  integration (add it under the `google_health_workouts` domain in
+  Settings → Devices & Services → Application Credentials, or the box may
+  already have it pre-registered).
+- Requires the `activity_and_fitness.readonly` OAuth scope.
+- Polls every 10 minutes; sensors are `sensor.last_workout_*` and
+  `sensor.workouts_last_30_days`.
+- Tracked in `custom_components/google_health_workouts/` and copied into
+  `/var/lib/hass/custom_components/` during NixOS activation (same mechanism
+  as the pinned HACS install).
 
 ## Monitoring Logs
 

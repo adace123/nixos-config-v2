@@ -1,0 +1,22 @@
+{
+  "config": {
+    "step": {
+      "reauth_confirm": {
+        "title": "Reauthentication needed",
+        "description": "The Google Health Workouts integration needs to re-authenticate your Google account."
+      }
+    },
+    "abort": {
+      "missing_activity_scope": "You did not grant access to your activity and fitness data. Re-authenticate and grant the activity scope.",
+      "missing_profile_scope": "You did not grant access to your profile data. Re-authenticate and grant the profile scope.",
+      "api_not_enabled": "The Google Health API is not enabled in your Google Cloud project. Enable it at https://console.cloud.google.com/apis/library/health.googleapis.com",
+      "cannot_connect": "Failed to connect to Google Health.",
+      "wrong_account": "The Google account you authenticated with does not match the previously configured account."
+    },
+    "error": {
+      "oauth_error": "Could not set up the OAuth flow. Check that your application credentials are correct.",
+      "auth_error": "Google Health authentication failed. Re-authenticate the integration.",
+      "communication_error": "Failed to communicate with the Google Health API."
+    }
+  }
+}

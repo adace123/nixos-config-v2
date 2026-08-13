@@ -1,0 +1,12 @@
+{
+  "domain": "google_health_workouts",
+  "name": "Google Health Workouts",
+  "codeowners": ["@aaron"],
+  "config_flow": true,
+  "dependencies": ["application_credentials", "http"],
+  "documentation": "https://github.com/aaronfeigenbaum/nixos-config-v2",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "requirements": ["google-health-api==0.8.0"],
+  "version": "0.1.0"
+}
