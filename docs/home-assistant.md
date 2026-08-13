@@ -139,8 +139,11 @@ the dashboard (no `google_health` equivalent).
 
 Sensors created per workout: type, duration, distance (mi), average speed
 (mph), average heart rate (bpm), calories (kcal), elevation (ft), plus a
-30-day session count. The type sensor also carries session attributes
-(display name, start/end time, active duration, GPS flag).
+30-day session count. The type sensor carries session attributes (display
+name, start/end time, active duration, GPS flag), and
+`sensor.workouts_last_30_days` carries a `workouts` attribute — a newest-first
+list of recent sessions (type, date, distance, duration, heart rate, speed,
+calories) that the dashboard's Workout Log card renders.
 
 - Reuses the **same Google Cloud OAuth client** as the stock `google_health`
   integration (add it under the `google_health_workouts` domain in

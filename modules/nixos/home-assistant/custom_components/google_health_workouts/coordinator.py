@@ -1,6 +1,6 @@
 """Coordinator for Google Health Workouts."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import timedelta
 import logging
 from typing import TYPE_CHECKING, override
@@ -28,10 +28,11 @@ _LOGGER = logging.getLogger(__name__)
 
 @dataclass
 class WorkoutData:
-    """Holds the latest workout and the number of recent sessions."""
+    """Holds the latest workout and the recent sessions."""
 
     latest: Exercise | None = None
     recent_count: int = 0
+    recent: list[Exercise] = field(default_factory=list)
 
 
 class GoogleHealthWorkoutsCoordinator(DataUpdateCoordinator[WorkoutData]):
@@ -74,4 +75,8 @@ class GoogleHealthWorkoutsCoordinator(DataUpdateCoordinator[WorkoutData]):
 
         points = result.data_points
         latest = points[0].data if points else None
-        return WorkoutData(latest=latest, recent_count=len(points))
+        return WorkoutData(
+            latest=latest,
+            recent_count=len(points),
+            recent=[p.data for p in points],
+        )

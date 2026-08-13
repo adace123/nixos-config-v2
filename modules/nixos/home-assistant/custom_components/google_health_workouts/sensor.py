@@ -20,6 +20,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.typing import StateType
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 from .coordinator import GoogleHealthWorkoutsCoordinator, WorkoutData
@@ -39,6 +40,39 @@ def _duration_minutes(ex: Exercise | None) -> float | None:
         return float(ex.active_duration.rstrip("s")) / 60
     except ValueError:
         return None
+
+
+def _format_workouts(data: WorkoutData) -> list[dict[str, Any]]:
+    """Format recent workouts (newest first) as display-ready dicts."""
+    out: list[dict[str, Any]] = []
+    if not data:
+        return out
+    for ex in data.recent:
+        item: dict[str, Any] = {
+            "type": ex.exercise_type.replace("_", " ").title(),
+        }
+        start = dt_util.parse_datetime(ex.interval.start_time)
+        if start:
+            local = dt_util.as_local(start)
+            item["date"] = local.strftime("%a %b %d")
+            item["time"] = local.strftime("%H:%M")
+        minutes = _duration_minutes(ex)
+        if minutes is not None:
+            item["duration"] = f"{minutes:.0f} min"
+        ms = ex.metrics_summary
+        if ms:
+            if ms.distance_millimeters:
+                item["distance"] = f"{ms.distance_millimeters / MM_PER_MILE:.2f} mi"
+            if ms.average_speed_millimeters_per_second:
+                item["speed"] = (
+                    f"{ms.average_speed_millimeters_per_second * MMS_PER_MPH:.1f} mph"
+                )
+            if ms.average_heart_rate_beats_per_minute:
+                item["heart_rate"] = f"{ms.average_heart_rate_beats_per_minute} bpm"
+            if ms.calories_kcal:
+                item["calories"] = f"{ms.calories_kcal:.0f} kcal"
+        out.append(item)
+    return out
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -180,20 +214,26 @@ class WorkoutSensorEntity(
     @property
     @override
     def extra_state_attributes(self) -> dict[str, Any] | None:
-        """Return workout session details on the type sensor."""
-        if self.entity_description.key != "type":
-            return None
+        """Return workout session details."""
         data = self.coordinator.data
-        ex = data.latest if data else None
-        if ex is None:
+        if data is None:
             return None
-        return {
-            "display_name": ex.display_name,
-            "start_time": ex.interval.start_time,
-            "end_time": ex.interval.end_time,
-            "active_duration": ex.active_duration,
-            "has_gps": ex.exercise_metadata.has_gps if ex.exercise_metadata else None,
-        }
+        if self.entity_description.key == "type":
+            ex = data.latest
+            if ex is None:
+                return None
+            return {
+                "display_name": ex.display_name,
+                "start_time": ex.interval.start_time,
+                "end_time": ex.interval.end_time,
+                "active_duration": ex.active_duration,
+                "has_gps": ex.exercise_metadata.has_gps
+                if ex.exercise_metadata
+                else None,
+            }
+        if self.entity_description.key == "recent_count":
+            return {"workouts": _format_workouts(data)}
+        return None
 
 
 async def async_setup_entry(
