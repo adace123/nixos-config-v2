@@ -12,8 +12,6 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.const import (
-    UnitOfEnergy,
-    UnitOfFrequency,
     UnitOfLength,
     UnitOfSpeed,
     UnitOfTime,
@@ -104,8 +102,7 @@ SENSOR_DESCRIPTIONS: list[WorkoutSensorEntityDescription] = [
         key="avg_heart_rate",
         name="Last Workout Average Heart Rate",
         icon="mdi:heart-pulse",
-        native_unit_of_measurement=UnitOfFrequency.BEATS_PER_MINUTE,
-        device_class=SensorDeviceClass.HEART_RATE,
+        native_unit_of_measurement="bpm",
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda data: (
             data.latest.metrics_summary.average_heart_rate_beats_per_minute
@@ -119,7 +116,7 @@ SENSOR_DESCRIPTIONS: list[WorkoutSensorEntityDescription] = [
         key="calories",
         name="Last Workout Calories",
         icon="mdi:fire",
-        native_unit_of_measurement=UnitOfEnergy.KILO_CALORIES,
+        native_unit_of_measurement="kcal",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda data: (
@@ -142,7 +139,7 @@ SENSOR_DESCRIPTIONS: list[WorkoutSensorEntityDescription] = [
             )
             if data
             and data.latest
-            and data.latest.metrics_summary.elevation_gain_millimeters
+            and data.latest.metrics_summary.elevation_gain_millimeters is not None
             else None
         ),
     ),
