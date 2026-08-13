@@ -1,0 +1,18 @@
+- id: "workout_complete_notification"
+  alias: "Workout - Complete Notification"
+  description: "Phone notification after a Biking, Walking, or Running workout completes."
+  mode: "single"
+  trigger:
+    - platform: state
+      entity_id: sensor.last_workout_type
+      attribute: start_time
+  condition:
+    - condition: template
+      value_template: >-
+        {{ states('sensor.last_workout_type') in ['Biking', 'Walking', 'Running'] }}
+  action:
+    - action: notify.mobile_app_aaron_cell
+      data:
+        title: "Workout complete"
+        message: >-
+          {{ states('sensor.last_workout_type') }}: {{ states('sensor.last_workout_distance') }} mi in {{ (states('sensor.last_workout_duration') | float(0)) | round(0) }} min{% if states('sensor.last_workout_average_speed') not in ['unknown','unavailable'] %} · {{ states('sensor.last_workout_average_speed') }} mph{% endif %}{% if states('sensor.last_workout_average_heart_rate') not in ['unknown','unavailable'] %} · {{ states('sensor.last_workout_average_heart_rate') }} bpm{% endif %}{% if states('sensor.last_workout_calories') not in ['unknown','unavailable'] %} · {{ (states('sensor.last_workout_calories') | float(0)) | round(0) }} kcal{% endif %}

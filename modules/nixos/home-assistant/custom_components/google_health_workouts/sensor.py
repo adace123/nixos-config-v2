@@ -119,7 +119,6 @@ SENSOR_DESCRIPTIONS: list[WorkoutSensorEntityDescription] = [
         name="Last Workout Calories",
         icon="mdi:fire",
         native_unit_of_measurement="kcal",
-        device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda data: (
             round(data.latest.metrics_summary.calories_kcal, 0)

@@ -119,9 +119,23 @@ target:
 
 A small git-tracked custom integration (`google_health_workouts`) that exposes
 per-workout sensors from the [Google Health API](https://developers.google.com/health)
-`exercise` data type — the things the stock `google_health` and Health Sync
-integrations do not provide (they only expose daily rollups and last-workout
-type/duration).
+`exercise` data type. The stock `google_health` integration only exposes daily
+rollups; this one fills the per-workout gap (distance, average speed, average
+heart rate, calories, elevation).
+
+Health data now flows through two canonical integrations:
+
+- **`google_health`** (official, built-in) — daily rollups: steps, distance,
+  active/total calories, floors, weight, resting heart rate, body fat, sleep
+  durations, hydration, and Charge 6 / MobileTrack battery + last-sync.
+- **`google_health_workouts`** (this repo) — per-workout session details.
+
+The third-party **Health Sync by ResiyHome** integration (HACS) was removed as
+redundant (2026-08-12); its workout type/duration and daily aggregates are
+covered by the two integrations above. Its component files remain in
+`custom_components/` (inactive without a config entry) and can be uninstalled
+from HACS if desired. Its exercise/active-zone-minute sensors were dropped from
+the dashboard (no `google_health` equivalent).
 
 Sensors created per workout: type, duration, distance (mi), average speed
 (mph), average heart rate (bpm), calories (kcal), elevation (ft), plus a
