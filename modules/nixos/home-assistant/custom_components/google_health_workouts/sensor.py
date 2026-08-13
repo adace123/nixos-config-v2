@@ -54,7 +54,9 @@ SENSOR_DESCRIPTIONS: list[WorkoutSensorEntityDescription] = [
         name="Last Workout Type",
         icon="mdi:run-fast",
         value_fn=lambda data: (
-            data.latest.exercise_type.title() if data and data.latest else None
+            data.latest.exercise_type.replace("_", " ").title()
+            if data and data.latest
+            else None
         ),
     ),
     WorkoutSensorEntityDescription(

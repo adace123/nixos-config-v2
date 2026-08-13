@@ -18,6 +18,7 @@ let
     cp ${./automations/system-monitor-alerts.yaml} $out/automations/system-monitor-alerts.yaml
     cp ${./automations/front-door-light-motion.yaml} $out/automations/front-door-light-motion.yaml
     cp ${./automations/car-maintenance.yaml} $out/automations/car-maintenance.yaml
+    cp ${./automations/charge-6-battery.yaml} $out/automations/charge-6-battery.yaml
     cp ${./scripts/car-maintenance.yaml} $out/scripts/car-maintenance.yaml
     cp ${./dashboards/system.yaml} $out/dashboards/system.yaml
     install -m0755 ${./car_scripts/car_rate.py} $out/car_scripts/car_rate.py

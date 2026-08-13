@@ -1,0 +1,13 @@
+- id: "charge_6_low_battery"
+  alias: "Charge 6 - Low Battery"
+  description: "Ping the phone when the Fitbit Charge 6 battery is low."
+  mode: "single"
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.charge_6_battery
+      below: 20
+  action:
+    - action: notify.mobile_app_aaron_cell
+      data:
+        title: "Charge 6 battery low"
+        message: "Fitbit Charge 6 is at {{ states('sensor.charge_6_battery') }}%. Time to charge it."
