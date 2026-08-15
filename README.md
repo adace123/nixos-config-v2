@@ -23,7 +23,8 @@ flake.nix
     │   ├── ESPHome         (ESP device manager, port 6052)
     │   ├── Beszel Hub      (server monitoring, port 8090)
     │   └── Caddy           (HTTPS reverse proxy, Cloudflare DNS-01)
-    └── dathomir       — Oracle Cloud VPS (OCI image, OpenTofu)
+    ├── dathomir       — Oracle Cloud VPS (OCI image, OpenTofu)
+    └── threepio       — Turing Pi 2 node (CM4, SD storage)
 ```
 
 ### How the pieces fit together
@@ -48,6 +49,8 @@ modules/
     ├── base.nix                # hostname, SOPS, Tailscale auth
     ├── caddy.nix               # Caddy reverse proxy (Cloudflare DNS)
     ├── installer.nix           # SD-card installer image
+    ├── rpi-boot.nix            # shared RPi kernel/boot settings
+    ├── sd.nix                  # SD-card root storage (TP2 nodes)
     ├── ssd.nix                 # Disko SSD partition layout + boot config
     └── home-assistant/         # HA container, MQTT, Zigbee2MQTT, ESPHome
 
@@ -58,8 +61,14 @@ its identity and shared modules provide the behavior:
 hosts/
 ├── endor/           # Darwin workstation identity (hostname, user, system)
 ├── coruscant/       # NixOS Raspberry Pi identity (hostname, system)
-└── dathomir/        # NixOS OCI VPS identity (hostname, system)
+├── dathomir/        # NixOS OCI VPS identity (hostname, system)
+├── threepio/        # NixOS Turing Pi 2 node (CM4, SD storage)
+└── rpi-keys.nix     # SSH keys shared by all Pi/Turing Pi hosts
 ```
+
+Binary cache config (substituters + keys) lives in one place — `nix-caches.nix`
+at the repo root — imported by the NixOS and home-manager modules (flake
+`nixConfig` must stay a literal copy for nix to read it).
 
 ## Quick Start
 

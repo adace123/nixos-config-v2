@@ -14,7 +14,9 @@
     }:
     {
       # Formatter used by `nix fmt` (kept in sync with the pre-commit nixfmt hook)
-      formatter = pkgs.nixfmt;
+      # nixfmt-tree discovers the git tree itself — bare nixfmt reads stdin and
+      # breaks `nix fmt` (empty input parse error).
+      formatter = pkgs.nixfmt-tree;
 
       # Pre-commit hooks configuration
       pre-commit.settings.hooks = {

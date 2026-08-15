@@ -1,13 +1,13 @@
 {
   config,
   lib,
-  pkgs,
   inputs,
   ...
 }:
 {
   imports = [
     ./base.nix
+    ./rpi-boot.nix
     inputs.disko.nixosModules.disko
   ];
 
@@ -44,23 +44,12 @@
     };
   };
 
-  # Use stock mainline kernel from cache.nixos.org instead of vendor RPi kernel
-  # (avoids 30+ min source build — vendor kernel not in binary cache)
-  boot.kernelPackages = lib.mkForce pkgs.linuxPackages_latest;
-  boot.loader.raspberry-pi = {
-    bootloader = "kernel";
-    configurationLimit = 2;
-  };
   boot.initrd.availableKernelModules = [
     "uas"
     "usb_storage"
     "sd_mod"
     "scsi_mod"
   ];
-  boot.kernelParams = [ "rootwait" ];
 
-  services.fstrim.enable = true;
-
-  fileSystems."/boot/firmware".neededForBoot = true;
   systemd.tmpfiles.rules = [ "d /boot/firmware 0755 root root -" ];
 }

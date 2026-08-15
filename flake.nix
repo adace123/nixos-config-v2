@@ -2,7 +2,9 @@
   description = "macOS system configuration with nix-darwin, Raspberry Pi, and VPS NixOS";
 
   # Binary caches for building flake outputs
-  # NOTE: Keep in sync with the home-manager nix config in modules/home/default.nix
+  # NOTE: nixConfig must stay a literal set (nix reads it without evaluating
+  # imports), so this duplicates nix-caches.nix — keep both in sync. The
+  # NixOS/home modules import nix-caches.nix directly.
   nixConfig = {
     extra-substituters = [
       "https://cache.numtide.com"

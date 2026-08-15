@@ -17,6 +17,7 @@ modules/nixos/                  # host-specific modules
   home-assistant/               # HA container + MQTT + Zigbee2MQTT + ESPHome
   caddy.nix                     # Caddy reverse proxy (Cloudflare DNS)
   ssd.nix                       # Disko SSD partition layout + boot config
+  rpi-boot.nix                  # Shared RPi kernel/boot settings
   installer.nix                 # Minimal SD-card installer image
   configuration.yaml            # Home Assistant base configuration template
 ```
@@ -100,12 +101,42 @@ the **full image** against the device after flashing. If a CI-built image is
 older than the latest commit or `flake.lock`, it warns and defaults to
 rebuilding locally.
 
+You can also flash any pre-built image directly (official ISO, downloaded
+`.img`, …) — compression (`.zst`/`.gz`/`.xz`) is detected automatically:
+
+```bash
+just nixos-flash /dev/sdX /path/to/image.img.zst
+just nixos-flash /dev/sdX /path/to/nixos-minimal-aarch64.iso
+```
+
+Non-interactive use (CI, agents):
+
+```bash
+YES=1 just nixos-flash /dev/sdX
+```
+
 ### Locally (requires aarch64-linux support)
 
 ```bash
 nix build .#nixosConfigurations.coruscant-sd-image.config.system.build.sdImage
 just nixos-flash /dev/sdX
 ```
+
+## Turing Pi 2 nodes (`threepio`)
+
+TP2 nodes are Raspberry Pi Compute Module 4 (aarch64, same SoC as the Pi 4).
+`threepio` is the first one, booting from the SD card (see
+`modules/nixos/sd.nix`). Because there is no separate SSD to install onto,
+the `threepio-sd-image` config bakes the **production** configuration (unlike
+`coruscant-sd-image`, which is a minimal installer):
+
+```bash
+just nixos-build-ci NHOST=threepio
+just nixos-flash NHOST=threepio /dev/sdX
+```
+
+After first boot, copy the SOPS age key (see Secrets below), then deploy
+updates with `just nixos-deploy NHOST=threepio`.
 
 ## Day-to-Day Operations
 

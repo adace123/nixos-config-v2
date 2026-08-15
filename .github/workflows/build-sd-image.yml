@@ -18,6 +18,7 @@ on:
       - "flake.lock"
       - "flake-parts/nixos.nix"
       - "hosts/coruscant/**"
+      - "hosts/threepio/**"
       - "hosts/default.nix"
       - "modules/nixos/common.nix"
       - "modules/nixos/installer.nix"

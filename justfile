@@ -5,7 +5,9 @@ default:
     @just --list
 
 # Default Darwin configuration hostname (override with: just <recipe> HOST=<name>)
-HOST := "endor"
+# Exported so the DARWIN_* command strings below can use $HOST (just does not
+# interpolate {{ }} inside := definitions).
+export HOST := "endor"
 
 # Default NixOS configuration hostname (override with: just <recipe> NHOST=<name>)
 NHOST := "coruscant"
@@ -15,9 +17,9 @@ NINSTALL := "coruscant"
 
 # Each variable self-selects nh vs the darwin-rebuild/nix-collect-garbage fallback at
 # runtime, so recipes stay single-line and the fork logic lives in one place.
-DARWIN_BUILD := "if command -v nh >/dev/null 2>&1; then nh darwin build .#darwinConfigurations.{{ HOST }}; else darwin-rebuild build --flake .#darwinConfigurations.{{ HOST }}; fi"
-DARWIN_CHECK := "if command -v nh >/dev/null 2>&1; then nh darwin build --dry .#darwinConfigurations.{{ HOST }}; else darwin-rebuild build --flake .#darwinConfigurations.{{ HOST }}; fi"
-DARWIN_SWITCH := "if command -v nh >/dev/null 2>&1; then nh darwin switch .#darwinConfigurations.{{ HOST }}; else sudo darwin-rebuild switch --flake .#darwinConfigurations.{{ HOST }}; fi"
+DARWIN_BUILD := "if command -v nh >/dev/null 2>&1; then nh darwin build .#darwinConfigurations.$HOST; else darwin-rebuild build --flake .#darwinConfigurations.$HOST; fi"
+DARWIN_CHECK := "if command -v nh >/dev/null 2>&1; then nh darwin build --dry .#darwinConfigurations.$HOST; else darwin-rebuild build --flake .#darwinConfigurations.$HOST; fi"
+DARWIN_SWITCH := "if command -v nh >/dev/null 2>&1; then nh darwin switch .#darwinConfigurations.$HOST; else sudo darwin-rebuild switch --flake .#darwinConfigurations.$HOST; fi"
 DARWIN_GENERATIONS := "if command -v nh >/dev/null 2>&1; then nh darwin generations; else darwin-rebuild --list-generations; fi"
 DARWIN_ROLLBACK := "if command -v nh >/dev/null 2>&1; then nh darwin rollback; else darwin-rebuild --rollback; fi"
 CLEAN_30D := "if command -v nh >/dev/null 2>&1; then nh clean all --keep-since 30d; else sudo nix-collect-garbage --delete-older-than 30d; fi"
@@ -253,43 +255,65 @@ nixos-build:
     set -euo pipefail
     nix build .#nixosConfigurations.{{ NHOST }}.config.system.build.toplevel --out-link result-nixos
 
-# Build and flash an SD card image for an ARM host (device e.g. /dev/sda)
-# NHOST: host to flash (default: {{ NHOST }}; must have a '-sd-image' variant)
-# If a CI-built image exists in result-sd-ci-<host>/, prompts whether to use it
-# (warns when the CI image predates the latest commit or flake.lock)
+# Flash a NixOS image to a device (SD card, USB stick, …)
+# DEVICE: target device, e.g. /dev/disk5 (required)
+# IMAGE:  optional path to a pre-built image (.img/.iso/.img.zst/.img.gz/.img.xz);
+#         when omitted, uses the <NHOST>-sd-image flake config — a CI-built image
+#         from result-sd-ci-<host>/ if available, otherwise built locally.
+# NHOST:  host whose '-sd-image' config to build/flash (default: {{ NHOST }})
+# YES=1:  skip all interactive prompts (non-interactive use)
 [group('nixos')]
-nixos-flash DEVICE:
+nixos-flash DEVICE IMAGE="":
     #!/usr/bin/env bash
     set -euo pipefail
     HOST="{{ NHOST }}"
     DEV="{{ DEVICE }}"
     IMG=""
 
-    # Prefer the newest CI-built image for this host, if one exists
-    # (find handles any nesting gh run download may produce)
-    CI_IMG=""
-    CI_IMG_MTIME=0
-    while IFS= read -r f; do
-        MT=$(stat -f%m "$f" 2>/dev/null || stat -c%Y "$f")
-        if [ "$MT" -gt "$CI_IMG_MTIME" ]; then
-            CI_IMG="$f"
-            CI_IMG_MTIME="$MT"
-        fi
-    done < <(find "result-sd-ci-$HOST" -name '*.img.zst' -type f 2>/dev/null)
-    if [ -n "$CI_IMG" ]; then
-        echo "Found CI-built image: $CI_IMG"
-        # Stale check: prefer rebuilding when the image predates the latest commit or flake.lock
-        LAST_CHANGE=0
-        [ -f flake.lock ] && LAST_CHANGE=$(stat -f%m flake.lock 2>/dev/null || stat -c%Y flake.lock)
-        HEAD_TIME=$(git log -1 --format=%ct 2>/dev/null || echo 0)
-        [ "$HEAD_TIME" -gt "$LAST_CHANGE" ] && LAST_CHANGE=$HEAD_TIME
-        if [ "$CI_IMG_MTIME" -lt "$LAST_CHANGE" ]; then
-            echo "⚠️  It is older than the latest commit/flake.lock — config may have changed since it was built."
-            read -p "Use it anyway? [y/N] " -r
-            [[ $REPLY =~ ^[Yy]$ ]] && IMG="$CI_IMG"
-        else
-            read -p "Use this image instead of building locally? [Y/n] " -r
-            [[ $REPLY =~ ^[Nn]$ ]] || IMG="$CI_IMG"
+    # When YES=1, never block on prompts
+    auto() { [ "${YES:-0}" = "1" ]; }
+
+    if [ -n "{{ IMAGE }}" ]; then
+        # Explicit image path — no build needed
+        IMG="{{ IMAGE }}"
+        [ -f "$IMG" ] || { echo "ERROR: image not found: $IMG"; exit 1; }
+    fi
+
+    if [ -z "$IMG" ]; then
+        # Prefer the newest CI-built image for this host, if one exists
+        # (find handles any nesting gh run download may produce)
+        CI_IMG=""
+        CI_IMG_MTIME=0
+        while IFS= read -r f; do
+            MT=$(stat -f%m "$f" 2>/dev/null || stat -c%Y "$f")
+            if [ "$MT" -gt "$CI_IMG_MTIME" ]; then
+                CI_IMG="$f"
+                CI_IMG_MTIME="$MT"
+            fi
+        done < <(find "result-sd-ci-$HOST" -name '*.img.zst' -type f 2>/dev/null)
+        if [ -n "$CI_IMG" ]; then
+            echo "Found CI-built image: $CI_IMG"
+            # Stale check: prefer rebuilding when the image predates the latest commit or flake.lock
+            LAST_CHANGE=0
+            [ -f flake.lock ] && LAST_CHANGE=$(stat -f%m flake.lock 2>/dev/null || stat -c%Y flake.lock)
+            HEAD_TIME=$(git log -1 --format=%ct 2>/dev/null || echo 0)
+            [ "$HEAD_TIME" -gt "$LAST_CHANGE" ] && LAST_CHANGE=$HEAD_TIME
+            if [ "$CI_IMG_MTIME" -lt "$LAST_CHANGE" ]; then
+                echo "⚠️  It is older than the latest commit/flake.lock — config may have changed since it was built."
+                if auto; then
+                    IMG="$CI_IMG"
+                else
+                    read -p "Use it anyway? [y/N] " -r
+                    [[ $REPLY =~ ^[Yy]$ ]] && IMG="$CI_IMG"
+                fi
+            else
+                if auto; then
+                    IMG="$CI_IMG"
+                else
+                    read -p "Use this image instead of building locally? [Y/n] " -r
+                    [[ $REPLY =~ ^[Nn]$ ]] || IMG="$CI_IMG"
+                fi
+            fi
         fi
     fi
 
@@ -315,13 +339,24 @@ nixos-flash DEVICE:
                 || echo "(Note: $DEV was not mounted or is unmountable — continuing)"
         fi
     fi
-    read -p "Type '$DEV' to continue: " -r CONFIRM
-    if [ "$CONFIRM" != "$DEV" ]; then
-        echo "Aborted."
-        exit 1
+    if ! auto; then
+        read -p "Type '$DEV' to continue: " -r CONFIRM
+        if [ "$CONFIRM" != "$DEV" ]; then
+            echo "Aborted."
+            exit 1
+        fi
     fi
-    IMG_FILE="/tmp/nixos-sd-image-$HOST.img"
-    unzstd -d -f "$IMG" -o "$IMG_FILE"
+
+    # Decompress when the image is compressed (CI/local builds are .zst; an explicit
+    # IMAGE= may be any raw image or a common compression). Only temp copies are removed.
+    TEMP_IMG=""
+    case "$IMG" in
+        *.zst) TEMP_IMG="/tmp/nixos-flash-$HOST-$$.img"; unzstd -d -f "$IMG" -o "$TEMP_IMG" ;;
+        *.gz)  TEMP_IMG="/tmp/nixos-flash-$HOST-$$.img"; gzip -d -c "$IMG" > "$TEMP_IMG" ;;
+        *.xz)  TEMP_IMG="/tmp/nixos-flash-$HOST-$$.img"; xz -d -c "$IMG" > "$TEMP_IMG" ;;
+    esac
+    IMG_FILE="${TEMP_IMG:-$IMG}"
+
     # macOS: write to the raw device (rdisk) — bypasses the buffer cache for much faster dd
     WDEVICE=$(echo "$DEV" | sed 's|/dev/disk|/dev/rdisk|')
     sudo dd if="$IMG_FILE" of="$WDEVICE" bs=1M status=progress conv=fsync
@@ -342,9 +377,10 @@ nixos-flash DEVICE:
     echo "Device (sha256): $DEV_HASH"
     if [ "$IMG_HASH" = "$DEV_HASH" ]; then
         echo "✅ Flash verified successfully!"
-        rm -f "$IMG_FILE"
+        [ -n "$TEMP_IMG" ] && rm -f "$TEMP_IMG"
     else
         echo "❌ Verification FAILED — device content does not match the image!"
+        [ -n "$TEMP_IMG" ] && rm -f "$TEMP_IMG"
         exit 1
     fi
 

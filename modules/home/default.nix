@@ -1,8 +1,12 @@
 {
   config,
+  lib,
   pkgs,
   ...
 }:
+let
+  caches = import ../../nix-caches.nix;
+in
 {
   imports = [
     ./python.nix
@@ -92,14 +96,14 @@
   # Nix configuration
   # Written to ~/.config/nix/nix.conf since nix-darwin has nix.enable = false
   # (using Determinate Nix installer instead)
-  # Keep substituters/keys in sync with flake.nix `nixConfig` and
-  # modules/nixos/common.nix.
+  # Single source of truth: nix-caches.nix (also used by flake.nix `nixConfig`
+  # and modules/nixos/common.nix).
   xdg.configFile."nix/nix.conf".text = ''
     experimental-features = nix-command flakes
     max-jobs = auto
     cores = 0
-    extra-substituters = https://cache.numtide.com https://cache.nixos.org https://nix-community.cachix.org https://nixos-raspberrypi.cachix.org
-    extra-trusted-public-keys = niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g= nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs= nixos-raspberrypi.cachix.org-1:4iMO9LXa8BqhU+Rpg6LQKiGa2lsNh/j2oiYLNOQ5sPI=
+    extra-substituters = ${lib.concatStringsSep " " caches.extra-substituters}
+    extra-trusted-public-keys = ${lib.concatStringsSep " " caches.extra-trusted-public-keys}
   '';
 
   # Programs configuration

@@ -1,4 +1,7 @@
 { config, host, ... }:
+let
+  caches = import ../../nix-caches.nix;
+in
 {
   # System state version
   system.stateVersion = "24.11";
@@ -40,19 +43,10 @@
     auto-optimise-store = true;
     max-jobs = 4;
     cores = 4;
-    # Keep in sync with flake.nix `nixConfig` and modules/home/default.nix.
-    extra-substituters = [
-      "https://cache.numtide.com"
-      "https://cache.nixos.org"
-      "https://nix-community.cachix.org"
-      "https://nixos-raspberrypi.cachix.org"
-    ];
-    extra-trusted-public-keys = [
-      "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
-      "nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
-      "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
-      "nixos-raspberrypi.cachix.org-1:4iMO9LXa8BqhU+Rpg6LQKiGa2lsNh/j2oiYLNOQ5sPI="
-    ];
+    # Single source of truth: nix-caches.nix (also used by flake.nix `nixConfig`
+    # and modules/home/default.nix).
+    extra-substituters = caches.extra-substituters;
+    extra-trusted-public-keys = caches.extra-trusted-public-keys;
   };
 
   # Networking — DHCP on all interfaces

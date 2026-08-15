@@ -286,7 +286,7 @@ Evaluation can still be verified locally: `nix eval .#nixosConfigurations.<name>
 The `build-sd-image.yml` workflow builds an aarch64-linux SD image on a
 **native `ubuntu-24.04-arm` runner** (no QEMU emulation). It builds
 `.#nixosConfigurations.<host>-sd-image.config.system.build.sdImage` for any
-host with an `-sd-image` variant (currently only `coruscant`), triggered
+host with an `-sd-image` variant (`coruscant`, `threepio`), triggered
 manually (with a `host` input) or by path-filtered pushes. Key lessons:
 
 - **Must `git push` before triggering**: `gh workflow run --ref main`
