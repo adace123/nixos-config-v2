@@ -369,10 +369,26 @@ nixos-flash DEVICE IMAGE="":
     IMG_SIZE=$(stat -f%z "$IMG_FILE" 2>/dev/null || stat -c%s "$IMG_FILE")
     COUNT=$(( (IMG_SIZE + 1048575) / 1048576 ))
     echo "Hashing first $IMG_SIZE bytes of $RDEVICE (reads the whole image)..."
-    # Read exactly IMG_SIZE bytes: dd rounds up to 1M blocks, head truncates the tail
-    set +o pipefail
-    DEV_HASH=$(sudo dd if="$RDEVICE" bs=1M count="$COUNT" 2>/dev/null | head -c "$IMG_SIZE" | shasum -a 256 | awk '{print $1}')
-    set -o pipefail
+    # Read to a temp file instead of a pipe: dd's exit status and the actual
+    # byte count stay visible, so a flaky reader that errors mid-read can't
+    # silently produce a truncated hash (previously hidden by 2>/dev/null with
+    # pipefail off — it read ~1.5GB, hashed that, and reported a false mismatch).
+    VERIFY_FILE="/tmp/nixos-flash-verify-$$.img"
+    if ! sudo dd if="$RDEVICE" bs=1M count="$COUNT" of="$VERIFY_FILE" 2>&1; then
+        echo "❌ Read-back failed — the device could not be read (flaky reader or card?)."
+        rm -f "$VERIFY_FILE" "$TEMP_IMG"
+        exit 1
+    fi
+    VERIFY_SIZE=$(stat -f%z "$VERIFY_FILE" 2>/dev/null || stat -c%s "$VERIFY_FILE")
+    if [ "$VERIFY_SIZE" -lt "$IMG_SIZE" ]; then
+        echo "❌ Read-back too short: got $VERIFY_SIZE bytes, expected $IMG_SIZE — device read is unreliable."
+        rm -f "$VERIFY_FILE" "$TEMP_IMG"
+        exit 1
+    fi
+    # dd rounds up to 1M blocks; trim to the exact image size before hashing
+    head -c "$IMG_SIZE" "$VERIFY_FILE" > "$VERIFY_FILE.trim" && mv "$VERIFY_FILE.trim" "$VERIFY_FILE"
+    DEV_HASH=$(shasum -a 256 "$VERIFY_FILE" | awk '{print $1}')
+    rm -f "$VERIFY_FILE"
     echo "Image  (sha256): $IMG_HASH"
     echo "Device (sha256): $DEV_HASH"
     if [ "$IMG_HASH" = "$DEV_HASH" ]; then
