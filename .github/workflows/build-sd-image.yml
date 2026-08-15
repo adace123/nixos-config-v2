@@ -1,48 +1,77 @@
-name: Build Raspberry Pi SD Image
+name: Build ARM SD Image
 on:
   workflow_dispatch:
     inputs:
       host:
-        description: "NixOS configuration to build"
+        description: "NixOS configuration to build (must have a '-sd-image' variant in flake-parts/nixos.nix)"
         default: "coruscant"
         type: string
   push:
-    tags:
-      - "build-sd-*"
+    branches:
+      - main
+    paths:
+      # Only rebuild when something the image depends on changes. The sd-image config
+      # pulls in installer.nix + common.nix; add hosts/<arm-host>/** paths here as
+      # more ARM hosts gain '-sd-image' variants.
+      - ".github/workflows/build-sd-image.yml"
+      - "flake.nix"
+      - "flake.lock"
+      - "flake-parts/nixos.nix"
+      - "hosts/coruscant/**"
+      - "hosts/default.nix"
+      - "modules/nixos/common.nix"
+      - "modules/nixos/installer.nix"
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.host || 'coruscant' }}
   cancel-in-progress: true
+env:
+  IMAGE_HOST: ${{ inputs.host || 'coruscant' }}
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Native arm64 runner — no QEMU emulation, sandbox stays enabled, and the
+    # default system is already aarch64-linux (no --system flag needed).
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v7
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v22
         with:
           flakehub: false
-          extra-conf: |
-            extra-platforms = aarch64-linux
-            sandbox = false
-            extra-trusted-substituters = https://nixos-raspberrypi.cachix.org
-            extra-trusted-public-keys = nixos-raspberrypi.cachix.org-1:4iMO9LXa8BqhU+Rpg6LQKiGa2lsNh/j2oiYLNOQ5sPI=
-      - name: Enable aarch64-linux emulation
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
       - name: Build SD image
         run: |
-          nix build .#nixosConfigurations.${{ inputs.host || 'coruscant' }}-sd-image.config.system.build.sdImage \
-            --system aarch64-linux \
+          nix build .#nixosConfigurations.${{ env.IMAGE_HOST }}-sd-image.config.system.build.sdImage \
             --print-build-logs \
             --accept-flake-config
-      - name: Compress image
+      - name: Collect image and checksums
         run: |
+          set -euo pipefail
           mkdir -p /tmp/artifact
-          cp result/sd-image/*.img.zst /tmp/artifact/
+          IMG="$(find result/sd-image -name '*.img.zst' -print -quit)"
+          cp "$IMG" /tmp/artifact/
+          cd /tmp/artifact
+          IMG_BASENAME="$(basename "$IMG")"
+          sha256sum "$IMG_BASENAME" > sha256sums.txt
+          {
+            echo "image: $IMG_BASENAME"
+            echo "compressed size (bytes): $(stat -c%s "$IMG_BASENAME")"
+            unzstd -l "$IMG_BASENAME" | tail -n +2
+          } > image-info.txt
+      - name: Publish build summary
+        run: |
+          set -euo pipefail
+          IMG_BASENAME="$(find result/sd-image -name '*.img.zst' -print -quit | xargs -n1 basename)"
+          {
+            echo "## SD image build: \`${{ env.IMAGE_HOST }}\`"
+            echo ""
+            echo "- Image: \`$IMG_BASENAME\`"
+            echo "- SHA-256: \`$(awk '{print $1}' /tmp/artifact/sha256sums.txt)\`"
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload image
         uses: actions/upload-artifact@v7
         with:
-          name: nixos-sd-image-${{ inputs.host || 'coruscant' }}
-          path: /tmp/artifact/*.img.zst
-          retention-days: 7
+          # Name includes the commit SHA so distinct builds never collide
+          # (keep in sync with the `nixos-build-ci` just recipe's download name)
+          name: nixos-sd-image-${{ env.IMAGE_HOST }}-${{ github.sha }}
+          path: /tmp/artifact/*
+          if-no-files-found: error
+          retention-days: 14

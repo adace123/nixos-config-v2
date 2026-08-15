@@ -142,8 +142,12 @@ repository secret. See
 
 ```bash
 just nixos-build-ci
-# Image saved to result-sd-ci/
+# Image saved to result-sd-ci-coruscant/
 ```
+
+The workflow runs on a native arm64 runner (no QEMU emulation) and can build
+any host with an `-sd-image` variant via `NHOST=<host>`. Artifacts are named
+with the commit SHA they were built from, and include `sha256sums.txt`.
 
 ### Build locally
 
@@ -155,7 +159,12 @@ nix build .#nixosConfigurations.coruscant-sd-image.config.system.build.sdImage
 
 ```bash
 just nixos-flash /dev/sdX
+# or for a specific host:
+just nixos-flash NHOST=<host> /dev/sdX
 ```
+
+`nixos-flash` unmounts the card first, prompts before overwriting, and verifies
+the full image against the device after flashing.
 
 ---
 

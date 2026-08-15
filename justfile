@@ -253,58 +253,103 @@ nixos-build:
     set -euo pipefail
     nix build .#nixosConfigurations.{{ NHOST }}.config.system.build.toplevel --out-link result-nixos
 
-# Build and flash an SD card image for the Pi (device e.g. /dev/sda)
-# If result-sd-ci/ has a pre-built image, prompts whether to use it
+# Build and flash an SD card image for an ARM host (device e.g. /dev/sda)
+# NHOST: host to flash (default: {{ NHOST }}; must have a '-sd-image' variant)
+# If a CI-built image exists in result-sd-ci-<host>/, prompts whether to use it
+# (warns when the CI image predates the latest commit or flake.lock)
 [group('nixos')]
 nixos-flash DEVICE:
     #!/usr/bin/env bash
     set -euo pipefail
-    CI_IMGS=(result-sd-ci/*.img.zst)
-    if [ -f "${CI_IMGS[0]}" ]; then
-        echo "Found CI-built image: ${CI_IMGS[0]}"
-        read -p "Use this image instead of building locally? [Y/n] " -r
-        if [[ $REPLY =~ ^[Yy]?$ ]]; then
-            IMG="${CI_IMGS[0]}"
+    HOST="{{ NHOST }}"
+    DEV="{{ DEVICE }}"
+    IMG=""
+
+    # Prefer the newest CI-built image for this host, if one exists
+    # (find handles any nesting gh run download may produce)
+    CI_IMG=""
+    CI_IMG_MTIME=0
+    while IFS= read -r f; do
+        MT=$(stat -f%m "$f" 2>/dev/null || stat -c%Y "$f")
+        if [ "$MT" -gt "$CI_IMG_MTIME" ]; then
+            CI_IMG="$f"
+            CI_IMG_MTIME="$MT"
+        fi
+    done < <(find "result-sd-ci-$HOST" -name '*.img.zst' -type f 2>/dev/null)
+    if [ -n "$CI_IMG" ]; then
+        echo "Found CI-built image: $CI_IMG"
+        # Stale check: prefer rebuilding when the image predates the latest commit or flake.lock
+        LAST_CHANGE=0
+        [ -f flake.lock ] && LAST_CHANGE=$(stat -f%m flake.lock 2>/dev/null || stat -c%Y flake.lock)
+        HEAD_TIME=$(git log -1 --format=%ct 2>/dev/null || echo 0)
+        [ "$HEAD_TIME" -gt "$LAST_CHANGE" ] && LAST_CHANGE=$HEAD_TIME
+        if [ "$CI_IMG_MTIME" -lt "$LAST_CHANGE" ]; then
+            echo "⚠️  It is older than the latest commit/flake.lock — config may have changed since it was built."
+            read -p "Use it anyway? [y/N] " -r
+            [[ $REPLY =~ ^[Yy]$ ]] && IMG="$CI_IMG"
+        else
+            read -p "Use this image instead of building locally? [Y/n] " -r
+            [[ $REPLY =~ ^[Nn]$ ]] || IMG="$CI_IMG"
         fi
     fi
-    if [ -z "${IMG-}" ]; then
-        nix build .#nixosConfigurations.{{ NHOST }}-sd-image.config.system.build.sdImage --out-link result-sd
-        IMG="result-sd/sd-image/"
+
+    if [ -z "$IMG" ]; then
+        echo "Building SD image for $HOST locally..."
+        nix build ".#nixosConfigurations.$HOST-sd-image.config.system.build.sdImage" --out-link "result-sd-$HOST"
+        IMG="$(find "result-sd-$HOST" -name '*.img.zst' -type f -print -quit)"
     fi
-    if [ -d "$IMG" ]; then
-        IMG=$(echo "$IMG"/*.img.zst)
-    fi
-    if [ ! -e "{{ DEVICE }}" ]; then
-        echo "ERROR: Device {{ DEVICE }} does not exist."
+    if [ -z "$IMG" ] || [ ! -s "$IMG" ]; then
+        echo "ERROR: no usable image found ($IMG)"
         exit 1
     fi
-    echo "About to overwrite {{ DEVICE }} with $IMG"
-    read -p "Type '{{ DEVICE }}' to continue: " -r CONFIRM
-    if [ "$CONFIRM" != "{{ DEVICE }}" ]; then
+    if [ ! -e "$DEV" ]; then
+        echo "ERROR: Device $DEV does not exist."
+        exit 1
+    fi
+    echo "About to overwrite $DEV with $IMG ($(du -h "$IMG" | cut -f1))"
+
+    # macOS auto-mounts SD card volumes — unmount them before raw-writing
+    if [ "$(uname)" = "Darwin" ] && [[ "$DEV" == /dev/disk* ]]; then
+        if ! diskutil unmountDisk "$DEV" 2>/dev/null; then
+            sudo diskutil unmountDisk "$DEV" 2>/dev/null \
+                || echo "(Note: $DEV was not mounted or is unmountable — continuing)"
+        fi
+    fi
+    read -p "Type '$DEV' to continue: " -r CONFIRM
+    if [ "$CONFIRM" != "$DEV" ]; then
         echo "Aborted."
         exit 1
     fi
-    unzstd -d -f "$IMG" -o /tmp/nixos-sd-image-{{ NHOST }}.img
+    IMG_FILE="/tmp/nixos-sd-image-$HOST.img"
+    unzstd -d -f "$IMG" -o "$IMG_FILE"
     # macOS: write to the raw device (rdisk) — bypasses the buffer cache for much faster dd
-    WDEVICE=$(echo "{{ DEVICE }}" | sed 's|/dev/disk|/dev/rdisk|')
-    sudo dd if=/tmp/nixos-sd-image-{{ NHOST }}.img of="$WDEVICE" bs=1M status=progress conv=fsync
+    WDEVICE=$(echo "$DEV" | sed 's|/dev/disk|/dev/rdisk|')
+    sudo dd if="$IMG_FILE" of="$WDEVICE" bs=1M status=progress conv=fsync
 
     echo ""
-    echo "Verifying flash (spot check first 10MB)..."
+    echo "Verifying flash (full-image checksum)..."
     sync
-    RDEVICE=$(echo "{{ DEVICE }}" | sed 's|/dev/disk|/dev/rdisk|')
-    IMG_SPOT=$(dd if=/tmp/nixos-sd-image-{{ NHOST }}.img bs=1M count=10 2>/dev/null | shasum -a 256 | cut -d' ' -f1)
-    echo "Image (first 10MB): $IMG_SPOT"
-    DEV_SPOT=$(sudo dd if="$RDEVICE" bs=1M count=10 2>/dev/null | shasum -a 256 | cut -d' ' -f1) || true
-    echo "Device (first 10MB): $DEV_SPOT"
-    if [ "$IMG_SPOT" = "$DEV_SPOT" ]; then
+    RDEVICE=$(echo "$DEV" | sed 's|/dev/disk|/dev/rdisk|')
+    IMG_HASH=$(shasum -a 256 "$IMG_FILE" | awk '{print $1}')
+    IMG_SIZE=$(stat -f%z "$IMG_FILE" 2>/dev/null || stat -c%s "$IMG_FILE")
+    COUNT=$(( (IMG_SIZE + 1048575) / 1048576 ))
+    echo "Hashing first $IMG_SIZE bytes of $RDEVICE (reads the whole image)..."
+    # Read exactly IMG_SIZE bytes: dd rounds up to 1M blocks, head truncates the tail
+    set +o pipefail
+    DEV_HASH=$(sudo dd if="$RDEVICE" bs=1M count="$COUNT" 2>/dev/null | head -c "$IMG_SIZE" | shasum -a 256 | awk '{print $1}')
+    set -o pipefail
+    echo "Image  (sha256): $IMG_HASH"
+    echo "Device (sha256): $DEV_HASH"
+    if [ "$IMG_HASH" = "$DEV_HASH" ]; then
         echo "✅ Flash verified successfully!"
+        rm -f "$IMG_FILE"
     else
-        echo "❌ Verification FAILED — checksum mismatch!"
+        echo "❌ Verification FAILED — device content does not match the image!"
         exit 1
     fi
 
 # Build SD image via GitHub Actions and download it
+# NHOST: host to build (default: {{ NHOST }}; must have a '-sd-image' variant)
 [group('nixos')]
 nixos-build-ci:
     #!/usr/bin/env bash
@@ -313,6 +358,7 @@ nixos-build-ci:
         echo "gh (GitHub CLI) is required. Install it with: brew install gh"
         exit 1
     fi
+    HOST="{{ NHOST }}"
     PREVIOUS_RUN_ID=$(gh run list \
       --workflow build-sd-image.yml \
       --branch main \
@@ -320,8 +366,8 @@ nixos-build-ci:
       --limit 1 \
       --json databaseId \
       --jq '.[0].databaseId // empty')
-    echo "Triggering CI build for {{ NHOST }}..."
-    gh workflow run build-sd-image.yml --ref main --field host={{ NHOST }}
+    echo "Triggering CI build for $HOST..."
+    gh workflow run build-sd-image.yml --ref main --field host="$HOST"
     echo "Waiting for GitHub to create the workflow run..."
     RUN_ID=""
     for _ in {1..12}; do
@@ -345,12 +391,15 @@ nixos-build-ci:
         exit 1
     fi
     echo "Run ID: $RUN_ID"
-    echo "Waiting for build to complete (this takes ~30-60 min)..."
+    echo "Waiting for build to complete (native arm64 runner, ~10-30 min)..."
     gh run watch "$RUN_ID" --exit-status
-    echo "Downloading artifact..."
-    [ -d result-sd-ci ] && rm -rf result-sd-ci
-    gh run download "$RUN_ID" --name "nixos-sd-image-{{ NHOST }}" --dir result-sd-ci
-    echo "Image saved to result-sd-ci/"
+    # Artifact name embeds the commit SHA the image was built from
+    SHA=$(gh run view "$RUN_ID" --json headSha --jq '.headSha')
+    CI_DIR="result-sd-ci-$HOST"
+    echo "Downloading artifact nixos-sd-image-$HOST-$SHA..."
+    [ -d "$CI_DIR" ] && rm -rf "$CI_DIR"
+    gh run download "$RUN_ID" --name "nixos-sd-image-$HOST-$SHA" --dir "$CI_DIR"
+    echo "Image saved to $CI_DIR/"
 
 # Deploy NixOS configuration to a remote host via SSH
 # TARGET: hostname or IP (default: {{ NHOST }}.local, e.g. just nixos-deploy 10.0.0.2)

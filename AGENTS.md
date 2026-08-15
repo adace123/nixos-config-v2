@@ -283,8 +283,11 @@ Evaluation can still be verified locally: `nix eval .#nixosConfigurations.<name>
 
 ### SD Image CI / GitHub Actions
 
-The `build-sd-image.yml` workflow builds an aarch64-linux SD image on
-`ubuntu-latest` using QEMU emulation. Key lessons:
+The `build-sd-image.yml` workflow builds an aarch64-linux SD image on a
+**native `ubuntu-24.04-arm` runner** (no QEMU emulation). It builds
+`.#nixosConfigurations.<host>-sd-image.config.system.build.sdImage` for any
+host with an `-sd-image` variant (currently only `coruscant`), triggered
+manually (with a `host` input) or by path-filtered pushes. Key lessons:
 
 - **Must `git push` before triggering**: `gh workflow run --ref main`
   uses whatever is on the remote `main` — local commits don't count.
@@ -292,9 +295,12 @@ The `build-sd-image.yml` workflow builds an aarch64-linux SD image on
   which requires OIDC auth. Set `flakehub: false`.
 - **No magic-nix-cache**: That action also requires FlakeHub auth and
   rate-limits easily. Remove it for infrequent builds.
-- **Cross-arch builds need config**: For `--system aarch64-linux` on
-  `x86_64-linux` via QEMU, set `extra-platforms = aarch64-linux` and
-  `sandbox = false` (or mount `/run/binfmt` into sandboxes).
+- **Keep the sandbox enabled**: on the native arm64 runner there is no
+  emulation, so no `extra-platforms` / `sandbox = false` hacks are needed.
+  Substituter/keys come from the flake's `nixConfig` via `--accept-flake-config`.
+- **Artifacts are named `nixos-sd-image-<host>-<sha>`** and include
+  `sha256sums.txt` — the `nixos-build-ci` just recipe resolves the SHA from
+  the run and must stay in sync with this naming.
 
 ## Special Considerations
 

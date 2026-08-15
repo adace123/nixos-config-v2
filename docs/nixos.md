@@ -78,20 +78,29 @@ just nixos-deploy 192.168.1.50
 
 ## Building the Installer SD Image
 
-### Via GitHub Actions (no local cross-compilation needed)
+### Via GitHub Actions (native arm64 runner, no local cross-compilation needed)
 
 ```bash
-just nixos-build-ci
+just nixos-build-ci                # build for the default host (coruscant)
+just nixos-build-ci NHOST=<host>   # ...or another ARM host with a '-sd-image' variant
 ```
 
 This triggers the `build-sd-image.yml` workflow, waits for it to finish, and
-downloads the image to `result-sd-ci/`. Then flash it:
+downloads the image to `result-sd-ci-<host>/` (e.g. `result-sd-ci-coruscant/`).
+Then flash it:
 
 ```bash
 just nixos-flash /dev/sdX
+# or for a specific host:
+just nixos-flash NHOST=<host> /dev/sdX
 ```
 
-### Locally (requires aarch64-linux support or QEMU)
+`nixos-flash` unmounts the card first, prompts before overwriting, and verifies
+the **full image** against the device after flashing. If a CI-built image is
+older than the latest commit or `flake.lock`, it warns and defaults to
+rebuilding locally.
+
+### Locally (requires aarch64-linux support)
 
 ```bash
 nix build .#nixosConfigurations.coruscant-sd-image.config.system.build.sdImage
