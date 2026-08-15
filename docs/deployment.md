@@ -54,7 +54,7 @@ just nixos-deploy
 ### Deploy to an explicit IP
 
 ```bash
-just nixos-deploy-ip 192.168.1.50
+just nixos-deploy 192.168.1.50
 ```
 
 ### Deploy to an explicit hostname / Tailscale address

@@ -10,7 +10,7 @@ This is a Nix flake-based configuration for managing macOS systems using nix-dar
 
 ### Primary Commands
 
-- `just check` - Run all checks (flake check, format, lint, pre-commit); `just validate` is an alias
+- `just check` - Run all checks (flake check, format, lint, pre-commit)
 - `nix flake check --all-systems` - Check flake for errors across all systems
 - `nh darwin build` - Build configuration without activating (requires manual activation via `just switch` which needs password)
 - `nh clean` - Enhanced garbage collection with better UX
@@ -263,7 +263,7 @@ ssh root@<host> "cd /tmp/nixos-config && nixos-rebuild switch --flake .#<hostnam
 
 # Option 3: Use just nixos-deploy (hostname configured in justfile)
 just nixos-deploy              # deploys to default host (coruscant)
-just nixos-deploy-ip 10.0.0.2 # deploys to specific IP
+just nixos-deploy 10.0.0.2     # deploys to specific IP
 ```
 
 Evaluation can still be verified locally: `nix eval .#nixosConfigurations.<name>.config.system.build.toplevel.drvPath`

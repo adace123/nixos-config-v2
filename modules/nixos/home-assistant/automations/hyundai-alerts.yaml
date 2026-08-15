@@ -1,0 +1,95 @@
+- id: "hyundai_alerts"
+  alias: "Hyundai alerts"
+  description: "Alert on Hyundai warning indicators (low fuel, brake fluid, washer fluid, low 12V battery, key fob battery, tire pressure, telematics silence) via Alexa and phone"
+  mode: single
+  triggers:
+    - id: fuel_low
+      trigger: state
+      entity_id: binary_sensor.2022_elantra_fuel_low_level
+      to: "on"
+    - id: brake_fluid
+      trigger: state
+      entity_id: binary_sensor.2022_elantra_brake_fluid_warning
+      to: "on"
+    - id: washer_fluid
+      trigger: state
+      entity_id: binary_sensor.2022_elantra_washer_fluid_warning
+      to: "on"
+    - id: car_battery
+      trigger: battery.level_crossed_threshold
+      target:
+        entity_id: sensor.2022_elantra_car_battery_level
+      options:
+        threshold:
+          type: below
+          value:
+            active_choice: number
+            number: 60
+    - id: smart_key_battery
+      trigger: state
+      entity_id: binary_sensor.2022_elantra_smart_key_battery_warning
+      to: "on"
+    - id: tire_pressure
+      trigger: state
+      entity_id: binary_sensor.2022_elantra_tire_pressure_all
+      to: "on"
+    - id: car_silent
+      trigger: state
+      entity_id: binary_sensor.car_telematics_stale
+      to: "on"
+  actions:
+    - variables:
+        fuel_level: "{{ states('sensor.2022_elantra_fuel_level') | float(0) | round(0) | int }}"
+        driving_range: "{{ (states('sensor.2022_elantra_fuel_driving_range') | float(0) / 1.60934) | round(0) | int }}"
+        battery: "{{ states('sensor.2022_elantra_car_battery_level') | float(0) | round(0) | int }}"
+    - choose:
+        - conditions:
+            - condition: trigger
+              id: fuel_low
+          sequence:
+            - variables:
+                alert_message: >-
+                  {% set rng = driving_range | int(0) %} The Hyundai is low on fuel, {{ fuel_level }} percent remaining{% if rng > 0 %}, about {{ rng }} miles of range{% endif %}.
+        - conditions:
+            - condition: trigger
+              id: brake_fluid
+          sequence:
+            - variables:
+                alert_message: "The Hyundai brake fluid warning is on."
+        - conditions:
+            - condition: trigger
+              id: washer_fluid
+          sequence:
+            - variables:
+                alert_message: "The Hyundai washer fluid warning is on."
+        - conditions:
+            - condition: trigger
+              id: car_battery
+          sequence:
+            - variables:
+                alert_message: "The Hyundai 12 volt battery is low at {{ battery }} percent."
+        - conditions:
+            - condition: trigger
+              id: smart_key_battery
+          sequence:
+            - variables:
+                alert_message: "The Hyundai key fob battery is low, replace it."
+        - conditions:
+            - condition: trigger
+              id: tire_pressure
+          sequence:
+            - variables:
+                alert_message: "The Hyundai tire pressure warning is on, check the tires."
+        - conditions:
+            - condition: trigger
+              id: car_silent
+          sequence:
+            - variables:
+                alert_message: "The Hyundai hasn't reported in over three days, the 12 volt battery may be dead."
+    - action: rest_command.alexa_notify
+      data:
+        message: "{{ alert_message }}"
+    - action: notify.mobile_app_aaron_cell
+      data:
+        title: "Hyundai alert"
+        message: "{{ alert_message }}"

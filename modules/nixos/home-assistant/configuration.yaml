@@ -26,6 +26,16 @@ homeassistant:
   time_zone: __TIME_ZONE__
   external_url: https://__EXTERNAL_DOMAIN__
   internal_url: https://__EXTERNAL_DOMAIN__
+# --- Alexa Notify Me (notifymyecho.com REST skill) ---
+# Sends a notification to all Echo devices linked to the Notify Me skill.
+# Call from automations with:
+#   service: rest_command.alexa_notify
+#   data:
+#     message: "The laundry is done"
+rest_command:
+  alexa_notify:
+    url: "https://api.notifymyecho.com/v1/NotifyMe?notification={{ message | urlencode }}&accessCode=__ALEXA_NOTIFY_ME_API_KEY__"
+    method: GET
 # --- Car maintenance helpers (2022 Elantra) ---
 input_datetime:
   car_last_oil_change:
@@ -122,6 +132,13 @@ template:
         icon: mdi:oil-alert
         state: >-
           {{ 'on' if (states('sensor.car_miles_left_until_oil_change') | int(0) <= 0) or (states('sensor.car_days_to_time_based_due') | int(0) <= 0) else 'off' }}
+      # The 12V battery powers the telematics unit; when it dies the car stops
+      # reporting to Bluelink entirely. On when no report for 72 hours.
+      - name: "Car Telematics Stale"
+        unique_id: car_telematics_stale
+        icon: mdi:car-off
+        state: >-
+          {% set last = states('sensor.2022_elantra_last_updated_at') %}{{ 'on' if last not in ['unknown', 'unavailable', ''] and as_datetime(last) is not none and (now() - as_datetime(last)).total_seconds() > 259200 else 'off' }}
   - sensor:
       # Oil change interval depends on driving conditions: Hyundai normal 7,500 mi /
       # 12 mo, severe 3,750 mi / 6 mo (short trips, stop-and-go).

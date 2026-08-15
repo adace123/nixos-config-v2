@@ -18,6 +18,7 @@ let
     cp ${./automations/system-monitor-alerts.yaml} $out/automations/system-monitor-alerts.yaml
     cp ${./automations/front-door-light-motion.yaml} $out/automations/front-door-light-motion.yaml
     cp ${./automations/car-maintenance.yaml} $out/automations/car-maintenance.yaml
+    cp ${./automations/hyundai-alerts.yaml} $out/automations/hyundai-alerts.yaml
     cp ${./automations/charge-6-battery.yaml} $out/automations/charge-6-battery.yaml
     cp ${./automations/workout-complete-notification.yaml} $out/automations/workout-complete-notification.yaml
     cp ${./scripts/car-maintenance.yaml} $out/scripts/car-maintenance.yaml
@@ -32,8 +33,16 @@ in
   sops.templates."hass-configuration.yaml" = {
     content =
       builtins.replaceStrings
-        [ "__TIME_ZONE__" "__EXTERNAL_DOMAIN__" ]
-        [ config.time.timeZone config.sops.placeholder.home-assistant-external-domain ]
+        [
+          "__TIME_ZONE__"
+          "__EXTERNAL_DOMAIN__"
+          "__ALEXA_NOTIFY_ME_API_KEY__"
+        ]
+        [
+          config.time.timeZone
+          config.sops.placeholder.home-assistant-external-domain
+          config.sops.placeholder.alexa-notify-me-api-key
+        ]
         (builtins.readFile ./configuration.yaml);
   };
   virtualisation = {

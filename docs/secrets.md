@@ -267,6 +267,7 @@ effectively your SSH key backup.
 | `ts-auth-key` | Tailscale pre-auth key (`coruscant/base.nix`) |
 | `home-assistant-external-domain` | HA `configuration.yaml` template, Caddy vhost |
 | `cloudflare-api-key` | Caddy DNS-01 ACME challenge (`coruscant/caddy.nix`) |
+| `alexa-notify-me-api-key` | Alexa Notify Me REST skill (`home-assistant/configuration.yaml` rest_command) |
 
 ## Reference
 

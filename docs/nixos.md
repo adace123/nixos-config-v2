@@ -73,7 +73,7 @@ If the Pi is already running NixOS:
 ```bash
 just nixos-deploy
 # or with an explicit IP:
-just nixos-deploy-ip 192.168.1.50
+just nixos-deploy 192.168.1.50
 ```
 
 ## Building the Installer SD Image
@@ -103,7 +103,7 @@ just nixos-flash /dev/sdX
 | Task | Command |
 |------|---------|
 | Deploy config changes | `just nixos-deploy` |
-| Deploy to explicit IP | `just nixos-deploy-ip <IP>` |
+| Deploy to explicit IP | `just nixos-deploy <IP>` |
 | View remote generations | `just nixos-generations` |
 | Rollback remote host | `just nixos-rollback` |
 | Tail Home Assistant logs | `just hass-logs` |

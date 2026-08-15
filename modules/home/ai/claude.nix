@@ -6,6 +6,8 @@
 }:
 let
   shared = import ./shared.nix { inherit inputs pkgs; };
+  # Skills shared with other agents (sourced from the mattpocock-skills input)
+  commonSkills = import ./skills.nix { inherit inputs; };
 in
 {
   programs.claude-code = {
@@ -118,7 +120,8 @@ in
     skills = {
       code-quality = shared.rules.code-quality;
       best-practices = shared.rules.best-practices;
-    };
+    }
+    // commonSkills.claudeSkills;
 
   };
 

@@ -50,6 +50,13 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Plain source input (no flake.nix in the repo) — skills are referenced
+    # from inputs.mattpocock-skills so they stay in sync with upstream.
+    mattpocock-skills = {
+      url = "github:mattpocock/skills";
+      flake = false;
+    };
+
     zed-extensions = {
       url = "github:DuskSystems/nix-zed-extensions";
       inputs.nixpkgs.follows = "nixpkgs";

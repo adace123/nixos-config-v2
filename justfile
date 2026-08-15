@@ -13,70 +13,88 @@ NHOST := "coruscant"
 # Default first-install NixOS configuration (must include Disko)
 NINSTALL := "coruscant"
 
+# Each variable self-selects nh vs the darwin-rebuild/nix-collect-garbage fallback at
+# runtime, so recipes stay single-line and the fork logic lives in one place.
+DARWIN_BUILD := "if command -v nh >/dev/null 2>&1; then nh darwin build .#darwinConfigurations.{{ HOST }}; else darwin-rebuild build --flake .#darwinConfigurations.{{ HOST }}; fi"
+DARWIN_CHECK := "if command -v nh >/dev/null 2>&1; then nh darwin build --dry .#darwinConfigurations.{{ HOST }}; else darwin-rebuild build --flake .#darwinConfigurations.{{ HOST }}; fi"
+DARWIN_SWITCH := "if command -v nh >/dev/null 2>&1; then nh darwin switch .#darwinConfigurations.{{ HOST }}; else sudo darwin-rebuild switch --flake .#darwinConfigurations.{{ HOST }}; fi"
+DARWIN_GENERATIONS := "if command -v nh >/dev/null 2>&1; then nh darwin generations; else darwin-rebuild --list-generations; fi"
+DARWIN_ROLLBACK := "if command -v nh >/dev/null 2>&1; then nh darwin rollback; else darwin-rebuild --rollback; fi"
+CLEAN_30D := "if command -v nh >/dev/null 2>&1; then nh clean all --keep-since 30d; else sudo nix-collect-garbage --delete-older-than 30d; fi"
+CLEAN_ALL := "if command -v nh >/dev/null 2>&1; then nh clean all --optimise; else sudo nix-collect-garbage -d && nix-store --optimize; fi"
+
+# One-time bootstrap (hidden from `just --list`)
+[private]
 install-nix:
     curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
 
 # Install pre-commit hooks
+[group('workflow')]
+[private]
 install-hooks:
     pre-commit install
 
-# Run pre-commit hooks on all files
-pre-commit:
-    pre-commit run --all-files
-
 # Uninstall pre-commit hooks
+[group('workflow')]
+[private]
 uninstall-hooks:
     pre-commit uninstall
 
-# Format all Nix files in the project
+# Run pre-commit hooks on all files
+[group('workflow')]
+pre-commit:
+    pre-commit run --all-files
+
+# Format all Nix files via the flake formatter (same nixfmt as the pre-commit hook)
+[group('workflow')]
 fmt:
-    nix run nixpkgs#nixfmt -- **/*.nix
+    nix fmt
 
 # Find dead/unused code in Nix files
+[group('workflow')]
 deadnix:
     deadnix .
 
-# Run pre-commit and validate configuration (deep evaluation, catches type errors in home-manager)
+# Run pre-commit, flake check, and validate the Darwin configuration
+# (deep evaluation, catches type errors in home-manager)
+[group('workflow')]
 check:
     #!/usr/bin/env bash
     set -euo pipefail
+    pre-commit run --all-files
     nix flake check
-    if command -v nh &> /dev/null; then
-        nh darwin build --dry .#darwinConfigurations.{{ HOST }}
-    else
-        darwin-rebuild build --flake .#darwinConfigurations.{{ HOST }}
-    fi
-
-# Deep validation helper (alias for check)
-validate: check
+    {{ DARWIN_CHECK }}
 
 # Build the Darwin configuration without activating
+[group('darwin')]
 build:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if command -v nh &> /dev/null; then
-        nh darwin build .#darwinConfigurations.{{ HOST }}
-    else
-        darwin-rebuild build --flake .#darwinConfigurations.{{ HOST }}
-    fi
+    {{ DARWIN_BUILD }}
 
+# Install Homebrew (called automatically by `just switch` when brew is missing)
+[private]
 install-brew:
     #!/bin/bash
+    set -euo pipefail
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-    # Add Homebrew to PATH for Apple Silicon Macs
+    # Add Homebrew to PATH for Apple Silicon Macs (idempotent — don't append twice)
     if [[ $(uname -m) == "arm64" ]]; then
-        echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
+        if ! grep -q "brew shellenv" ~/.zprofile; then
+            echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
+        fi
         eval "$(/opt/homebrew/bin/brew shellenv)"
     else
         # For Intel Macs
-        echo 'eval "$(/usr/local/bin/brew shellenv)"' >> ~/.zprofile
+        if ! grep -q "brew shellenv" ~/.zprofile; then
+            echo 'eval "$(/usr/local/bin/brew shellenv)"' >> ~/.zprofile
+        fi
         eval "$(/usr/local/bin/brew shellenv)"
     fi
 
     echo "Homebrew installed successfully!"
 
 # Build and activate the Darwin configuration
+[group('darwin')]
 switch:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -98,11 +116,7 @@ switch:
         export PATH="$SHIM_DIR:$PATH"
     fi
 
-    if command -v nh &> /dev/null; then
-        nh darwin switch .#darwinConfigurations.{{ HOST }}
-    else
-        sudo darwin-rebuild switch --flake .#darwinConfigurations.{{ HOST }}
-    fi
+    {{ DARWIN_SWITCH }}
 
     # Send system notification on successful completion
     if command -v terminal-notifier &> /dev/null; then
@@ -115,6 +129,7 @@ switch:
 # Returns 0 if valid, 1 if invalid (prints diagnostics)
 # TARGET: SSH target (e.g. root@coruscant-installer.local)
 # PASSWORD: SSH password (default: installer)
+[group('nixos')]
 nixos-verify-boot TARGET="" PASSWORD="installer":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -186,6 +201,7 @@ nixos-verify-boot TARGET="" PASSWORD="installer":
 # TARGET: optional hostname/IP (default: {{ NHOST }}-installer.local)
 # CONFIG: NixOS configuration to install (default: {{ NINSTALL }})
 # SKIP_DISK/skip_disk: set to "1" or "true" to skip drive partitioning/formatting (reuse existing layout)
+[group('nixos')]
 nixos-init TARGET="" CONFIG=NINSTALL:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -231,6 +247,7 @@ nixos-init TARGET="" CONFIG=NINSTALL:
     echo "Done. Remove the SD card, then power on the Pi to boot from SSD."
 
 # Build the NixOS configuration for Raspberry Pi
+[group('nixos')]
 nixos-build:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -238,6 +255,7 @@ nixos-build:
 
 # Build and flash an SD card image for the Pi (device e.g. /dev/sda)
 # If result-sd-ci/ has a pre-built image, prompts whether to use it
+[group('nixos')]
 nixos-flash DEVICE:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -267,7 +285,9 @@ nixos-flash DEVICE:
         exit 1
     fi
     unzstd -d -f "$IMG" -o /tmp/nixos-sd-image-{{ NHOST }}.img
-    sudo dd if=/tmp/nixos-sd-image-{{ NHOST }}.img of={{ DEVICE }} bs=1M status=progress conv=fsync
+    # macOS: write to the raw device (rdisk) — bypasses the buffer cache for much faster dd
+    WDEVICE=$(echo "{{ DEVICE }}" | sed 's|/dev/disk|/dev/rdisk|')
+    sudo dd if=/tmp/nixos-sd-image-{{ NHOST }}.img of="$WDEVICE" bs=1M status=progress conv=fsync
 
     echo ""
     echo "Verifying flash (spot check first 10MB)..."
@@ -285,6 +305,7 @@ nixos-flash DEVICE:
     fi
 
 # Build SD image via GitHub Actions and download it
+[group('nixos')]
 nixos-build-ci:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -331,8 +352,9 @@ nixos-build-ci:
     gh run download "$RUN_ID" --name "nixos-sd-image-{{ NHOST }}" --dir result-sd-ci
     echo "Image saved to result-sd-ci/"
 
-# Deploy NixOS configuration to Raspberry Pi via SSH
-# TARGET: optional hostname/IP (default: {{ NHOST }}.local)
+# Deploy NixOS configuration to a remote host via SSH
+# TARGET: hostname or IP (default: {{ NHOST }}.local, e.g. just nixos-deploy 10.0.0.2)
+[group('nixos')]
 nixos-deploy TARGET="":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -343,13 +365,8 @@ nixos-deploy TARGET="":
     export NIX_SSHOPTS="${NIX_SSHOPTS:+$NIX_SSHOPTS }-4"
     nix run nixpkgs#nixos-rebuild -- switch --flake .#{{ NHOST }} --target-host root@$TARGET --build-host root@$TARGET --elevate=sudo
 
-# Deploy NixOS configuration to Raspberry Pi with custom IP
-nixos-deploy-ip IP:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    nix run nixpkgs#nixos-rebuild -- switch --flake .#{{ NHOST }} --target-host root@{{ IP }} --build-host root@{{ IP }} --elevate=sudo
-
 # Show NixOS generations on remote host
+[group('nixos')]
 nixos-generations:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -357,6 +374,7 @@ nixos-generations:
     nix run nixpkgs#nixos-rebuild -- --list-generations --flake .#{{ NHOST }} --target-host root@{{ NHOST }}.local
 
 # Rollback NixOS on remote host
+[group('nixos')]
 nixos-rollback:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -366,54 +384,54 @@ nixos-rollback:
 # Tail Home Assistant logs on remote NixOS host via journalctl
 # FILTER: optional grep pattern (e.g., "error|recorder|bluetooth")
 # LINES: number of lines to show (default: 50)
+[group('nixos')]
 hass-logs FILTER="" LINES="50":
     #!/usr/bin/env bash
     set -euo pipefail
     CMD="journalctl -flu podman-home-assistant.service -n {{ LINES }} --no-hostname --output cat 2>&1"
     if [ -n "{{ FILTER }}" ]; then
-        CMD="$CMD | grep -iE '{{ FILTER }}'"
+        # Quote the filter so special characters survive the remote shell
+        CMD="$CMD | grep -iE $(printf '%q' '{{ FILTER }}')"
     fi
     ssh -4 root@{{ NHOST }}.local "$CMD"
 
 # Show available system generations
+[group('darwin')]
 generations:
-    #!/usr/bin/env bash
-    if command -v nh &> /dev/null; then
-        nh darwin generations
-    else
-        darwin-rebuild --list-generations
-    fi
+    {{ DARWIN_GENERATIONS }}
 
 # Rollback to previous generation
+[group('darwin')]
 rollback:
-    #!/usr/bin/env bash
-    if command -v nh &> /dev/null; then
-        nh darwin rollback
-    else
-        darwin-rebuild --rollback
-    fi
+    {{ DARWIN_ROLLBACK }}
 
 # Update flake inputs
+[group('workflow')]
 update:
     nix flake update
 
 # Update a specific input (e.g., just update-input nixpkgs)
+[group('workflow')]
 update-input INPUT:
-    nix flake lock --update-input {{ INPUT }}
+    nix flake update {{ INPUT }}
 
 # Show flake info
+[group('workflow')]
 info:
     nix flake show
 
 # Show flake metadata
+[group('workflow')]
 metadata:
     nix flake metadata
 
 # Enter development shell
+[group('workflow')]
 dev:
     nix develop
 
 # List objects in the configured Cloudflare R2 bucket
+[group('r2')]
 r2-list PREFIX="":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -448,6 +466,7 @@ r2-list PREFIX="":
     SCRIPT
 
 # Backup the sops age key to 1Password as a document
+[group('secrets')]
 backup-key:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -465,6 +484,7 @@ backup-key:
     echo "Done. The key can be restored from 1Password if needed."
 
 # Edit sops-encrypted secrets in $EDITOR (default: secrets/default.yaml)
+[group('secrets')]
 edit-secrets FILE="secrets/default.yaml":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -475,6 +495,7 @@ edit-secrets FILE="secrets/default.yaml":
     nix shell nixpkgs#sops nixpkgs#age -c sops "{{ FILE }}"
 
 # Generate an age key for sops-nix (idempotent — skips if key exists)
+[group('secrets')]
 init-sops:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -493,47 +514,36 @@ init-sops:
     fi
 
 # Clean up old generations older than 30 days
+[group('darwin')]
 clean:
-    #!/usr/bin/env bash
-    if command -v nh &> /dev/null; then
-        nh clean all --keep-since 30d
-    else
-        sudo nix-collect-garbage --delete-older-than 30d
-    fi
+    {{ CLEAN_30D }}
 
-# Clean up and optimize the Nix store
+# Clean up all old generations and optimize the Nix store
+# (nh path and fallback both collect everything old, then optimize once)
+[group('darwin')]
 clean-full:
-    #!/usr/bin/env bash
-    if command -v nh &> /dev/null; then
-        nh clean all
-    else
-        sudo nix-collect-garbage -d
-    fi
-    nix-store --optimize
-
-# Check flake for errors
-check-flake:
-    nix flake check
+    {{ CLEAN_ALL }}
 
 # Diff current and new configuration
+[group('darwin')]
 diff:
     #!/usr/bin/env bash
-    if command -v nh &> /dev/null; then
-        nh darwin switch --dry-run .#darwinConfigurations.{{ HOST }}
-    else
-        darwin-rebuild build --flake .#darwinConfigurations.{{ HOST }}
-        nvd diff /run/current-system ./result
-    fi
+    set -euo pipefail
+    nix build .#darwinConfigurations.{{ HOST }}.system --out-link result-diff
+    nvd diff /run/current-system result-diff
 
 # Setup work SSH keys and configuration
+[group('workflow')]
 setup-work-ssh:
     ./scripts/setup-work-ssh.sh
 
 # Check for available updates (pulls if flake.lock changed, notifies via macOS)
+[group('workflow')]
 check-updates:
     ./scripts/check-for-updates.sh
 
 # Show auto-update service status and trigger manual check
+[group('workflow')]
 auto-update-status:
     #!/bin/bash
     echo "Nix Config Auto-Update Service"
@@ -564,9 +574,3 @@ auto-update-status:
         launchctl start nix-config-auto-update
         echo "Update check triggered. Check notifications and logs."
     fi
-
-# Trigger flake update via Dependabot
-trigger-update-flake-lock:
-    @echo "Flake.lock updates are managed automatically by Dependabot."
-    @echo "See .github/dependabot.yml - runs weekly on Mondays."
-    @echo "To update manually: just update"

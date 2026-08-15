@@ -13,6 +13,9 @@
       ...
     }:
     {
+      # Formatter used by `nix fmt` (kept in sync with the pre-commit nixfmt hook)
+      formatter = pkgs.nixfmt;
+
       # Pre-commit hooks configuration
       pre-commit.settings.hooks = {
         # Format Nix code

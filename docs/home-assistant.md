@@ -115,6 +115,42 @@ target:
   via an authenticator app (not SMS). Go to Amazon > Account > Login & Security
   > 2-Step Verification to set it up.
 
+## Alexa Notify Me (REST skill)
+
+For one-way announcements without an Amazon login in Home Assistant, the
+**Notify Me** Alexa skill
+([notifymyecho.com](https://www.notifymyecho.com/)) works via a simple REST
+API: HA calls `api.notifymyecho.com` and every Echo linked to the skill
+announces the message.
+
+### Setting up Notify Me
+
+1. Enable the Notify Me skill in the Alexa app and launch it once
+   ("Alexa, open Notify Me") to get the access code.
+2. Add the access code to the SOPS secrets file as
+   `alexa-notify-me-api-key` (see [docs/secrets.md](secrets.md)).
+3. The key is injected into `configuration.yaml` via the SOPS template
+   placeholder `__ALEXA_NOTIFY_ME_API_KEY__`, which populates the
+   `rest_command.alexa_notify` integration.
+
+### Sending an announcement
+
+```yaml
+service: rest_command.alexa_notify
+data:
+  message: "The laundry is done"
+```
+
+The `message` is URL-encoded automatically (`{{ message | urlencode }}`).
+Announcements reach **all** Echo devices linked to the skill; use the Alexa
+Devices integration above when you need per-device targeting via
+`media_player`.
+
+Example: the Hyundai alerts automation (`automations/hyundai-alerts.yaml`)
+announces low fuel, brake fluid, washer fluid, low 12V battery, key fob
+battery, tire pressure, and telematics-staleness warnings through this
+command whenever the corresponding sensor indicates a problem.
+
 ## Google Health Workouts (custom component)
 
 A small git-tracked custom integration (`google_health_workouts`) that exposes

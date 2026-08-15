@@ -14,6 +14,7 @@
     ts-auth-key = { };
     home-assistant-external-domain = { };
     beszel-domain = { };
+    alexa-notify-me-api-key = { };
   };
 
   hardware.bluetooth.enable = true;
