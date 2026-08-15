@@ -262,6 +262,7 @@ nixos-build:
 #         from result-sd-ci-<host>/ if available, otherwise built locally.
 # NHOST:  host whose '-sd-image' config to build/flash (default: {{ NHOST }})
 # YES=1:  skip all interactive prompts (non-interactive use)
+# VERIFY_ONLY=1: skip the write and just verify the device against the image
 [group('nixos')]
 nixos-flash DEVICE IMAGE="":
     #!/usr/bin/env bash
@@ -358,8 +359,12 @@ nixos-flash DEVICE IMAGE="":
     IMG_FILE="${TEMP_IMG:-$IMG}"
 
     # macOS: write to the raw device (rdisk) — bypasses the buffer cache for much faster dd
-    WDEVICE=$(echo "$DEV" | sed 's|/dev/disk|/dev/rdisk|')
-    sudo dd if="$IMG_FILE" of="$WDEVICE" bs=1M status=progress conv=fsync
+    if [ "${VERIFY_ONLY:-0}" = "1" ]; then
+        echo "VERIFY_ONLY=1 — skipping write; verifying existing device content against the image..."
+    else
+        WDEVICE=$(echo "$DEV" | sed 's|/dev/disk|/dev/rdisk|')
+        sudo dd if="$IMG_FILE" of="$WDEVICE" bs=1M status=progress conv=fsync
+    fi
 
     echo ""
     echo "Verifying flash (full-image checksum)..."
