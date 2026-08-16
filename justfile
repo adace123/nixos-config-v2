@@ -15,6 +15,12 @@ NHOST := "coruscant"
 # Default first-install NixOS configuration (must include Disko)
 NINSTALL := "coruscant"
 
+# Flags read as env vars inside nixos-flash; exported so the command-line
+# override form also works: just YES=1 VERIFY_ONLY=1 nixos-flash /dev/diskX
+# (just rejects overrides for variables that are not declared).
+export YES := "0"
+export VERIFY_ONLY := "0"
+
 # Each variable self-selects nh vs the darwin-rebuild/nix-collect-garbage fallback at
 # runtime, so recipes stay single-line and the fork logic lives in one place.
 DARWIN_BUILD := "if command -v nh >/dev/null 2>&1; then nh darwin build .#darwinConfigurations.$HOST; else darwin-rebuild build --flake .#darwinConfigurations.$HOST; fi"
