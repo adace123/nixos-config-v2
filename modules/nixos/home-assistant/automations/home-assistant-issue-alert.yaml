@@ -1,0 +1,34 @@
+- id: "home_assistant_issue_alert"
+  alias: "Home Assistant issue alert"
+  description: "Notify Aaron when Home Assistant logs an error or critical issue, ignoring transient known-benign sources (TP-Link device timeouts, Firebase push client) and throttling ERROR-level alerts to once per hour."
+  mode: "single"
+  max_exceeded: silent
+  triggers:
+    - trigger: event
+      event_type: system_log_event
+      event_data:
+        level: ERROR
+    - trigger: event
+      event_type: system_log_event
+      event_data:
+        level: CRITICAL
+  conditions:
+    # Skip transient, self-recovering errors: TP-Link Kasa device timeouts
+    # (device drops off the network; HA retries on next poll and marks the
+    # entity unavailable) and the Firebase push client's recurring benign
+    # "Incorrect padding" error.
+    - condition: template
+      value_template: "{{ trigger.event.data.source | default([]) | join('.') not in ['homeassistant.components.tplink.coordinator', 'firebase_messaging.fcmpushclient'] }}"
+    # Throttle: at most one ERROR push per hour. CRITICAL always gets through.
+    # (Single-line expressions only: yamlfmt is not idempotent on multi-line
+    # {% if %} blocks and injects blank lines into them on every run.)
+    - condition: template
+      value_template: "{{ trigger.event.data.level == 'CRITICAL' or (as_timestamp(now()) - (as_timestamp(state_attr('automation.home_assistant_issue_alert', 'last_triggered')) | int)) > 3600 }}"
+  actions:
+    - action: notify.mobile_app_aaron_cell
+      data:
+        title: Home Assistant issue
+        message: "{{ trigger.event.data.level }}: {{ trigger.event.data.message }}{% if trigger.event.data.source is defined %} ({{ trigger.event.data.source | join('.') }}) {% endif %}"
+        data:
+          tag: home-assistant-issue
+          group: home-assistant-issues

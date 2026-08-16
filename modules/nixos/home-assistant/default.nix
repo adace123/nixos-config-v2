@@ -21,6 +21,7 @@ let
     cp ${./automations/hyundai-alerts.yaml} $out/automations/hyundai-alerts.yaml
     cp ${./automations/charge-6-battery.yaml} $out/automations/charge-6-battery.yaml
     cp ${./automations/workout-complete-notification.yaml} $out/automations/workout-complete-notification.yaml
+    cp ${./automations/home-assistant-issue-alert.yaml} $out/automations/home-assistant-issue-alert.yaml
     cp ${./scripts/car-maintenance.yaml} $out/scripts/car-maintenance.yaml
     cp ${./dashboards/system.yaml} $out/dashboards/system.yaml
     install -m0755 ${./car_scripts/car_rate.py} $out/car_scripts/car_rate.py

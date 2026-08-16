@@ -40,6 +40,12 @@ Automations created in the Home Assistant UI are stored in the persistent, writa
 `/var/lib/hass/automations.yaml`; activation initializes that file only when it does
 not exist, so later deployments preserve UI changes.
 
+The **Home Assistant issue alert** automation (phone push on ERROR/CRITICAL log
+events) is declarative (`automations/home-assistant-issue-alert.yaml`). It filters
+out transient, self-recovering errors — TP-Link Kasa device timeouts and the
+Firebase push client's recurring "Incorrect padding" error — and throttles
+ERROR-level alerts to one per hour (CRITICAL always passes).
+
 Caddy provides HTTPS reverse-proxy access to HA on port 443 using Cloudflare
 DNS-01 ACME (see `caddy.nix`).
 
