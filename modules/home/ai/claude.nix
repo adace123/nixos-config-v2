@@ -8,8 +8,15 @@ let
   shared = import ./shared.nix { inherit inputs pkgs; };
   # Skills shared with other agents (sourced from the mattpocock-skills input)
   commonSkills = import ./skills.nix { inherit inputs; };
+  llmAgents = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system};
 in
 {
+  home.packages = with llmAgents; [
+    claude-code
+    ccstatusline
+    ccusage
+  ];
+
   programs.claude-code = {
     enable = true;
     package = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-code;

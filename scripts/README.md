@@ -6,7 +6,7 @@ This directory contains utility scripts for the Nix configuration.
 
 - `setup-work-ssh.sh` - Configure separate SSH keys for work repositories
 - `setup-yubikey-sudo.sh` - Configure YubiKey for sudo authentication
-- `yubikey-sudo-shim.sh` - Notify when sudo auth is required (used by `just switch`)
+- `yubikey-sudo-shim.sh` - Notify when sudo auth is required (used by `just switch`; only installed when the laptop lid is closed)
 - `README.md` - This file
 
 ## Auto-Update Service

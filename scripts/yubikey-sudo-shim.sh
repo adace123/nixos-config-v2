@@ -6,6 +6,10 @@
 # nh-core), so prepending a directory containing this script intercepts
 # every sudo call nh makes.
 #
+# The `just switch` recipe only installs this shim when the laptop lid is
+# closed (headless/remote): with the lid open the user is at the machine and
+# Touch ID/password auth works, so the blocking wait would just get in the way.
+#
 # The YubiKey must be present first: this shim only runs when sudo is
 # configured with a U2F factor (u2f_keys exists), so a password-only
 # prompt would fail anyway. If the key is missing, show a persistent

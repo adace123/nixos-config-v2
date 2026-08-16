@@ -1,9 +1,19 @@
-{ config, ... }:
+{
+  config,
+  inputs,
+  pkgs,
+  ...
+}:
 
+let
+  hermesAgent = inputs.hermes-agent.packages.${pkgs.stdenv.hostPlatform.system};
+in
 {
   # ── Hermes config.yaml ──────────────────────────────────────────
   # Managed via Nix — do NOT use `hermes config set KEY VAL` or
   # the atomic-replace will fail (symlinked to nix store).
+
+  home.packages = [ hermesAgent.minimal ];
 
   sops.secrets.opencode-api-key = { };
 

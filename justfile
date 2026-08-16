@@ -116,7 +116,15 @@ switch:
     # prepended here fires a notification at the exact moment nh elevates
     # (right before the key blinks), then execs the real sudo. The terminal
     # password prompt is untouched. See scripts/yubikey-sudo-shim.sh.
-    if [ -f "$HOME/.config/Yubico/u2f_keys" ]; then
+    #
+    # Only install the shim when the laptop lid is closed (headless / remote
+    # via SSH): nobody is at the keyboard, so the shim's YubiKey
+    # presence-wait is the only way nh's elevation can succeed. With the lid
+    # open the user is at the machine — Touch ID or password auth works, and
+    # blocking on the key would just get in the way. AppleClamshellState =
+    # Yes means the lid is closed (clamshell mode).
+    if [ -f "$HOME/.config/Yubico/u2f_keys" ] &&
+        ioreg -r -k AppleClamshellState -d 4 2>/dev/null | grep -q '"AppleClamshellState" = Yes'; then
         SHIM_DIR="$(mktemp -d)"
         trap 'rm -rf "$SHIM_DIR"' EXIT
         cp scripts/yubikey-sudo-shim.sh "$SHIM_DIR/sudo"
