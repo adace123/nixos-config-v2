@@ -6,6 +6,7 @@
 
 let
   llmAgents = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system};
+  hermesAgent = inputs.hermes-agent.packages.${pkgs.stdenv.hostPlatform.system};
 in
 
 {
@@ -21,7 +22,7 @@ in
       claude-code
       ccstatusline
       ccusage
-      hermes-agent
+      hermesAgent.default
       omp
     ];
 

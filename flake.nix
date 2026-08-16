@@ -52,6 +52,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    hermes-agent = {
+      url = "github:NousResearch/hermes-agent";
+    };
+
     # Plain source input (no flake.nix in the repo) — skills are referenced
     # from inputs.mattpocock-skills so they stay in sync with upstream.
     mattpocock-skills = {
