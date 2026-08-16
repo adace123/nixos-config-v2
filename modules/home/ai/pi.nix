@@ -42,6 +42,7 @@ in
         # tops out at 2.3.1) — pin 2.3.1, whose config ^2.3.1 resolves cleanly and
         # matches rpiv-todo's dependency.
         "npm:@juicesharp/rpiv-ask-user-question@2.3.1"
+        "npm:@ff-labs/pi-fff"
       ];
     };
   };
