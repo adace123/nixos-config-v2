@@ -474,10 +474,13 @@ nixos-build-ci:
     gh run download "$RUN_ID" --name "nixos-sd-image-$HOST-$SHA" --dir "$CI_DIR"
     echo "Image saved to $CI_DIR/"
 
-# Deploy NixOS configuration to a remote host via SSH
-# TARGET: hostname or IP (default: {{ NHOST }}.local, e.g. just nixos-deploy 10.0.0.2)
+# Build the NixOS configuration on the remote host (no activation)
+# TARGET: hostname or IP (default: {{ NHOST }}.local, e.g. just nixos-remote-build 10.0.0.2)
+# Builds on the target itself (--build-host), so run it ahead of a deploy at
+# a quiet moment: the heavy compile finishes first, then nixos-deploy only
+# needs to activate (store paths already cached).
 [group('nixos')]
-nixos-deploy TARGET="":
+nixos-remote-build TARGET="":
     #!/usr/bin/env bash
     set -euo pipefail
     TARGET="{{ TARGET }}"
@@ -485,7 +488,28 @@ nixos-deploy TARGET="":
         TARGET="{{ NHOST }}.local"
     fi
     export NIX_SSHOPTS="${NIX_SSHOPTS:+$NIX_SSHOPTS }-4"
-    nix run nixpkgs#nixos-rebuild -- switch --flake .#{{ NHOST }} --target-host root@$TARGET --build-host root@$TARGET --elevate=sudo
+    nix run nixpkgs#nixos-rebuild -- build --flake .#{{ NHOST }} --target-host root@$TARGET --build-host root@$TARGET
+
+# Build then activate on a remote NixOS host via SSH
+# TARGET: hostname or IP (default: {{ NHOST }}.local, e.g. just nixos-deploy 10.0.0.2)
+#
+# Build and switch run as separate steps so the host is not restarting all its
+# services (HA, zigbee2mqtt, esphome, ...) while still compiling. Activation
+# runs detached via systemd-run as root, so an SSH drop (e.g. sshd restarting
+# during switch) does not kill it; no --elevate=sudo needed since the SSH
+# user is root (the sudo wrapper previously failed with a misleading
+# password/exit-4 error and added fragility).
+[group('nixos')]
+nixos-deploy TARGET="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just nixos-remote-build TARGET="{{ TARGET }}"
+    TARGET="{{ TARGET }}"
+    if [ -z "$TARGET" ]; then
+        TARGET="{{ NHOST }}.local"
+    fi
+    export NIX_SSHOPTS="${NIX_SSHOPTS:+$NIX_SSHOPTS }-4"
+    nix run nixpkgs#nixos-rebuild -- switch --flake .#{{ NHOST }} --target-host root@$TARGET --build-host root@$TARGET
 
 # Show NixOS generations on remote host
 [group('nixos')]
