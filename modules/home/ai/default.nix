@@ -8,5 +8,6 @@
     ./hermes.nix
     ./opencode.nix
     ./pi.nix
+    ./herdr.nix
   ];
 }
