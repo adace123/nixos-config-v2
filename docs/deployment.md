@@ -160,11 +160,11 @@ nix build .#nixosConfigurations.coruscant-sd-image.config.system.build.sdImage
 ```bash
 just nixos-flash /dev/sdX
 # or for a specific host:
-just nixos-flash NHOST=<host> /dev/sdX
+NHOST=<host> just nixos-flash /dev/sdX
 ```
 
-`nixos-flash` unmounts the card first, prompts before overwriting, and verifies
-the full image against the device after flashing.
+`nixos-flash` validates the whole-disk target, prompts before unmounting/overwriting,
+and verifies the full image against the device after flashing.
 
 ---
 

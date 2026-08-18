@@ -55,6 +55,9 @@ secrets/*.decrypted
 # Local development
 .direnv/
 
+# AI coding tooling artifacts
+.commandcode/
+
 # Target-specific files copied by nixos-anywhere (e.g., sops age key)
 nixos-files/
 

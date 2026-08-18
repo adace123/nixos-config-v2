@@ -82,8 +82,8 @@ just nixos-deploy 192.168.1.50
 ### Via GitHub Actions (native arm64 runner, no local cross-compilation needed)
 
 ```bash
-just nixos-build-ci                # build for the default host (coruscant)
-just nixos-build-ci NHOST=<host>   # ...or another ARM host with a '-sd-image' variant
+just nixos-build-ci                    # build for the default host (coruscant)
+NHOST=<host> just nixos-build-ci        # ...or another ARM host with a '-sd-image' variant
 ```
 
 This triggers the `build-sd-image.yml` workflow, waits for it to finish, and
@@ -93,12 +93,12 @@ Then flash it:
 ```bash
 just nixos-flash /dev/sdX
 # or for a specific host:
-just nixos-flash NHOST=<host> /dev/sdX
+NHOST=<host> just nixos-flash /dev/sdX
 ```
 
-`nixos-flash` unmounts the card first, prompts before overwriting, and verifies
-the **full image** against the device after flashing. If a CI-built image is
-older than the latest commit or `flake.lock`, it warns and defaults to
+`nixos-flash` validates the whole-disk target, prompts before unmounting/overwriting,
+and verifies the **full image** against the device after flashing. If a CI-built
+image is older than the latest commit or `flake.lock`, it warns and defaults to
 rebuilding locally.
 
 You can also flash any pre-built image directly (official ISO, downloaded
@@ -131,12 +131,18 @@ the `threepio-sd-image` config bakes the **production** configuration (unlike
 `coruscant-sd-image`, which is a minimal installer):
 
 ```bash
-just nixos-build-ci NHOST=threepio
-just nixos-flash NHOST=threepio /dev/sdX
+NHOST=threepio just nixos-build-ci-flash /dev/sdX
+```
+
+The combined recipe builds the image on GitHub Actions, downloads it, then
+flashes and verifies it locally. For the default host, use:
+
+```bash
+just nixos-build-ci-flash /dev/sdX
 ```
 
 After first boot, copy the SOPS age key (see Secrets below), then deploy
-updates with `just nixos-deploy NHOST=threepio`.
+updates with `NHOST=threepio just nixos-deploy`.
 
 ## Day-to-Day Operations
 

@@ -9,8 +9,8 @@ default:
 # interpolate {{ }} inside := definitions).
 export HOST := "endor"
 
-# Default NixOS configuration hostname (override with: just <recipe> NHOST=<name>)
-NHOST := "coruscant"
+# Default NixOS configuration hostname (override with: NHOST=<name> just <recipe>)
+NHOST := env_var_or_default("NHOST", "coruscant")
 
 # Default first-install NixOS configuration (must include Disko)
 NINSTALL := "coruscant"
@@ -270,7 +270,7 @@ nixos-build:
     nix build .#nixosConfigurations.{{ NHOST }}.config.system.build.toplevel --out-link result-nixos
 
 # Flash a NixOS image to a device (SD card, USB stick, …)
-# DEVICE: target device, e.g. /dev/disk5 (required)
+# DEVICE: target whole device, e.g. /dev/disk5 (required; never a partition)
 # IMAGE:  optional path to a pre-built image (.img/.iso/.img.zst/.img.gz/.img.xz);
 #         when omitted, uses the <NHOST>-sd-image flake config — a CI-built image
 #         from result-sd-ci-<host>/ if available, otherwise built locally.
@@ -345,25 +345,31 @@ nixos-flash DEVICE IMAGE="":
         echo "ERROR: Device $DEV does not exist."
         exit 1
     fi
-    echo "About to overwrite $DEV with $IMG ($(du -h "$IMG" | cut -f1))"
 
-    # macOS auto-mounts SD card volumes — unmount them before raw-writing
-    if [ "$(uname)" = "Darwin" ] && [[ "$DEV" == /dev/disk* ]]; then
-        if ! diskutil unmountDisk "$DEV" 2>/dev/null; then
-            sudo diskutil unmountDisk "$DEV" 2>/dev/null \
-                || echo "(Note: $DEV was not mounted or is unmountable — continuing)"
-        fi
-    fi
-    if ! auto; then
-        read -p "Type '$DEV' to continue: " -r CONFIRM
-        if [ "$CONFIRM" != "$DEV" ]; then
-            echo "Aborted."
+    # Refuse partitions: raw-writing a partition can leave the partition table and
+    # boot metadata inconsistent. On macOS, require the canonical whole-disk path
+    # (for example /dev/disk5) and use its raw counterpart (/dev/rdisk5) below.
+    DEVICE_SIZE=""
+    if [ "$(uname)" = "Darwin" ]; then
+        if [[ ! "$DEV" =~ ^/dev/disk[0-9]+$ ]]; then
+            echo "ERROR: On macOS DEVICE must be a whole disk such as /dev/disk5 (not a partition or /dev/rdisk path)."
             exit 1
         fi
+        if ! DISK_INFO="$(diskutil info "$DEV" 2>/dev/null)"; then
+            echo "ERROR: Could not inspect $DEV with diskutil."
+            exit 1
+        fi
+        if ! grep -Eq '^[[:space:]]*Whole:[[:space:]]+Yes' <<<"$DISK_INFO"; then
+            echo "ERROR: $DEV is not a whole disk; refusing to overwrite it."
+            exit 1
+        fi
+        DEVICE_SIZE="$(diskutil info -plist "$DEV" 2>/dev/null | plutil -extract TotalSize raw - 2>/dev/null || true)"
+    elif command -v blockdev >/dev/null 2>&1; then
+        DEVICE_SIZE="$(blockdev --getsize64 "$DEV" 2>/dev/null || true)"
     fi
 
-    # Decompress when the image is compressed (CI/local builds are .zst; an explicit
-    # IMAGE= may be any raw image or a common compression). Only temp copies are removed.
+    # Decompress before unmounting so every failure happens while the card is still
+    # mounted. The temporary file is the exact byte stream that gets written/verified.
     TEMP_IMG=""
     case "$IMG" in
         *.zst) TEMP_IMG="/tmp/nixos-flash-$HOST-$$.img"; unzstd -d -f "$IMG" -o "$TEMP_IMG" ;;
@@ -371,29 +377,133 @@ nixos-flash DEVICE IMAGE="":
         *.xz)  TEMP_IMG="/tmp/nixos-flash-$HOST-$$.img"; xz -d -c "$IMG" > "$TEMP_IMG" ;;
     esac
     IMG_FILE="${TEMP_IMG:-$IMG}"
+    IMG_SIZE=$(stat -f%z "$IMG_FILE" 2>/dev/null || stat -c%s "$IMG_FILE")
+    if [[ "$DEVICE_SIZE" =~ ^[0-9]+$ ]] && [ "$IMG_SIZE" -gt "$DEVICE_SIZE" ]; then
+        echo "ERROR: Image is $IMG_SIZE bytes, but $DEV is only $DEVICE_SIZE bytes."
+        rm -f "$TEMP_IMG"
+        exit 1
+    fi
 
-    # macOS: write to the raw device (rdisk) — bypasses the buffer cache for much faster dd
+    echo "About to overwrite $DEV with $IMG ($(du -h "$IMG" | cut -f1)); writing $IMG_SIZE bytes"
+    if ! auto; then
+        read -p "Type '$DEV' to continue: " -r CONFIRM
+        if [ "$CONFIRM" != "$DEV" ]; then
+            echo "Aborted."
+            rm -f "$TEMP_IMG"
+            exit 1
+        fi
+    fi
+
+    # macOS auto-mounts SD card volumes. Do not continue if they cannot be
+    # unmounted: writing through a mounted filesystem can corrupt the card.
+    if [ "$(uname)" = "Darwin" ]; then
+        if ! diskutil unmountDisk "$DEV" 2>/dev/null; then
+            echo "Normal unmount failed; trying a forced unmount..."
+            sudo diskutil unmountDisk force "$DEV"
+        fi
+    fi
+
+    # macOS's BSD dd does not support GNU's status=progress/conv=fsync flags.
+    # Prefer gdd or pv when installed. With only native dd, send SIGINFO every
+    # five seconds so a large SD-card write does not look stalled.
+    mac_dd_with_progress() {
+        local input="$1"
+        local output="$2"
+        local count="${3:-}"
+
+        if command -v gdd >/dev/null 2>&1; then
+            echo "Using gdd with live progress..."
+            if [ -n "$count" ]; then
+                sudo gdd if="$input" of="$output" bs=4M count="$count" status=progress
+            else
+                sudo gdd if="$input" of="$output" bs=4M status=progress conv=fsync
+            fi
+        elif command -v pv >/dev/null 2>&1; then
+            echo "Using pv with live progress..."
+            if [ -n "$count" ]; then
+                sudo dd if="$input" bs=4m count="$count" | pv -s "$IMG_SIZE" | sudo tee "$output" >/dev/null
+            else
+                pv -s "$IMG_SIZE" "$input" | sudo dd of="$output" bs=4m
+            fi
+        else
+            echo "Using macOS dd; progress updates will be printed every 5 seconds."
+            if [ -n "$count" ]; then
+                sudo dd if="$input" bs=4m count="$count" of="$output" &
+            else
+                sudo dd if="$input" of="$output" bs=4m &
+            fi
+            DD_PID=$!
+            START_TIME=$(date +%s)
+            while kill -0 "$DD_PID" 2>/dev/null; do
+                sleep 5
+                if kill -0 "$DD_PID" 2>/dev/null; then
+                    kill -INFO "$DD_PID" 2>/dev/null || true
+                    ELAPSED=$(( $(date +%s) - START_TIME ))
+                    echo "Still writing/reading... ${ELAPSED}s elapsed"
+                fi
+            done
+            wait "$DD_PID"
+        fi
+    }
+
     if [ "${VERIFY_ONLY:-0}" = "1" ]; then
         echo "VERIFY_ONLY=1 — skipping write; verifying existing device content against the image..."
     else
-        WDEVICE=$(echo "$DEV" | sed 's|/dev/disk|/dev/rdisk|')
-        sudo dd if="$IMG_FILE" of="$WDEVICE" bs=1M status=progress conv=fsync
+        if [ "$(uname)" = "Darwin" ]; then
+            WDEVICE="${DEV/\/dev\/disk/\/dev\/rdisk}"
+            echo "Writing $IMG_SIZE bytes to $WDEVICE..."
+            mac_dd_with_progress "$IMG_FILE" "$WDEVICE"
+        else
+            echo "Writing $IMG_SIZE bytes to $DEV..."
+            sudo dd if="$IMG_FILE" of="$DEV" bs=4M status=progress conv=fsync
+        fi
+        sync
+        echo "Raw write complete; ensuring $DEV is unmounted before read-back verification..."
+    fi
+
+    # Disk Arbitration can notice the new partition table while dd is running and
+    # remount the image's partitions. Unmount again before opening the device for
+    # verification, otherwise macOS may report "Device not configured" mid-read.
+    if [ "$(uname)" = "Darwin" ]; then
+        diskutil unmountDisk "$DEV" >/dev/null 2>&1 \
+            || sudo diskutil unmountDisk force "$DEV" >/dev/null 2>&1 \
+            || true
+        if ! diskutil info "$DEV" >/dev/null 2>&1; then
+            echo "❌ macOS no longer sees $DEV after writing. The card or reader may have disconnected."
+            echo "Check it with: diskutil list"
+            rm -f "$TEMP_IMG"
+            exit 1
+        fi
     fi
 
     echo ""
     echo "Verifying flash (full-image checksum)..."
     sync
-    RDEVICE=$(echo "$DEV" | sed 's|/dev/disk|/dev/rdisk|')
+    RDEVICE="$DEV"
+    [ "$(uname)" = "Darwin" ] && RDEVICE="${DEV/\/dev\/disk/\/dev\/rdisk}"
     IMG_HASH=$(shasum -a 256 "$IMG_FILE" | awk '{print $1}')
-    IMG_SIZE=$(stat -f%z "$IMG_FILE" 2>/dev/null || stat -c%s "$IMG_FILE")
-    COUNT=$(( (IMG_SIZE + 1048575) / 1048576 ))
+    BLOCK_SIZE=4194304
+    COUNT=$(( (IMG_SIZE + BLOCK_SIZE - 1) / BLOCK_SIZE ))
     echo "Hashing first $IMG_SIZE bytes of $RDEVICE (reads the whole image)..."
     # Read to a temp file instead of a pipe: dd's exit status and the actual
     # byte count stay visible, so a flaky reader that errors mid-read can't
     # silently produce a truncated hash (previously hidden by 2>/dev/null with
     # pipefail off — it read ~1.5GB, hashed that, and reported a false mismatch).
     VERIFY_FILE="/tmp/nixos-flash-verify-$$.img"
-    if ! sudo dd if="$RDEVICE" bs=1M count="$COUNT" of="$VERIFY_FILE" 2>&1; then
+    echo "Reading back $IMG_SIZE bytes from $RDEVICE..."
+    if [ "$(uname)" = "Darwin" ]; then
+        if ! mac_dd_with_progress "$RDEVICE" "$VERIFY_FILE" "$COUNT"; then
+            sudo rm -f "$VERIFY_FILE"
+            echo "Raw-device read-back failed; retrying once through buffered $DEV..."
+            if ! mac_dd_with_progress "$DEV" "$VERIFY_FILE" "$COUNT"; then
+                echo "❌ Read-back failed — the device could not be read (the card or reader may be failing/disconnected)."
+                echo "Check it with: diskutil list && diskutil info $DEV"
+                sudo rm -f "$VERIFY_FILE"
+                rm -f "$TEMP_IMG"
+                exit 1
+            fi
+        fi
+    elif ! sudo dd if="$RDEVICE" bs=4m count="$COUNT" of="$VERIFY_FILE" 2>&1; then
         echo "❌ Read-back failed — the device could not be read (flaky reader or card?)."
         sudo rm -f "$VERIFY_FILE"
         rm -f "$TEMP_IMG"
@@ -406,7 +516,7 @@ nixos-flash DEVICE IMAGE="":
         rm -f "$TEMP_IMG"
         exit 1
     fi
-    # dd rounds up to 1M blocks; hash only the exact image size (the verify file
+    # dd rounds up to 4M blocks; hash only the exact image size (the verify file
     # is root-owned, so no mv/rm without sudo — pipe through head instead)
     DEV_HASH=$(head -c "$IMG_SIZE" "$VERIFY_FILE" | shasum -a 256 | awk '{print $1}')
     sudo rm -f "$VERIFY_FILE"
@@ -473,6 +583,18 @@ nixos-build-ci:
     [ -d "$CI_DIR" ] && rm -rf "$CI_DIR"
     gh run download "$RUN_ID" --name "nixos-sd-image-$HOST-$SHA" --dir "$CI_DIR"
     echo "Image saved to $CI_DIR/"
+
+# Build the SD image via GitHub Actions, download it, and flash it locally
+# DEVICE: target whole device, e.g. /dev/disk5 (required)
+# NHOST: host to build and flash (default: {{ NHOST }})
+[group('nixos')]
+nixos-build-ci-flash DEVICE:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Building and downloading the {{ NHOST }} SD image via GitHub Actions..."
+    NHOST="{{ NHOST }}" just nixos-build-ci
+    echo "Flashing the downloaded {{ NHOST }} image to {{ DEVICE }}..."
+    NHOST="{{ NHOST }}" just nixos-flash "{{ DEVICE }}"
 
 # Build the NixOS configuration on the remote host (no activation)
 # TARGET: hostname or IP (default: {{ NHOST }}.local, e.g. just nixos-remote-build 10.0.0.2)
