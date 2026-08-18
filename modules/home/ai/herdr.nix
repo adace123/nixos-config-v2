@@ -15,6 +15,9 @@
     focus_pane_right = "ctrl+L"
     focus_pane_up = "ctrl+K"
     focus_pane_down = "ctrl+J"
+    workspace_picker = "ctrl+p"
+    navigate_workspace_up = "k"
+    navigate_workspace_down = "j"
 
     [[keys.command]]
     key = "prefix+l"
