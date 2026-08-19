@@ -18,6 +18,10 @@
     workspace_picker = "ctrl+p"
     navigate_workspace_up = "k"
     navigate_workspace_down = "j"
+    previous_workspace = "ctrl+["
+    next_workspace = "ctrl+]"
+    previous_agent = "ctrl+{"
+    next_agent = "ctrl+}"
 
     [[keys.command]]
     key = "prefix+l"
