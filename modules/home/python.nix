@@ -15,6 +15,7 @@
       # Python packages (these come with Python or should be installed via uv/pip in projects)
       python314Packages.ipython # Enhanced Python REPL
       python314Packages.requests # HTTP library for Python
+      python314Packages.pyyaml # YAML parser/emitter
     ];
 
     # Python environment configuration

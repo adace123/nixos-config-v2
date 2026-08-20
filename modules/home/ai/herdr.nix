@@ -38,5 +38,13 @@
     description = "commit all changes"
     width = "80%"
     height = "80%"
+
+    [[keys.command]]
+    key = "prefix+t"
+    type = "popup"
+    command = "exec \"${"SHELL:-sh"}\""
+    description = "open scratch terminal"
+    width = "80%"
+    height = "80%"
   '';
 }

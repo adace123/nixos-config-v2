@@ -126,9 +126,12 @@ Manual deploy:
 gh workflow run deploy-oci.yml -f apply=true
 ```
 
-Pushes to `main` that touch the OCI image, host, or `infra/` paths deploy after
-the plan job succeeds. The apply job uses the `oci-production` GitHub
-environment, so configure any required reviewers there.
+> **Paused (2025-08-14):** auto-run on push is disabled, so pushes to `main` no longer
+> trigger a build. Only manual runs via the Actions tab or `gh workflow run` work
+> until re-enabled (see the note in `deploy-oci.yml`).
+
+The apply job uses the `oci-production` GitHub environment, so configure any
+required reviewers there.
 
 GitHub Actions decrypts `secrets/oci.yaml` in CI with a single `SOPS_AGE_KEY`
 repository secret. See
