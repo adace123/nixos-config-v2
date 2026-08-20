@@ -39,6 +39,12 @@ Run the bootstrap script from the repo root:
 ./bootstrap.sh
 ```
 
+`bootstrap.sh` automates the first-time macOS setup: it installs Homebrew if
+missing, verifies Nix is present (it prints the install command and exits if
+not), detects your hostname, builds `.#darwinConfigurations.<hostname>.system`,
+and activates it with `darwin-rebuild switch`. If nix-darwin is already
+installed it just prints the rebuild/`just switch` instructions and exits.
+
 Or manually:
 
 ```bash
@@ -98,6 +104,27 @@ consumed by shared wiring/modules (`flake-parts/darwin.nix`,
 `modules/darwin/default.nix`). Adding another Darwin machine should follow the
 same pattern: add host metadata, then reuse shared modules.
 
+## Shell & CLI Environment
+
+`modules/home/` configures the interactive shell and CLI tooling:
+
+- **Zsh** (`zsh.nix`) — completions, autosuggestion, syntax highlighting, and
+  agent aliases (`cc`, `oc`, …).
+- **Starship** (`starship.nix`) — minimal cross-shell prompt (directory, git
+  branch/status, nix shell).
+- **AeroSpace** (`aerospace.nix`) — i3-style tiling window manager
+  (`.aerospace.toml`, starts at login).
+- **Ghostty** (`ghostty.nix`) — GPU terminal with a Tokyo Night color scheme
+  and FiraCode Nerd Font.
+- **Dev toolchains** — `nodejs.nix` (Bun default + Node 22/20, TS tooling),
+  `python.nix` (Python 3.14 + uv, ruff, mypy), `packages.nix` (ripgrep, fd,
+  bat, eza, fzf, direnv, nh, lazygit, … — see the file for the full list).
+- **fastfetch** (`fastfetch.nix`) — `fastfetch` replaces `neofetch`, with a
+  clean JSON config.
+
+See also [docs/ai.md](ai.md) for the AI agents (Claude, OpenCode, Pi, Hermes,
+Herdr) that run in this shell.
+
 ## Key Files
 
 | File | Purpose |
@@ -108,11 +135,23 @@ same pattern: add host metadata, then reuse shared modules.
 | `modules/darwin/homebrew.nix` | Homebrew formulae, casks, and MAS apps |
 | `modules/darwin/fonts.nix` | Nerd Font packages |
 | `modules/darwin/auto-update.nix` | Daily update-check launchd service |
-| `modules/home/default.nix` | Shell, packages, Zsh, Starship, environment variables |
+| `modules/home/` | User-level modules (see `default.nix` for the import list) |
+| `modules/home/base.nix` | User identity, PATH, session variables (EDITOR, NH_FLAKE) |
+| `modules/home/packages.nix` | CLI tools and dev utilities |
+| `modules/home/zsh.nix` | Zsh shell config + aliases |
+| `modules/home/starship.nix` | Starship prompt |
+| `modules/home/aerospace.nix` | AeroSpace tiling window manager |
+| `modules/home/ghostty.nix` | Ghostty terminal |
+| `modules/home/fastfetch.nix` | `fastfetch` config |
+| `modules/home/nodejs.nix` | Bun/Node.js + TS tooling |
+| `modules/home/python.nix` | Python 3.14 + uv |
 | `modules/home/git.nix` | Git config, signing, aliases |
-| `modules/home/nvf/` | Neovim (nvf) with LSP/Treesitter |
+| `modules/home/secrets.nix` | SOPS location for home secrets |
+| `modules/home/nix.nix` | `~/.config/nix/nix.conf` (Determinate Nix) |
+| `modules/home/1password-agent.nix` | 1Password SSH agent key mappings |
+| `modules/home/nixvim/` | Neovim (nvf) with LSP/Treesitter |
 | `modules/home/zed/` | Zed editor settings and keybindings |
-| `modules/home/ai/` | Claude, Hermes, opencode CLI configurations |
+| `modules/home/ai/` | AI agents — see [docs/ai.md](ai.md) |
 
 ## Troubleshooting
 

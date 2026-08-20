@@ -16,9 +16,13 @@ modules/nixos/                  # host-specific modules
   base.nix                      # hostname, SOPS, Tailscale auth
   home-assistant/               # HA container + MQTT + Zigbee2MQTT + ESPHome
   caddy.nix                     # Caddy reverse proxy (Cloudflare DNS)
+  podman.nix                    # Podman engine + remote socket for the Mac
+  beszel.nix                    # Beszel monitoring hub
   ssd.nix                       # Disko SSD partition layout + boot config
+  sd.nix                        # SD-root storage (Turing Pi / TP2 nodes)
   rpi-boot.nix                  # Shared RPi kernel/boot settings
   installer.nix                 # Minimal SD-card installer image
+  home-assistant/restic.nix     # Restic → R2 backups (see docs/backups.md)
   configuration.yaml            # Home Assistant base configuration template
 ```
 
@@ -39,6 +43,7 @@ modules/nixos/                  # host-specific modules
 | ESPHome | 6052 | `home-assistant/` |
 | Beszel Hub | 8090 | `nixos/beszel.nix` |
 | Caddy (HTTPS proxy) | 443 | `caddy.nix` |
+| Podman (container engine) | socket | `podman.nix` |
 | Tailscale | — | `nixos/common.nix` |
 
 ## Initial Provisioning
@@ -186,12 +191,52 @@ Once authenticated, SSH is available over Tailscale from anywhere:
 ssh root@coruscant.<tailnet-name>.ts.net
 ```
 
+## Podman
+
+`modules/nixos/podman.nix` enables daemonless Podman as a Docker-compatible
+container engine for the home-server workload. It exposes the rootful socket at
+`/run/podman/podman.sock` (group-owned by `podman`, `dockerCompat` + symlinked
+`/run/docker.sock` so docker CLI/compose work against it), and prunes images
+weekly. The `nixos` user is in the `podman` group, so from the Mac you can drive
+coruscant's containers remotely:
+
+```bash
+podman system connection add coruscant --identity ~/.ssh/<key> ssh://nixos@coruscant/run/podman/podman.sock
+```
+
+## Backups
+
+Home Assistant data (`/var/lib/hass`) is backed up nightly to Cloudflare R2
+with Restic (`home-assistant/restic.nix`). Snapshot listing, retention, restore,
+and disaster recovery are covered in **[docs/backups.md](backups.md)**.
+
 ## Secrets on NixOS
 
 The SOPS age key must be present at `/var/lib/sops-nix/key.txt` before NixOS
 activates. The `just nixos-init` command copies it automatically via the
-`nixos-files/` mechanism. For an existing host, copy it manually if the key is
-ever lost:
+`nixos-files/` mechanism.
+
+`nixos-files/` is a git-tracked directory that stages files onto a freshly
+provisioned target during `nixos-init` (which uses `nixos-anywhere`). It
+mirrors the target's filesystem read-only to place files that must exist
+before first activation — primarily the decryption keys:
+
+```text
+nixos-files/
+└── var/lib/
+    ├── sops/age-key.txt      # staged key (sops-nix reads one of these two paths)
+    └── sops-nix/key.txt      # staging path used by `just nixos-init`
+```
+
+Both paths are typically populated by copying your macOS age key:
+
+```bash
+mkdir -p nixos-files/var/lib/sops-nix
+cp ~/.config/sops/age/keys.txt nixos-files/var/lib/sops-nix/key.txt
+```
+
+These are **private key files** — keep them out of public history. For an already
+running host, copy the key manually if it is ever lost:
 
 ```bash
 scp ~/.config/sops/age/keys.txt root@coruscant.local:/var/lib/sops-nix/key.txt

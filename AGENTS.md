@@ -235,16 +235,45 @@ nix build .#darwinConfigurations.endor.system
 2. Run `git add` for any **new files** — Nix flakes can only resolve git-tracked files
 3. Run `just fmt` to format Nix files (required before committing)
 4. Run `just check` to validate changes
-5. Check if documentation (README.md, AGENTS.md) needs updating to reflect the changes — especially when adding/removing modules, changing workflows, updating commands, or making architectural changes (new services, hosts, infrastructure). When in doubt, update the README.
+5. **Update the documentation to match your changes (required before committing).** Any change that affects how the repo is used — new/removed modules, new/changed host(s), new workflows or commands, services, infrastructure, secrets, CI, or architecture — must be reflected in the docs. See [Documentation Map](#documentation-map) below for what lives where. When in doubt, update the docs.
 6. Build with `nh darwin build` (user must run `just switch` to activate)
+
+### Documentation Map
+
+These are the repo's living docs — keep them in sync with the code:
+
+- `README.md` — overview, architecture, quick start, common commands, doc index
+- `AGENTS.md` — agent-specific guidelines (this file)
+- `docs/darwin.md` — macOS: setup, packages, customisation, `modules/home/` inventory
+- `docs/nixos.md` — Pi/NixOS: provisioning, services, `modules/nixos/` inventory, `nixos-files/`
+- `docs/home-assistant.md` — HA layout, integrations, automations, backups link
+- `docs/backups.md` — Restic → R2 backups, schedule, retention, restore, DR
+- `docs/dathomir.md` — OCI Always-Free VPS + `infra/` OpenTofu workflow
+- `docs/ai.md` — AI agents (Claude, OpenCode, Pi, Hermes, Herdr), skills
+- `docs/deployment.md` — deploy/rollback/GC + CI (GitHub Actions) reference
+- `docs/secrets.md` — SOPS secrets workflow
+- `scripts/README.md` — helper shell scripts (incl. `ai-selector`)
+- `infra/README.md` — OpenTofu workspace reference
+
+**Apply these rules:**
+
+- **Adding/removing/renaming a module or host** → update the relevant `docs/*.md` inventory table/tree (and `README.md` architecture if the shape changes).
+- **Adding/renaming a `just` recipe or script** → note it in the doc that lists commands. New package/homebrew installs belong in the relevant module doc or `darwin.md`/`nixos.md` "Adding Packages" section.
+- **Changing secrets, services, infrastructure, or CI** → update `secrets.md`, the host/module doc, `deployment.md`/`dathomir.md`, and `infra/README.md` as applicable.
+- **New AI agent or skill** → update `docs/ai.md`.
+- **Backup/restore/retention changes** → update `docs/backups.md`.
+- Keep the doc's table of contents / file trees accurate; prune dead references. Docs are linted by `markdownlint` in pre-commit.
 
 ### Committing
 
 - **Scope commits precisely.** Only stage files that are part of the current session's changes — never stage unrelated pending work from the working tree. Use `git diff --name-only` to verify you're only committing what was just discussed or modified.
 - **Pre-commit hooks run on all staged files.** If an unrelated file has a hook failure (e.g. deadnix unused variable), the entire commit is blocked. Check `git diff --cached` for other staged changes and either fix or unstage them before committing.
+- **Include the doc updates in the same commit as the code they describe.** If a change touches behaviour/workflow, its documentation update commits together with it — don't leave docs trailing in a later commit.
 - After a failed commit, pre-commit stashes unstaged files and restores them. The commit is not created — fix the issue and retry.
 
 > **Important:** Always run `just fmt` after editing Nix files. The pre-commit hooks will fail without proper formatting.
+>
+> **Important:** If you changed behaviour, also update the relevant docs (see [Documentation Map](#documentation-map)) **before** committing.
 
 ### Building for Remote NixOS Hosts
 

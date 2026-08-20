@@ -103,7 +103,9 @@ cp ~/.config/sops/age/keys.txt nixos-files/var/lib/sops-nix/key.txt
 just nixos-init
 ```
 
-See [docs/nixos.md](docs/nixos.md) for the full provisioning walkthrough.
+See [docs/nixos.md](docs/nixos.md) for the full provisioning walkthrough,
+[docs/backups.md](docs/backups.md) for Restic → R2 backups, and
+[docs/dathomir.md](docs/dathomir.md) for the OCI VPS.
 
 ## Common Commands
 
@@ -134,8 +136,12 @@ editing, rotating keys, recovering access, adding a new machine, and backups.
 | [docs/darwin.md](docs/darwin.md) | macOS setup, packages, customisation, troubleshooting |
 | [docs/nixos.md](docs/nixos.md) | Pi provisioning, services, remote deployment |
 | [docs/home-assistant.md](docs/home-assistant.md) | HA layout, services, intended future structure |
+| [docs/backups.md](docs/backups.md) | Restic → R2 backups, schedule, restore, DR |
+| [docs/dathomir.md](docs/dathomir.md) | OCI Always-Free VPS + infra/ OpenTofu workflow |
+| [docs/ai.md](docs/ai.md) | AI agents (Claude, OpenCode, Pi, Hermes, Herdr) |
 | [docs/secrets.md](docs/secrets.md) | Full secrets workflow |
-| [docs/deployment.md](docs/deployment.md) | All deployment commands, auto-update, GC |
+| [docs/deployment.md](docs/deployment.md) | All deployment commands, auto-update, GC, CI |
+| [infra/README.md](infra/README.md) | OpenTofu workspace reference |
 
 ## Repository Structure
 
@@ -164,6 +170,14 @@ editing, rotating keys, recovering access, adding a new machine, and backups.
 ├── bootstrap.sh              # First-time macOS setup
 ├── justfile                  # All runnable commands
 └── docs/                     # Focused documentation
+    ├── darwin.md             # macOS / nix-darwin
+    ├── nixos.md              # Raspberry Pi / NixOS
+    ├── home-assistant.md     # Home Assistant
+    ├── backups.md            # Restic → R2 backups & DR
+    ├── dathomir.md           # OCI Always-Free VPS
+    ├── ai.md                 # AI coding agents
+    ├── deployment.md         # Deploy / rollback / CI
+    └── secrets.md            # SOPS secrets workflow
 ```
 
 ## Resources

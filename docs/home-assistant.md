@@ -206,6 +206,13 @@ just hass-logs LINES=200                    # last 200 lines
 just hass-logs FILTER="error|recorder"      # filtered
 ```
 
+## Backups
+
+Home Assistant's persistent data (`/var/lib/hass`) is backed up nightly to
+Cloudflare R2 with Restic and checked weekly. See
+**[docs/backups.md](backups.md)** for schedule, retention, listing, and the
+restore procedure.
+
 ---
 
 ## Intended Future Structure

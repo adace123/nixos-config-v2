@@ -4,10 +4,24 @@ This directory contains utility scripts for the Nix configuration.
 
 ## Files
 
+- `ai-selector.sh` - Interactive AI assistant picker (`gum`-based); installed to
+  `~/.local/bin/ai-selector` (see `modules/home/base.nix`)
 - `setup-work-ssh.sh` - Configure separate SSH keys for work repositories
 - `setup-yubikey-sudo.sh` - Configure YubiKey for sudo authentication
 - `yubikey-sudo-shim.sh` - Notify when sudo auth is required (used by `just switch`; only installed when the laptop lid is closed)
+- `check-for-updates.sh` - Check `flake.lock` for upstream changes and notify (`just check-updates`)
 - `README.md` - This file
+
+## AI Assistant Selector
+
+`ai-selector.sh` lets you pick a coding assistant from a menu (Claude Code,
+OpenCode, Gemini CLI, GitHub Copilot) using `gum`. It is installed at
+`~/.local/bin/ai-selector` by `modules/home/base.nix`. Requires `gum` (in
+`home.packages`). Run it with:
+
+```bash
+ai-selector
+```
 
 ## Auto-Update Service
 

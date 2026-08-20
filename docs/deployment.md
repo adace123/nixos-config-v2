@@ -168,6 +168,22 @@ and verifies the full image against the device after flashing.
 
 ---
 
+## CI/CD (GitHub Actions)
+
+`.github/workflows/` runs several workflows:
+
+| Workflow | When | What it does |
+|----------|------|--------------|
+| `flake-check.yml` | Push/PR to `main`/`master` | `nix flake show` smoke check, then `nix flake check` on Linux and macOS |
+| `build-sd-image.yml` | Manual dispatch or push touching ARM-Pi paths | Builds a host's `-sd-image` on a native arm64 runner (see [docs/nixos.md](nixos.md)) |
+| `deploy-oci.yml` | Manual dispatch, or push touching OCI/`infra/` paths | Builds the OCI image, plans, then applies to the `oci-production` environment (see [docs/dathomir.md](dathomir.md)) |
+| `dependabot-auto-merge.yml` | On Dependabot PRs | Auto-merges (squash) Dependabot PRs once their checks pass |
+
+`dependabot.yml` enables weekly dependency updates for **GitHub Actions** and
+**Nix flake inputs** (grouped together, labeled `dependencies`). Merged Dependabot
+PRs to `main` may trigger the OCI deploy (if `flake.lock` changed) and are
+auto-merged; the `oci-production` environment can require reviewers before apply.
+
 ## Updating Flake Inputs
 
 ```bash
