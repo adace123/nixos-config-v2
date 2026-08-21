@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
 # herdr-picker - a herdr .sh plugin: a generic fuzzy picker over herdr spaces,
-# sessions, git worktrees, custom commands, and agent panes.
+# sessions, tabs, git worktrees, custom commands, and agent panes.
 #
 #   launcher.sh                menu: pick a category, then an item
 #   launcher.sh <category>     open the picker straight into a category
-#                              (spaces | sessions | worktrees | commands | agents)
+#                              (spaces | sessions | tabs | worktrees | commands | agents)
 #   launcher.sh open [cat]     action entrypoint: open the picker popup
 #   launcher.sh pick           pane entrypoint: draw the tv/fzf picker
 #   launcher.sh rows <cat>     emit rows for tv, as <idx>\t<run>\t<label>\t<badge>
@@ -14,6 +14,7 @@
 # Categories:
 #   spaces     - herdr workspaces           (open: focus the workspace)
 #   sessions   - named herdr sessions       (open: attach to the session)
+#   tabs       - herdr tabs                 (open: focus the tab)
 #   worktrees  - <repo>/.git worktrees      (open: focus or open the worktree)
 #   commands   - global config.toml `[[keys.command]]` + <repo>/.herdr-picker.toml
 #   agents     - herdr agent panes          (open: focus the agent)
@@ -44,6 +45,8 @@ rows_menu() {
 	printf '%d\tmenu:agents\tAgents\tmenu\n' "$i"
 	i=$((i + 1))
 	printf '%d\tmenu:sessions\tSessions\tmenu\n' "$i"
+	i=$((i + 1))
+	printf '%d\tmenu:tabs\tTabs\tmenu\n' "$i"
 }
 
 rows_spaces() {
@@ -71,6 +74,18 @@ rows_sessions() {
 		run="\"$HERDR\" session attach \"$name\""
 		printf '%d\t%s\t%s\t%s\n' "$i" "$run" "$name" "$status"
 	done < <("$HERDR" session list --json 2>/dev/null | jq -r '.sessions[] | [.name, (.running | tostring), .session_dir] | @tsv')
+}
+
+rows_tabs() {
+	local i=0 tab_id workspace_id label number focused display_label status run
+	while IFS=$'\t' read -r tab_id workspace_id label number focused; do
+		i=$((i + 1))
+		display_label="$workspace_id:$number — $label"
+		status="tab"
+		[ "$focused" = true ] && status="focused"
+		run="\"$HERDR\" tab focus $tab_id"
+		printf '%d\t%s\t%s\t%s\n' "$i" "$run" "$display_label" "$status"
+	done < <("$HERDR" tab list 2>/dev/null | jq -r '.result.tabs[] | [.tab_id,.workspace_id,.label,(.number | tostring),(.focused | tostring)] | @tsv')
 }
 
 rows_worktrees() {
@@ -165,6 +180,7 @@ rows_for() {
 	commands) rows_commands ;;
 	agents) rows_agents ;;
 	sessions) rows_sessions ;;
+	tabs) rows_tabs ;;
 	*) rows_menu ;;
 	esac
 }
@@ -321,12 +337,12 @@ fzf_select() {
 
 case "${1:-}" in
 "" | "menu") open_pane menu ;;
-spaces | sessions | worktrees | commands | agents) open_pane "$1" ;;
+spaces | sessions | tabs | worktrees | commands | agents) open_pane "$1" ;;
 open) open_pane "${2:-menu}" ;;
 pick) pick ;;
 rows) rows_for "${2:-${MODE:-menu}}" ;;
 *)
-	printf 'usage: launcher.sh [spaces|sessions|worktrees|commands|agents]\n' >&2
+	printf 'usage: launcher.sh [spaces|sessions|tabs|worktrees|commands|agents]\n' >&2
 	exit 2
 	;;
 esac
