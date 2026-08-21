@@ -126,7 +126,7 @@ project_config_file() {
 # project commands (badge "project") first, then global [[keys.command]] entries
 # (badge = their key binding, or "cmd" when unset).
 rows_commands() {
-	local base="${HERDR_LAUNCHER_CWD:-$PWD}" i=0 run label key proj_file
+	local base="${HERDR_LAUNCHER_CWD:-$PWD}" i=0 run label proj_file
 	proj_file="$(project_config_file "$base")"
 	if [ -n "$proj_file" ] && [ -f "$proj_file" ]; then
 		while IFS=$'\t' read -r run label _; do
@@ -134,10 +134,9 @@ rows_commands() {
 			printf '%d\t%s\t%s\tproject\n' "$i" "$run" "$label"
 		done < <(extract_from_file "$proj_file")
 	fi
-	while IFS=$'\t' read -r run label key; do
+	while IFS=$'\t' read -r run label _; do
 		i=$((i + 1))
-		[ -n "$key" ] || key="cmd"
-		printf '%d\t%s\t%s\t%s\n' "$i" "$run" "$label" "$key"
+		printf '%d\t%s\t%s\tglobal\n' "$i" "$run" "$label"
 	done < <(extract_from_file "$CONFIG_TOML")
 }
 
