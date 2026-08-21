@@ -116,14 +116,16 @@ fuzzy picker over seven categories, bound to **`ctrl+C`**
 - **worktrees** — open/focus a git worktree (scoped to the current repo)
 - **files** — open a project file with `$EDITOR`
 - **commands** — run a custom command
-- **agents** — show agent cwd/status/workspace, then focus or prompt an agent
+- **agents** — show agent cwd/status/workspace, then focus the agent
 
 No argument = **menu** (pick a category, then an item); pass a category to jump
 straight in. The picker opens as a **small centred popup**
 (`placement = "popup"`) and everything **runs scoped to the current directory**
 (captured from `HERDR_PLUGIN_CONTEXT_JSON`). The `tv` picker includes a preview
-pane showing the selected label, source, and launch action; `fzf` remains the
-fallback when `tv` is unavailable.
+pane showing the selected label, source, and launch action; in **files** mode it
+previews the actual file contents instead (`bat` with line numbers when
+available, plain `cat` otherwise). The `fzf` fallback gains the same file
+preview in files mode.
 
 **Configuring the popup size** — the size is repo-managed in
 `modules/home/ai/herdr/plugins/picker/config.toml`, copied to the plugin's config

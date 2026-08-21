@@ -28,7 +28,6 @@ set -euo pipefail
 
 HERDR="${HERDR_BIN_PATH:-herdr}"
 PLUGIN_ID="herdr-picker"
-SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 
 HERDR_CONFIG_HOME="${HERDR_CONFIG_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}/herdr}"
 CONFIG_TOML="${HERDR_CONFIG_TOML:-$HERDR_CONFIG_HOME/config.toml}"
@@ -69,22 +68,7 @@ rows_agents() {
 		label="$name — $cwd_label — $workspace_id — $status"
 		run="\"$HERDR\" agent focus \"$pane_id\""
 		printf '%d\t%s\t%s\tfocus\n' "$i" "$run" "$label"
-		i=$((i + 1))
-		run="bash \"$SCRIPT_PATH\" agent-prompt \"$pane_id\""
-		printf '%d\t%s\t%s\tprompt\n' "$i" "$run" "$label"
 	done < <("$HERDR" agent list 2>/dev/null | jq -r '.result.agents[] | [.agent,.agent_status,.cwd,.workspace_id,.pane_id] | @tsv')
-}
-
-agent_prompt() {
-	local target="${1:-}" prompt
-	[ -n "$target" ] || {
-		printf 'usage: launcher.sh agent-prompt <agent>\n' >&2
-		exit 2
-	}
-	printf 'Prompt for %s: ' "$target"
-	IFS= read -r prompt </dev/tty || exit 0
-	[ -n "$prompt" ] || exit 0
-	"$HERDR" agent prompt "$target" "$prompt"
 }
 
 rows_sessions() {
@@ -292,8 +276,30 @@ current_dir() {
 
 # --- interactive picking -----------------------------------------------------
 
+# Preview command for a category, for the given backend ("tv" or "fzf"; they
+# use different placeholder syntaxes for the selected row's fields).
+# File mode previews the actual file contents (bat when available, cat
+# otherwise); every other category shows label / source / launch action.
+preview_command() {
+	local cat="$1" backend="$2" cwd="${HERDR_LAUNCHER_CWD:-$PWD}" ph viewer
+	case "$backend" in
+	fzf) ph='{2}' ;;
+	*) ph='{split:\t:2}' ;;
+	esac
+	if [ "$cat" = files ]; then
+		viewer="$(command -v bat || command -v batcat || true)"
+		if [ -n "$viewer" ]; then
+			printf '%s --color=always --style=numbers --paging=never "%s/%s" 2>/dev/null' "$viewer" "$cwd" "$ph"
+		else
+			printf 'cat "%s/%s" 2>/dev/null' "$cwd" "$ph"
+		fi
+	else
+		printf 'printf "Label: %%s\\nSource: %%s\\n\\n%%s\\n" "{split:\\t:2}" "{split:\\t:3}" "{split:\\t:1}"'
+	fi
+}
+
 pick() {
-	local tv_bin fzf_bin chosen cwd category selected_idx selected_row item_close
+	local tv_bin fzf_bin chosen cwd category selected_idx selected_row item_close rows_file
 	tv_bin="$(command -v tv || true)"
 	fzf_bin="$(command -v fzf || true)"
 	if [ -z "$tv_bin" ] && [ -z "$fzf_bin" ]; then
@@ -304,16 +310,23 @@ pick() {
 	cwd="${HERDR_LAUNCHER_CWD:-$PWD}"
 	read_width_height
 
+	# Generate the category's rows once into a temp file; the picker UI reads
+	# from it and the selected row is recovered from it afterwards, so picking
+	# an item never re-runs the (potentially expensive) rows command.
+	rows_file="$(mktemp "${TMPDIR:-/tmp}/herdr-picker-rows.XXXXXX")"
+	trap 'rm -f "$rows_file"' EXIT
+	rows_for "$category" >"$rows_file"
+
 	# Two-stage loop: a menu selection returns "menu:<cat>", which switches the
-	# category and re-opens the picker for that category's items.
+	# category, refreshes the cached rows, and re-opens the picker.
 	while :; do
 		if [ -n "$tv_bin" ]; then
 			chosen="$(
 				"$tv_bin" --no-remote \
-					--source-command="bash $0 rows $category" \
+					--source-command="cat '$rows_file'" \
 					--source-display='{split:\t:2}  [{split:\t:3}]' \
 					--source-output='{split:\t:0}' \
-					--preview-command='printf "Label: %s\\nSource: %s\\n\\n%s\\n" "{split:\t:2}" "{split:\t:3}" "{split:\t:1}"' \
+					--preview-command="$(preview_command "$category" tv)" \
 					--preview-header="Scope: $cwd" \
 					--preview-size=55 \
 					--preview-word-wrap \
@@ -321,16 +334,17 @@ pick() {
 					--input-prompt='> '
 			)" || true
 		else
-			chosen="$(fzf_select "$fzf_bin" "$category")" || true
+			chosen="$(fzf_select "$fzf_bin" "$rows_file" "$category")" || true
 		fi
 		[ -n "$chosen" ] || exit 0 # Esc / empty → cancel
 		selected_idx="$chosen"
-		selected_row="$(rows_for "$category" | awk -F '\t' -v i="$selected_idx" '$1 == i && !found { print; found = 1 }')"
+		selected_row="$(awk -F '\t' -v i="$selected_idx" '$1 == i && !found { print; found = 1 }' "$rows_file")"
 		chosen="$(printf '%s\n' "$selected_row" | cut -f2)"
 		item_close="$(printf '%s\n' "$selected_row" | cut -f5)"
 		[ -n "$chosen" ] || exit 0
 		if [[ $chosen == menu:* ]]; then
 			category="${chosen#menu:}"
+			rows_for "$category" >"$rows_file"
 			continue
 		fi
 		case "$item_close" in
@@ -358,14 +372,17 @@ pick() {
 }
 
 # fzf fallback: display "label [badge]" (row index hidden), recover the run by
-# its index afterwards.
+# its index afterwards. Reads the same cached rows file as the tv path.
 fzf_select() {
-	local fzf_bin="$1" cat="$2" rows idx
-	rows="$(rows_for "$cat")"
+	local fzf_bin="$1" rows_file="$2" cat="$3" rows idx preview_args=()
+	rows="$(cat "$rows_file")"
 	[ -n "$rows" ] || return 0
+	if [ "$cat" = files ]; then
+		preview_args=(--preview "$(preview_command "$cat" fzf)" --preview-window=right:55%:wrap)
+	fi
 	idx="$(
 		printf '%s\n' "$rows" | awk -F '\t' '{ printf "%s\t%s [%s]\n", $1, $3, $4 }' |
-			"$fzf_bin" --layout=reverse --delimiter='\t' --with-nth=2 --prompt='> '
+			"$fzf_bin" --layout=reverse --delimiter='\t' --with-nth=2 --prompt='> ' "${preview_args[@]}"
 	)" || return 0
 	[ -n "$idx" ] || return 0
 	idx="${idx%%$'\t'*}"
@@ -377,7 +394,6 @@ case "${1:-}" in
 spaces | sessions | tabs | worktrees | files | commands | agents) open_pane "$1" ;;
 open) open_pane "${2:-menu}" ;;
 pick) pick ;;
-agent-prompt) agent_prompt "$2" ;;
 rows) rows_for "${2:-${MODE:-menu}}" ;;
 *)
 	printf 'usage: launcher.sh [spaces|sessions|tabs|worktrees|files|commands|agents]\n' >&2
