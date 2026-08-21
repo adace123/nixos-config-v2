@@ -28,6 +28,7 @@ set -euo pipefail
 
 HERDR="${HERDR_BIN_PATH:-herdr}"
 PLUGIN_ID="herdr-picker"
+SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 
 HERDR_CONFIG_HOME="${HERDR_CONFIG_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}/herdr}"
 CONFIG_TOML="${HERDR_CONFIG_TOML:-$HERDR_CONFIG_HOME/config.toml}"
@@ -61,11 +62,29 @@ rows_spaces() {
 }
 
 rows_agents() {
-	local i=0 name status
-	while IFS=$'\t' read -r name status; do
+	local i=0 name status cwd workspace_id pane_id cwd_label label run
+	while IFS=$'\t' read -r name status cwd workspace_id pane_id; do
 		i=$((i + 1))
-		printf '%d\t"%s" agent focus %s\t%s\t%s\n' "$i" "$HERDR" "$name" "$name" "$status"
-	done < <("$HERDR" agent list 2>/dev/null | jq -r '.result.agents[] | [.agent,.agent_status] | @tsv')
+		cwd_label="${cwd##*/}"
+		label="$name — $cwd_label — $workspace_id — $status"
+		run="\"$HERDR\" agent focus \"$pane_id\""
+		printf '%d\t%s\t%s\tfocus\n' "$i" "$run" "$label"
+		i=$((i + 1))
+		run="bash \"$SCRIPT_PATH\" agent-prompt \"$pane_id\""
+		printf '%d\t%s\t%s\tprompt\n' "$i" "$run" "$label"
+	done < <("$HERDR" agent list 2>/dev/null | jq -r '.result.agents[] | [.agent,.agent_status,.cwd,.workspace_id,.pane_id] | @tsv')
+}
+
+agent_prompt() {
+	local target="${1:-}" prompt
+	[ -n "$target" ] || {
+		printf 'usage: launcher.sh agent-prompt <agent>\n' >&2
+		exit 2
+	}
+	printf 'Prompt for %s: ' "$target"
+	IFS= read -r prompt </dev/tty || exit 0
+	[ -n "$prompt" ] || exit 0
+	"$HERDR" agent prompt "$target" "$prompt"
 }
 
 rows_sessions() {
@@ -358,6 +377,7 @@ case "${1:-}" in
 spaces | sessions | tabs | worktrees | files | commands | agents) open_pane "$1" ;;
 open) open_pane "${2:-menu}" ;;
 pick) pick ;;
+agent-prompt) agent_prompt "$2" ;;
 rows) rows_for "${2:-${MODE:-menu}}" ;;
 *)
 	printf 'usage: launcher.sh [spaces|sessions|tabs|worktrees|files|commands|agents]\n' >&2

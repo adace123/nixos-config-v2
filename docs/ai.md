@@ -116,7 +116,7 @@ fuzzy picker over seven categories, bound to **`ctrl+C`**
 - **worktrees** — open/focus a git worktree (scoped to the current repo)
 - **files** — open a project file with `$EDITOR`
 - **commands** — run a custom command
-- **agents** — focus a herdr agent pane
+- **agents** — show agent cwd/status/workspace, then focus or prompt an agent
 
 No argument = **menu** (pick a category, then an item); pass a category to jump
 straight in. The picker opens as a **small centred popup**
