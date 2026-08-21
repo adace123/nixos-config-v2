@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
 # herdr-picker - a herdr .sh plugin: a generic fuzzy picker over herdr spaces,
-# sessions, tabs, git worktrees, custom commands, and agent panes.
+# sessions, tabs, git worktrees, files, custom commands, and agent panes.
 #
 #   launcher.sh                menu: pick a category, then an item
 #   launcher.sh <category>     open the picker straight into a category
-#                              (spaces | sessions | tabs | worktrees | commands | agents)
+#                              (spaces | sessions | tabs | worktrees | files | commands | agents)
 #   launcher.sh open [cat]     action entrypoint: open the picker popup
 #   launcher.sh pick           pane entrypoint: draw the tv/fzf picker
 #   launcher.sh rows <cat>     emit rows for tv, as <idx>\t<run>\t<label>\t<badge>
@@ -16,6 +16,7 @@
 #   sessions   - named herdr sessions       (open: attach to the session)
 #   tabs       - herdr tabs                 (open: focus the tab)
 #   worktrees  - <repo>/.git worktrees      (open: focus or open the worktree)
+#   files      - project files              (open: with $EDITOR)
 #   commands   - global config.toml `[[keys.command]]` + <repo>/.herdr-picker.toml
 #   agents     - herdr agent panes          (open: focus the agent)
 #
@@ -47,6 +48,8 @@ rows_menu() {
 	printf '%d\tmenu:sessions\tSessions\tmenu\n' "$i"
 	i=$((i + 1))
 	printf '%d\tmenu:tabs\tTabs\tmenu\n' "$i"
+	i=$((i + 1))
+	printf '%d\tmenu:files\tFiles\tmenu\n' "$i"
 }
 
 rows_spaces() {
@@ -86,6 +89,20 @@ rows_tabs() {
 		run="\"$HERDR\" tab focus $tab_id"
 		printf '%d\t%s\t%s\t%s\n' "$i" "$run" "$display_label" "$status"
 	done < <("$HERDR" tab list 2>/dev/null | jq -r '.result.tabs[] | [.tab_id,.workspace_id,.label,(.number | tostring),(.focused | tostring)] | @tsv')
+}
+
+rows_files() {
+	local i=0 base root path label editor run
+	base="${HERDR_LAUNCHER_CWD:-$PWD}"
+	root="$(git -C "$base" rev-parse --show-toplevel 2>/dev/null || true)"
+	[ -n "$root" ] || root="$base"
+	editor="${EDITOR:-vi}"
+	while IFS= read -r path; do
+		i=$((i + 1))
+		label="${path#"$root"/}"
+		printf -v run '%s %q' "$editor" "$path"
+		printf '%d\t%s\t%s\tfile\n' "$i" "$run" "$label"
+	done < <(fd --hidden --type f --exclude .git --exclude .direnv --exclude node_modules --exclude 'result*' . "$root" 2>/dev/null | sort)
 }
 
 rows_worktrees() {
@@ -181,6 +198,7 @@ rows_for() {
 	agents) rows_agents ;;
 	sessions) rows_sessions ;;
 	tabs) rows_tabs ;;
+	files) rows_files ;;
 	*) rows_menu ;;
 	esac
 }
@@ -337,12 +355,12 @@ fzf_select() {
 
 case "${1:-}" in
 "" | "menu") open_pane menu ;;
-spaces | sessions | tabs | worktrees | commands | agents) open_pane "$1" ;;
+spaces | sessions | tabs | worktrees | files | commands | agents) open_pane "$1" ;;
 open) open_pane "${2:-menu}" ;;
 pick) pick ;;
 rows) rows_for "${2:-${MODE:-menu}}" ;;
 *)
-	printf 'usage: launcher.sh [spaces|sessions|tabs|worktrees|commands|agents]\n' >&2
+	printf 'usage: launcher.sh [spaces|sessions|tabs|worktrees|files|commands|agents]\n' >&2
 	exit 2
 	;;
 esac
