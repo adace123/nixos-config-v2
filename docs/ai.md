@@ -107,10 +107,11 @@ keybindings, and prefixed popup commands (lazygit, a Pi `commit-all` popup).
 ### Herdr Picker plugin
 
 A `.sh` herdr plugin (`modules/home/ai/herdr/plugins/picker/`) — a generic
-fuzzy picker over four categories, bound to **`ctrl+C`**
+fuzzy picker over five categories, bound to **`ctrl+C`**
 (`type = "plugin_action"`, action `herdr-picker.launch`):
 
 - **spaces** — focus a herdr workspace
+- **sessions** — attach to a named herdr session
 - **worktrees** — open/focus a git worktree (scoped to the current repo)
 - **commands** — run a custom command
 - **agents** — focus a herdr agent pane
@@ -156,7 +157,8 @@ Commands come from two sources (project commands listed first):
   ```
 
 The other categories are reachable as plugin actions too (`herdr-picker.spaces`,
-`herdr-picker.worktrees`, `herdr-picker.commands`, `herdr-picker.agents`), so you
+`herdr-picker.sessions`, `herdr-picker.worktrees`, `herdr-picker.commands`,
+`herdr-picker.agents`), so you
 can bind or trigger them directly.
 
 Registration is handled automatically: a `home.activation` block copies the two

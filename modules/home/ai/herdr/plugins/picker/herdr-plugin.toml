@@ -1,5 +1,5 @@
 # herdr-picker - a .sh herdr plugin: a generic fuzzy picker over herdr spaces,
-# git worktrees, custom commands, and agent panes.
+# sessions, git worktrees, custom commands, and agent panes.
 #
 # Deployment: modules/home/ai/herdr/herdr.nix copies these files into
 # ~/.config/herdr/plugins-managed/picker and registers the plugin via
@@ -12,9 +12,9 @@
 #   key = "prefix+c"
 #   type = "plugin_action"
 #   command = "herdr-picker.launch"
-#   description = "fuzzy-launch (spaces / worktrees / commands / agents)"
+#   description = "fuzzy-launch (spaces / sessions / worktrees / commands / agents)"
 #
-# Each of the actions below (spaces, worktrees, commands, agents) opens the same
+# Each of the actions below (spaces, sessions, worktrees, commands, agents) opens the same
 # popup pre-scoped to that category, so you can bind them directly or invoke
 # them from herdr's action palette.
 #
@@ -26,7 +26,7 @@ id = "herdr-picker"
 name = "Herdr Picker"
 version = "0.1.0"
 min_herdr_version = "0.7.0"
-description = "Fuzzy picker for herdr spaces, git worktrees, custom commands, and agent panes"
+description = "Fuzzy picker for herdr spaces, sessions, git worktrees, custom commands, and agent panes"
 platforms = ["linux", "macos"]
 
 # Actions each open the fetch picker popup, scoped to a category (no category =
@@ -42,6 +42,12 @@ id = "spaces"
 title = "Herdr Picker: spaces"
 platforms = ["linux", "macos"]
 command = ["bash", "launcher.sh", "open", "spaces"]
+
+[[actions]]
+id = "sessions"
+title = "Herdr Picker: sessions"
+platforms = ["linux", "macos"]
+command = ["bash", "launcher.sh", "open", "sessions"]
 
 [[actions]]
 id = "worktrees"

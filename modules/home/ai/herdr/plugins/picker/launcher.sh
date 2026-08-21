@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
 # herdr-picker - a herdr .sh plugin: a generic fuzzy picker over herdr spaces,
-# git worktrees, custom commands, and agent panes.
+# sessions, git worktrees, custom commands, and agent panes.
 #
 #   launcher.sh                menu: pick a category, then an item
 #   launcher.sh <category>     open the picker straight into a category
-#                              (spaces | worktrees | commands | agents)
+#                              (spaces | sessions | worktrees | commands | agents)
 #   launcher.sh open [cat]     action entrypoint: open the picker popup
 #   launcher.sh pick           pane entrypoint: draw the tv/fzf picker
 #   launcher.sh rows <cat>     emit rows for tv, as <idx>\t<run>\t<label>\t<badge>
@@ -13,6 +13,7 @@
 # Commands run scoped to the directory you launched from (HERDR_LAUNCHER_CWD).
 # Categories:
 #   spaces     - herdr workspaces           (open: focus the workspace)
+#   sessions   - named herdr sessions       (open: attach to the session)
 #   worktrees  - <repo>/.git worktrees      (open: focus or open the worktree)
 #   commands   - global config.toml `[[keys.command]]` + <repo>/.herdr-picker.toml
 #   agents     - herdr agent panes          (open: focus the agent)
@@ -41,6 +42,8 @@ rows_menu() {
 	printf '%d\tmenu:commands\tCommands\tmenu\n' "$i"
 	i=$((i + 1))
 	printf '%d\tmenu:agents\tAgents\tmenu\n' "$i"
+	i=$((i + 1))
+	printf '%d\tmenu:sessions\tSessions\tmenu\n' "$i"
 }
 
 rows_spaces() {
@@ -57,6 +60,17 @@ rows_agents() {
 		i=$((i + 1))
 		printf '%d\t"%s" agent focus %s\t%s\t%s\n' "$i" "$HERDR" "$name" "$name" "$status"
 	done < <("$HERDR" agent list 2>/dev/null | jq -r '.result.agents[] | [.agent,.agent_status] | @tsv')
+}
+
+rows_sessions() {
+	local i=0 name running status run
+	while IFS=$'\t' read -r name running _; do
+		i=$((i + 1))
+		status="stopped"
+		[ "$running" = true ] && status="running"
+		run="\"$HERDR\" session attach \"$name\""
+		printf '%d\t%s\t%s\t%s\n' "$i" "$run" "$name" "$status"
+	done < <("$HERDR" session list --json 2>/dev/null | jq -r '.sessions[] | [.name, (.running | tostring), .session_dir] | @tsv')
 }
 
 rows_worktrees() {
@@ -150,6 +164,7 @@ rows_for() {
 	worktrees) rows_worktrees ;;
 	commands) rows_commands ;;
 	agents) rows_agents ;;
+	sessions) rows_sessions ;;
 	*) rows_menu ;;
 	esac
 }
@@ -306,12 +321,12 @@ fzf_select() {
 
 case "${1:-}" in
 "" | "menu") open_pane menu ;;
-spaces | worktrees | commands | agents) open_pane "$1" ;;
+spaces | sessions | worktrees | commands | agents) open_pane "$1" ;;
 open) open_pane "${2:-menu}" ;;
 pick) pick ;;
 rows) rows_for "${2:-${MODE:-menu}}" ;;
 *)
-	printf 'usage: launcher.sh [spaces|worktrees|commands|agents]\n' >&2
+	printf 'usage: launcher.sh [spaces|sessions|worktrees|commands|agents]\n' >&2
 	exit 2
 	;;
 esac
