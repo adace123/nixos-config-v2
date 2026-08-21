@@ -7,6 +7,15 @@
 # See docs/ai.md -> "Herdr Picker plugin".
 
 [[keys.command]]
+command = "just switch"
+description = "build + activate darwin config"
+close_on_exit = false
+
+[[keys.command]]
+command = "just nixos-deploy"
+description = "deploy nixos config"
+
+[[keys.command]]
 command = "just fmt"
 description = "format all Nix files"
 
@@ -23,10 +32,6 @@ command = "just build"
 description = "build darwin config (no activation)"
 
 [[keys.command]]
-command = "just switch"
-description = "build + activate darwin config"
-
-[[keys.command]]
 command = "just update"
 description = "update all flake inputs"
 
@@ -41,7 +46,3 @@ description = "enter the development shell"
 [[keys.command]]
 command = "just clean"
 description = "garbage-collect old generations"
-
-[[keys.command]]
-command = "just info"
-description = "show system info"

@@ -76,7 +76,7 @@ rows_worktrees() {
 }
 
 # Parse [[keys.command]] blocks from one herdr-style toml into TSV lines of
-#   <run>\t<label>\t<key>
+#   <run>\t<label>\t<close_on_exit>
 # label = description (falls back to the command); entries that just trigger
 # another plugin action (type = "plugin_action") are skipped so the picker
 # doesn't list itself or its peers.
@@ -86,10 +86,10 @@ extract_from_file() {
     function emit() {
       if (cmd == "" || typ == "plugin_action") return
       if (desc == "") desc = cmd
-      print cmd "\t" desc "\t" key
+      print cmd "\t" desc "\t" close_value
     }
-    BEGIN { in_cmd = 0; key = ""; cmd = ""; desc = ""; typ = "popup" }
-    /^\[\[keys\.command\]\]/ { emit(); in_cmd = 1; key = ""; cmd = ""; desc = ""; typ = "popup"; next }
+    BEGIN { in_cmd = 0; key = ""; cmd = ""; desc = ""; typ = "popup"; close_value = "" }
+    /^\[\[keys\.command\]\]/ { emit(); in_cmd = 1; key = ""; cmd = ""; desc = ""; typ = "popup"; close_value = ""; next }
     /^\[/ { emit(); in_cmd = 0; next }
     {
       if (!in_cmd) next
@@ -101,6 +101,9 @@ extract_from_file() {
       }
       if ($0 ~ /^type[[:space:]]*=[[:space:]]*"/) {
         v = $0; sub(/^type[[:space:]]*=[[:space:]]*"/, "", v); sub(/"[[:space:]]*$/, "", v); typ = v; next
+      }
+      if ($0 ~ /^close_on_exit[[:space:]]*=/) {
+        v = $0; sub(/^[^=]*=[[:space:]]*/, "", v); gsub(/[[:space:]\"]/, "", v); close_value = tolower(v); next
       }
       if ($0 ~ /^description[[:space:]]*=[[:space:]]*"/) {
         v = $0; sub(/^description[[:space:]]*=[[:space:]]*"/, "", v); sub(/"[[:space:]]*$/, "", v); desc = v; next
@@ -122,21 +125,21 @@ project_config_file() {
 	fi
 }
 
-# Build the commands list as TSV rows <idx>\t<run>\t<label>\t<badge>:
-# project commands (badge "project") first, then global [[keys.command]] entries
-# (badge = their key binding, or "cmd" when unset).
+# Build the commands list as TSV rows <idx>\t<run>\t<label>\t<badge>\t<close_on_exit>:
+# project commands (badge "project") first, then global [[keys.command]] entries.
+# A command-level close_on_exit value is carried as the optional fifth field.
 rows_commands() {
 	local base="${HERDR_LAUNCHER_CWD:-$PWD}" i=0 run label proj_file
 	proj_file="$(project_config_file "$base")"
 	if [ -n "$proj_file" ] && [ -f "$proj_file" ]; then
-		while IFS=$'\t' read -r run label _; do
+		while IFS=$'\t' read -r run label close; do
 			i=$((i + 1))
-			printf '%d\t%s\t%s\tproject\n' "$i" "$run" "$label"
+			printf '%d\t%s\t%s\tproject\t%s\n' "$i" "$run" "$label" "$close"
 		done < <(extract_from_file "$proj_file")
 	fi
-	while IFS=$'\t' read -r run label _; do
+	while IFS=$'\t' read -r run label close; do
 		i=$((i + 1))
-		printf '%d\t%s\t%s\tglobal\n' "$i" "$run" "$label"
+		printf '%d\t%s\t%s\tglobal\t%s\n' "$i" "$run" "$label" "$close"
 	done < <(extract_from_file "$CONFIG_TOML")
 }
 
@@ -153,15 +156,17 @@ rows_for() {
 
 # --- opening the popup ------------------------------------------------------
 
-# Read the popup size from the plugin's own config
+# Read popup size and the default close behavior from the plugin's own config
 # ($HERDR_PLUGIN_CONFIG_DIR/config.toml), seeding defaults on first use.
 # width/height accept terminal cells (integer) or a percentage like "80%".
 read_width_height() {
-	local cfg default_w default_h w h
+	local cfg default_w default_h default_close w h close_value
 	default_w="60%"
 	default_h='"50%"'
+	default_close=true
 	PCK_WIDTH="$default_w"
 	PCK_HEIGHT="$default_h"
+	PCK_CLOSE_ON_EXIT="$default_close"
 	if [ -n "${HERDR_PLUGIN_CONFIG_DIR:-}" ]; then
 		cfg="$HERDR_PLUGIN_CONFIG_DIR/config.toml"
 		if [ ! -f "$cfg" ]; then
@@ -174,12 +179,17 @@ read_width_height() {
 [ui]
 width = "${default_w}"
 height = ${default_h}
+close_on_exit = ${default_close}
 EOF
 		fi
 		w="$(awk -F= '/^[[:space:]]*width[[:space:]]*=/{gsub(/[[:space:]\"]/,"",$2); print $2; exit}' "$cfg")"
 		h="$(awk -F= '/^[[:space:]]*height[[:space:]]*=/{gsub(/[[:space:]\"]/,"",$2); print $2; exit}' "$cfg")"
+		close_value="$(awk -F= '/^[[:space:]]*close_on_exit[[:space:]]*=/{gsub(/[[:space:]\"]/,"",$2); print tolower($2); exit}' "$cfg")"
 		[ -n "$w" ] && PCK_WIDTH="$w"
 		[ -n "$h" ] && PCK_HEIGHT="$h"
+		case "$close_value" in
+		false | 0 | no | off) PCK_CLOSE_ON_EXIT=false ;;
+		esac
 	fi
 }
 
@@ -215,7 +225,7 @@ current_dir() {
 # --- interactive picking -----------------------------------------------------
 
 pick() {
-	local tv_bin fzf_bin chosen cwd category
+	local tv_bin fzf_bin chosen cwd category selected_idx selected_row item_close
 	tv_bin="$(command -v tv || true)"
 	fzf_bin="$(command -v fzf || true)"
 	if [ -z "$tv_bin" ] && [ -z "$fzf_bin" ]; then
@@ -224,6 +234,7 @@ pick() {
 	fi
 	category="${MODE:-menu}"
 	cwd="${HERDR_LAUNCHER_CWD:-$PWD}"
+	read_width_height
 
 	# Two-stage loop: a menu selection returns "menu:<cat>", which switches the
 	# category and re-opens the picker for that category's items.
@@ -233,7 +244,11 @@ pick() {
 				"$tv_bin" --no-remote \
 					--source-command="bash $0 rows $category" \
 					--source-display='{split:\t:2}  [{split:\t:3}]' \
-					--source-output='{split:\t:1}' \
+					--source-output='{split:\t:0}' \
+					--preview-command='printf "Label: %s\\nSource: %s\\n\\n%s\\n" "{split:\t:2}" "{split:\t:3}" "{split:\t:1}"' \
+					--preview-header="Scope: $cwd" \
+					--preview-size=55 \
+					--preview-word-wrap \
 					--input-header="$category — $cwd" \
 					--input-prompt='> '
 			)" || true
@@ -241,10 +256,19 @@ pick() {
 			chosen="$(fzf_select "$fzf_bin" "$category")" || true
 		fi
 		[ -n "$chosen" ] || exit 0 # Esc / empty → cancel
+		selected_idx="$chosen"
+		selected_row="$(rows_for "$category" | awk -F '\t' -v i="$selected_idx" '$1 == i && !found { print; found = 1 }')"
+		chosen="$(printf '%s\n' "$selected_row" | cut -f2)"
+		item_close="$(printf '%s\n' "$selected_row" | cut -f5)"
+		[ -n "$chosen" ] || exit 0
 		if [[ $chosen == menu:* ]]; then
 			category="${chosen#menu:}"
 			continue
 		fi
+		case "$item_close" in
+		false | 0 | no | off) PCK_CLOSE_ON_EXIT=false ;;
+		true | 1 | yes | on) PCK_CLOSE_ON_EXIT=true ;;
+		esac
 		break
 	done
 
@@ -252,13 +276,23 @@ pick() {
 	# Scope to the launching directory, then run the choice in this popup pane;
 	# herdr tears the popup down when it exits.
 	cd "$cwd" 2>/dev/null || true
+	set +e
 	eval -- "$chosen"
+	local command_status=$?
+	set -e
+
+	if [ "$PCK_CLOSE_ON_EXIT" = false ]; then
+		printf '\nPress Enter to close the picker...\n'
+		IFS= read -r _ </dev/tty || true
+	fi
+
+	return "$command_status"
 }
 
 # fzf fallback: display "label [badge]" (row index hidden), recover the run by
 # its index afterwards.
 fzf_select() {
-	local fzf_bin="$1" cat="$2" rows idx run
+	local fzf_bin="$1" cat="$2" rows idx
 	rows="$(rows_for "$cat")"
 	[ -n "$rows" ] || return 0
 	idx="$(
@@ -267,8 +301,7 @@ fzf_select() {
 	)" || return 0
 	[ -n "$idx" ] || return 0
 	idx="${idx%%$'\t'*}"
-	run="$(printf '%s\n' "$rows" | awk -F '\t' -v i="$idx" '$1 == i { print $2; exit }')"
-	printf '%s' "$run"
+	printf '%s' "$idx"
 }
 
 case "${1:-}" in

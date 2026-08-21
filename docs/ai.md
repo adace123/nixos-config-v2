@@ -118,7 +118,9 @@ fuzzy picker over four categories, bound to **`ctrl+C`**
 No argument = **menu** (pick a category, then an item); pass a category to jump
 straight in. The picker opens as a **small centred popup**
 (`placement = "popup"`) and everything **runs scoped to the current directory**
-(captured from `HERDR_PLUGIN_CONTEXT_JSON`). Uses `tv`, falling back to `fzf`.
+(captured from `HERDR_PLUGIN_CONTEXT_JSON`). The `tv` picker includes a preview
+pane showing the selected label, source, and launch action; `fzf` remains the
+fallback when `tv` is unavailable.
 
 **Configuring the popup size** — the size is repo-managed in
 `modules/home/ai/herdr/plugins/picker/config.toml`, copied to the plugin's config
@@ -126,8 +128,18 @@ dir on every activation (real, editable file):
 
 ```toml
 [ui]
-width = "60%"   # terminal cells (integer) or a percentage like "80%"
-height = 24
+width = "70%"         # terminal cells (integer) or a percentage like "80%"
+height = "70%"
+close_on_exit = true   # false keeps the popup open until Enter
+```
+
+A command entry may override the default for itself:
+
+```toml
+[[keys.command]]
+command = "just switch"
+description = "build + activate darwin config"
+close_on_exit = false
 ```
 
 Commands come from two sources (project commands listed first):

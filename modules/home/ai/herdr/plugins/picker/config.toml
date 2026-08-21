@@ -10,3 +10,4 @@
 [ui]
 width = "70%"
 height = "70%"
+close_on_exit = true
