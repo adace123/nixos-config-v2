@@ -3,10 +3,10 @@
 # Popup width/height as percentages of the terminal; each also accepts a fixed
 # terminal-cell count (integer).
 #
-# This file is repo-managed (modules/home/ai/herdr-plugins/picker/config.toml)
+# This file is repo-managed (modules/home/ai/herdr/plugins/picker/config.toml)
 # and is copied to the plugin's config dir on every activation, so editing it
 # here is the source of truth.
 
 [ui]
 width = "70%"
-height = "60%"
+height = "70%"

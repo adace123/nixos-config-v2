@@ -54,15 +54,15 @@
   home.activation.herdrPickerPlugin = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     pluginDir="$HOME/.config/herdr/plugins-managed/picker"
     mkdir -p "$pluginDir"
-    cp -f "${./herdr-plugins/picker/herdr-plugin.toml}" "$pluginDir/herdr-plugin.toml"
-    cp -f "${./herdr-plugins/picker/launcher.sh}" "$pluginDir/launcher.sh"
+    cp -f "${./plugins/picker/herdr-plugin.toml}" "$pluginDir/herdr-plugin.toml"
+    cp -f "${./plugins/picker/launcher.sh}" "$pluginDir/launcher.sh"
     chmod +x "$pluginDir/launcher.sh"
 
     # Repo-managed picker settings -> plugin config dir (real, editable file;
     # a store symlink would be read-only). herdr seeds nothing if this exists.
     pickerCfg="$HOME/.config/herdr/plugins/config/herdr-picker"
     mkdir -p "$pickerCfg"
-    cp -f "${./herdr-plugins/picker/config.toml}" "$pickerCfg/config.toml"
+    cp -f "${./plugins/picker/config.toml}" "$pickerCfg/config.toml"
 
     herdrBin="$(command -v herdr 2>/dev/null || true)"
     [ -x "$herdrBin" ] || herdrBin="$HOME/.local/bin/herdr"

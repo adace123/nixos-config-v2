@@ -1,7 +1,7 @@
 # herdr-picker - a .sh herdr plugin: a generic fuzzy picker over herdr spaces,
 # git worktrees, custom commands, and agent panes.
 #
-# Deployment: modules/home/ai/herdr.nix copies these files into
+# Deployment: modules/home/ai/herdr/herdr.nix copies these files into
 # ~/.config/herdr/plugins-managed/picker and registers the plugin via
 # `herdr plugin link` in a home.activation block, so a plain `just switch` does
 # it. (Copied to a stable, real directory because herdr canonicalises the

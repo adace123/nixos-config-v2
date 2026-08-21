@@ -10,7 +10,10 @@ modules/home/ai/
 ├── opencode.nix    # OpenCode
 ├── pi.nix          # Pi (pi-coding-agent) + its MCP + skills
 ├── hermes.nix      # Hermes (a Pi-compatible agent)
-├── herdr.nix       # Herdr terminal multiplexer
+├── herdr/          # Herdr terminal multiplexer
+│   ├── herdr.nix   #   config.toml + picker plugin deployment
+│   └── plugins/    #   installed .sh plugins
+│       └── picker/ #   herdr-picker (generic fuzzy picker)
 ├── shared.nix      # Shared rules / code-reviewer / commands across agents
 └── skills.nix      # Skills synced from the mattpocock/skills flake input
 ```
@@ -95,7 +98,7 @@ Pi is a Rust-based conversational coding agent.
 - Secrets (`opencode-api-key`, `opencode-zen-api-key`) injected into
   `~/.hermes/.env` from SOPS.
 
-## Herdr (`herdr.nix`)
+## Herdr (`herdr/herdr.nix`)
 
 [Herdr](https://github.com/nikki93/herdr) is a terminal multiplexer that hosts
 agents. `config.toml` is Nix-managed with a Catppuccin theme, pane/workspace
@@ -103,7 +106,7 @@ keybindings, and prefixed popup commands (lazygit, a Pi `commit-all` popup).
 
 ### Herdr Picker plugin
 
-A `.sh` herdr plugin (`modules/home/ai/herdr-plugins/picker/`) — a generic
+A `.sh` herdr plugin (`modules/home/ai/herdr/plugins/picker/`) — a generic
 fuzzy picker over four categories, bound to **`ctrl+C`**
 (`type = "plugin_action"`, action `herdr-picker.launch`):
 
@@ -118,7 +121,7 @@ straight in. The picker opens as a **small centred popup**
 (captured from `HERDR_PLUGIN_CONTEXT_JSON`). Uses `tv`, falling back to `fzf`.
 
 **Configuring the popup size** — the size is repo-managed in
-`modules/home/ai/herdr-plugins/picker/config.toml`, copied to the plugin's config
+`modules/home/ai/herdr/plugins/picker/config.toml`, copied to the plugin's config
 dir on every activation (real, editable file):
 
 ```toml
