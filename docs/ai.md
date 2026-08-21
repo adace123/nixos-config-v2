@@ -99,8 +99,58 @@ Pi is a Rust-based conversational coding agent.
 
 [Herdr](https://github.com/nikki93/herdr) is a terminal multiplexer that hosts
 agents. `config.toml` is Nix-managed with a Catppuccin theme, pane/workspace
-keybindings, and prefixed popup commands (lazygit, a Pi `commit-all` popup, and
-a scratch shell).
+keybindings, and prefixed popup commands (lazygit, a Pi `commit-all` popup).
+
+### Herdr Picker plugin
+
+A `.sh` herdr plugin (`modules/home/ai/herdr-plugins/picker/`) — a generic
+fuzzy picker over four categories, bound to **`ctrl+C`**
+(`type = "plugin_action"`, action `herdr-picker.launch`):
+
+- **spaces** — focus a herdr workspace
+- **worktrees** — open/focus a git worktree (scoped to the current repo)
+- **commands** — run a custom command
+- **agents** — focus a herdr agent pane
+
+No argument = **menu** (pick a category, then an item); pass a category to jump
+straight in. The picker opens as a **small centred popup**
+(`placement = "popup"`) and everything **runs scoped to the current directory**
+(captured from `HERDR_PLUGIN_CONTEXT_JSON`). Uses `tv`, falling back to `fzf`.
+
+**Configuring the popup size** — the size is repo-managed in
+`modules/home/ai/herdr-plugins/picker/config.toml`, copied to the plugin's config
+dir on every activation (real, editable file):
+
+```toml
+[ui]
+width = "60%"   # terminal cells (integer) or a percentage like "80%"
+height = 24
+```
+
+Commands come from two sources (project commands listed first):
+
+- **Global** — `[[keys.command]]` entries in `config.toml` (the plugin's own
+  keybinding is skipped).
+- **Project** — a project-local `<repo>/.herdr-picker.toml` using the same
+  format, discovered at the repo root (nearest git repo):
+
+  ```toml
+  [[keys.command]]
+  command = "just check"
+  description = "run checks"
+  ```
+
+The other categories are reachable as plugin actions too (`herdr-picker.spaces`,
+`herdr-picker.worktrees`, `herdr-picker.commands`, `herdr-picker.agents`), so you
+can bind or trigger them directly.
+
+Registration is handled automatically: a `home.activation` block copies the two
+plugin files into a stable directory (`~/.config/herdr/plugins-managed/picker/`)
+and runs `herdr plugin link` there if the plugin isn't already registered. A
+plain `just switch` is all that's needed — no manual `herdr plugin link`.
+
+(The copy-to-a-stable-dir step matters: `herdr plugin link` canonicalises the
+linked path, so pointing it at a store symlink would go stale on every rebuild.)
 
 ## Adding / changing agents
 

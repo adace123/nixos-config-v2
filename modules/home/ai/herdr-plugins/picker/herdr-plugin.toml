@@ -1,0 +1,78 @@
+# herdr-picker - a .sh herdr plugin: a generic fuzzy picker over herdr spaces,
+# git worktrees, custom commands, and agent panes.
+#
+# Deployment: modules/home/ai/herdr.nix copies these files into
+# ~/.config/herdr/plugins-managed/picker and registers the plugin via
+# `herdr plugin link` in a home.activation block, so a plain `just switch` does
+# it. (Copied to a stable, real directory because herdr canonicalises the
+# linked path and a store symlink would go stale on rebuild.)
+#
+# Bind the menu to a key in config.toml, e.g.:
+#   [[keys.command]]
+#   key = "prefix+c"
+#   type = "plugin_action"
+#   command = "herdr-picker.launch"
+#   description = "fuzzy-launch (spaces / worktrees / commands / agents)"
+#
+# Each of the actions below (spaces, worktrees, commands, agents) opens the same
+# popup pre-scoped to that category, so you can bind them directly or invoke
+# them from herdr's action palette.
+#
+# Global commands come from the [[keys.command]] entries in the herdr config.toml.
+# A repo can add project-specific commands in the same format at its root in
+#   <repo>/.herdr-picker.toml
+
+id = "herdr-picker"
+name = "Herdr Picker"
+version = "0.1.0"
+min_herdr_version = "0.7.0"
+description = "Fuzzy picker for herdr spaces, git worktrees, custom commands, and agent panes"
+platforms = ["linux", "macos"]
+
+# Actions each open the fetch picker popup, scoped to a category (no category =
+# menu). placement comes from the manifest pane below.
+[[actions]]
+id = "launch"
+title = "Herdr Picker: menu"
+platforms = ["linux", "macos"]
+command = ["bash", "launcher.sh", "open", "menu"]
+
+[[actions]]
+id = "spaces"
+title = "Herdr Picker: spaces"
+platforms = ["linux", "macos"]
+command = ["bash", "launcher.sh", "open", "spaces"]
+
+[[actions]]
+id = "worktrees"
+title = "Herdr Picker: worktrees"
+platforms = ["linux", "macos"]
+command = ["bash", "launcher.sh", "open", "worktrees"]
+
+[[actions]]
+id = "commands"
+title = "Herdr Picker: commands"
+platforms = ["linux", "macos"]
+command = ["bash", "launcher.sh", "open", "commands"]
+
+[[actions]]
+id = "agents"
+title = "Herdr Picker: agents"
+platforms = ["linux", "macos"]
+command = ["bash", "launcher.sh", "open", "agents"]
+
+# Pane entrypoint: hosts the interactive picker in a small centred popup (the
+# popup placement must live in the manifest — `plugin pane open --placement` has
+# no popup value). These width/height are the fallback defaults; the launcher
+# overrides them at open time from the plugin's config file
+# (~/.config/herdr/plugins/config/herdr-picker/config.toml, `[ui] width/height`).
+# herdr restores focus and closes the popup when the script (or the command it
+# runs) exits.
+[[panes]]
+id = "launch"
+title = "Herdr Picker"
+placement = "popup"
+width = "60%"
+height = "50%"
+platforms = ["linux", "macos"]
+command = ["bash", "launcher.sh", "pick"]
