@@ -1,0 +1,47 @@
+# Project-local commands for the herdr-picker plugin.
+#
+# These appear in the herdr-picker "commands" category when launched from
+# anywhere inside this repo. Same shape as the global config.toml: each
+# [[keys.command]] is one entry; `command` runs scoped to this repo and
+# `description` is the label shown in the picker.
+# See docs/ai.md -> "Herdr Picker plugin".
+
+[[keys.command]]
+command = "just fmt"
+description = "format all Nix files"
+
+[[keys.command]]
+command = "just check"
+description = "run all checks (flake, fmt, lint, pre-commit)"
+
+[[keys.command]]
+command = "nix flake check --all-systems"
+description = "check flake for errors across all systems"
+
+[[keys.command]]
+command = "just build"
+description = "build darwin config (no activation)"
+
+[[keys.command]]
+command = "just switch"
+description = "build + activate darwin config"
+
+[[keys.command]]
+command = "just update"
+description = "update all flake inputs"
+
+[[keys.command]]
+command = "just diff"
+description = "show pending config changes"
+
+[[keys.command]]
+command = "just dev"
+description = "enter the development shell"
+
+[[keys.command]]
+command = "just clean"
+description = "garbage-collect old generations"
+
+[[keys.command]]
+command = "just info"
+description = "show system info"
