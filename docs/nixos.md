@@ -56,7 +56,7 @@ modules/nixos/                  # host-specific modules
 
    ```bash
    mkdir -p nixos-files/var/lib/sops-nix
-   cp ~/.config/sops/age/keys.txt nixos-files/var/lib/sops-nix/key.txt
+   cp ~/.config/sops/age/host-keys/coruscant.txt nixos-files/var/lib/sops-nix/key.txt
    ```
 
 4. Run the one-shot installer:
@@ -228,18 +228,19 @@ nixos-files/
     └── sops-nix/key.txt      # staging path used by `just nixos-init`
 ```
 
-Both paths are typically populated by copying your macOS age key:
+Both paths are typically populated by copying that host's age key (one key per
+host — see [docs/secrets.md](secrets.md)):
 
 ```bash
 mkdir -p nixos-files/var/lib/sops-nix
-cp ~/.config/sops/age/keys.txt nixos-files/var/lib/sops-nix/key.txt
+cp ~/.config/sops/age/host-keys/coruscant.txt nixos-files/var/lib/sops-nix/key.txt
 ```
 
 These are **private key files** — keep them out of public history. For an already
 running host, copy the key manually if it is ever lost:
 
 ```bash
-scp ~/.config/sops/age/keys.txt root@coruscant.local:/var/lib/sops-nix/key.txt
+just install-sops-key coruscant root@coruscant.local
 ```
 
 See [docs/secrets.md](secrets.md) for the full secrets workflow.

@@ -32,6 +32,27 @@
         # Find dead Nix code
         deadnix.enable = true;
 
+        # Detect accidentally committed secrets and credentials
+        gitleaks = {
+          enable = true;
+          name = "gitleaks";
+          description = "Detect hardcoded secrets in staged changes";
+          entry = "${pkgs.gitleaks}/bin/gitleaks git --pre-commit --staged --redact";
+          pass_filenames = false; # scans the staged diff itself
+        };
+
+        # Keep flake.nix nixConfig in sync with nix-caches.nix (the source of
+        # truth). flake.nix must duplicate the lists because nix reads
+        # nixConfig without evaluating imports.
+        check-nix-caches-sync = {
+          enable = true;
+          name = "check-nix-caches-sync";
+          description = "Verify flake.nix nixConfig matches nix-caches.nix";
+          entry = "${pkgs.bash}/bin/bash ${../scripts/check-nix-caches-sync.sh}";
+          files = "^(flake\.nix|nix-caches\.nix)$";
+          pass_filenames = false;
+        };
+
         # Check for merge conflicts
         check-merge-conflicts.enable = true;
 

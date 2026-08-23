@@ -8,7 +8,9 @@
     ./podman.nix
   ];
 
-  sops.defaultSopsFile = ../../secrets/default.yaml;
+  # Per-host secrets file — each host only decrypts its own secrets
+  # (see .sops.yaml creation rules).
+  sops.defaultSopsFile = ../../secrets/${host.hostName}.yaml;
   sops.age.keyFile = "/var/lib/sops-nix/key.txt";
   sops.secrets = {
     ts-auth-key = { };

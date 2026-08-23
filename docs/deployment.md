@@ -96,9 +96,9 @@ See [docs/nixos.md](nixos.md) for the full provisioning walkthrough.
 Quick reference:
 
 ```bash
-# 1. Prepare age key for secrets
+# 1. Prepare the host's age key (one key per host — see docs/secrets.md)
 mkdir -p nixos-files/var/lib/sops-nix
-cp ~/.config/sops/age/keys.txt nixos-files/var/lib/sops-nix/key.txt
+cp ~/.config/sops/age/host-keys/coruscant.txt nixos-files/var/lib/sops-nix/key.txt
 
 # 2. Boot Pi from installer SD card, then:
 just nixos-init                  # default: coruscant-installer.local
@@ -177,7 +177,7 @@ and verifies the full image against the device after flashing.
 
 | Workflow | When | What it does |
 |----------|------|--------------|
-| `flake-check.yml` | Push/PR to `main`/`master` | `nix flake show` smoke check, then `nix flake check` on Linux and macOS |
+| `flake-check.yml` | Push/PR to `main`/`master` | `nix flake show` smoke check + nixConfig/nix-caches sync guard, full `nix flake check --all-systems` on Linux, eval-only darwin smoke (saves macOS runner minutes; real builds happen via `just build`) |
 | `build-sd-image.yml` | Manual dispatch or push touching ARM-Pi paths | Builds a host's `-sd-image` on a native arm64 runner (see [docs/nixos.md](nixos.md)) |
 | `deploy-oci.yml` | Manual dispatch, or push touching OCI/`infra/` paths | Builds the OCI image, plans, then applies to the `oci-production` environment (see [docs/dathomir.md](dathomir.md)) |
 | `dependabot-auto-merge.yml` | On Dependabot PRs | Auto-merges (squash) Dependabot PRs once their checks pass |

@@ -95,9 +95,9 @@ just switch HOST=endor
 ### NixOS / Raspberry Pi (first time)
 
 ```bash
-# Prepare age key for secrets decryption on the Pi
+# Prepare the host's age key for secrets decryption
 mkdir -p nixos-files/var/lib/sops-nix
-cp ~/.config/sops/age/keys.txt nixos-files/var/lib/sops-nix/key.txt
+cp ~/.config/sops/age/host-keys/coruscant.txt nixos-files/var/lib/sops-nix/key.txt
 
 # Boot Pi from installer SD card, then:
 just nixos-init
@@ -122,9 +122,10 @@ See [docs/nixos.md](docs/nixos.md) for the full provisioning walkthrough,
 
 ## Secrets
 
-Secrets use SOPS + age encryption. The encrypted file `secrets/default.yaml`
-is safe to commit. The private key lives at `~/.config/sops/age/keys.txt` on
-macOS and `/var/lib/sops-nix/key.txt` on the Pi.
+Secrets use SOPS + age encryption with **one age key per host** — each machine
+can only decrypt its own `secrets/<hostname>.yaml`. A separate admin editing key
+(`~/.config/sops/admin-keys.txt`) is used to edit/re-encrypt secret files; host
+private keys are backed up in 1Password (`sops-nix age key - <host>`).
 
 See [docs/secrets.md](docs/secrets.md) for the full workflow: creating,
 editing, rotating keys, recovering access, adding a new machine, and backups.
@@ -165,7 +166,7 @@ editing, rotating keys, recovering access, adding a new machine, and backups.
 │       ├── ssd.nix
 │       └── home-assistant/
 ├── secrets/
-│   └── default.yaml          # SOPS-encrypted secrets
+│   └── <host>.yaml           # SOPS-encrypted per-host secrets
 ├── scripts/                  # Helper shell scripts
 ├── bootstrap.sh              # First-time macOS setup
 ├── justfile                  # All runnable commands

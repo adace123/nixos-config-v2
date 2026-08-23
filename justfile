@@ -733,53 +733,84 @@ r2-list PREFIX="":
     ' | column -t -s $'\t'
     SCRIPT
 
-# Backup the sops age key to 1Password as a document
+# Backup the sops age editing key to 1Password as a document
 [group('secrets')]
 backup-key:
     #!/usr/bin/env bash
     set -euo pipefail
-    KEYFILE="$HOME/.config/sops/age/keys.txt"
+    KEYFILE="$HOME/.config/sops/admin-keys.txt"
     if [ ! -f "$KEYFILE" ]; then
-        echo "ERROR: Age key not found at $KEYFILE. Run 'just init-sops' first."
+        echo "ERROR: Editing key not found at $KEYFILE. Run 'just init-sops' first."
         exit 1
     fi
     if ! command -v op &> /dev/null; then
         echo "ERROR: 1Password CLI (op) is required. Install it via: brew install 1password-cli"
         exit 1
     fi
-    echo "Storing age key in 1Password..."
-    op document create "$KEYFILE" --title "sops-nix age key" --tags "sops-nix,age-key"
+    echo "Storing age editing key in 1Password..."
+    op document create "$KEYFILE" --title "sops-nix age default key" --tags "sops-nix,age-key"
     echo "Done. The key can be restored from 1Password if needed."
 
-# Edit sops-encrypted secrets in $EDITOR (default: secrets/default.yaml)
+# Edit sops-encrypted secrets in $EDITOR using the admin editing key
 [group('secrets')]
-edit-secrets FILE="secrets/default.yaml":
+edit-secrets FILE="secrets/endor.yaml":
     #!/usr/bin/env bash
     set -euo pipefail
     if [ ! -f "{{ FILE }}" ]; then
         echo "File not found: {{ FILE }}"
         exit 1
     fi
+    # Decrypting for edits uses the admin editing key, not this machine's
+    # host decryption key.
+    export SOPS_AGE_KEY_FILE="$HOME/.config/sops/admin-keys.txt"
     nix shell nixpkgs#sops nixpkgs#age -c sops "{{ FILE }}"
 
-# Generate an age key for sops-nix (idempotent — skips if key exists)
+# Generate an age editing (admin) key for sops (idempotent — skips if key exists)
 [group('secrets')]
 init-sops:
     #!/usr/bin/env bash
     set -euo pipefail
-    KEYFILE=~/.config/sops/age/keys.txt
+    KEYFILE=~/.config/sops/admin-keys.txt
     mkdir -p "$(dirname "$KEYFILE")"
     if [ -f "$KEYFILE" ]; then
-        echo "Age key already exists at $KEYFILE"
+        echo "Age editing key already exists at $KEYFILE"
         echo "Public key:"
         grep "^# public key:" "$KEYFILE"
     else
         nix shell nixpkgs#age -c age-keygen -o "$KEYFILE"
         echo ""
-        echo "Age key created at $KEYFILE"
-        echo "Add this public key to .sops.yaml:"
+        echo "Age editing key created at $KEYFILE"
+        echo "Add this public key to every creation rule in .sops.yaml:"
         grep "^# public key:" "$KEYFILE"
     fi
+
+# Install a host's sops age private key onto a remote NixOS host over SSH.
+# Prefers the 1Password document, falls back to ~/.config/sops/age/host-keys/.
+# Example: just install-sops-key coruscant root@coruscant.local
+[group('secrets')]
+install-sops-key HOST TARGET:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -z "{{ TARGET }}" ]; then
+        echo "ERROR: TARGET required, e.g. root@coruscant.local"
+        exit 1
+    fi
+    if command -v op >/dev/null 2>&1 \
+        && op document get "sops-nix age key - {{ HOST }}" --out /tmp/sops-host-key.$$ 2>/dev/null \
+        && [ -s /tmp/sops-host-key.$$ ]; then
+        KEYFILE=/tmp/sops-host-key.$$
+        trap 'rm -f /tmp/sops-host-key.$$' EXIT
+        echo "Using key from 1Password"
+    elif [ -f "$HOME/.config/sops/age/host-keys/{{ HOST }}.txt" ]; then
+        KEYFILE="$HOME/.config/sops/age/host-keys/{{ HOST }}.txt"
+        echo "Using local key file ($KEYFILE)"
+    else
+        echo "ERROR: No key found for {{ HOST }} in 1Password or ~/.config/sops/age/host-keys/"
+        exit 1
+    fi
+    ssh "{{ TARGET }}" 'mkdir -p /var/lib/sops-nix && chmod 700 /var/lib/sops-nix'
+    cat "$KEYFILE" | ssh "{{ TARGET }}" 'cat > /var/lib/sops-nix/key.txt && chmod 600 /var/lib/sops-nix/key.txt'
+    echo "Installed {{ HOST }} key on {{ TARGET }} at /var/lib/sops-nix/key.txt"
 
 # Clean up old generations older than 30 days
 [group('darwin')]

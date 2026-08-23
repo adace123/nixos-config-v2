@@ -1,18 +1,57 @@
+# SOPS key configuration.
+#
+# Key roles:
+# - admin:            editing-only key, lives on the workstation at
+#                     ~/.config/sops/admin-keys.txt (backed up to 1Password as
+#                     "sops-nix age default key"). Never deployed to hosts.
+# - <host> keys:      one age identity per machine. Each host only decrypts the
+#                     files listed in its creation rule below. Private keys are
+#                     backed up in 1Password ("sops-nix age key - <host>") and
+#                     installed at /var/lib/sops-nix/key.txt (NixOS) or
+#                     ~/.config/sops/age/keys.txt (macOS home-manager).
+# - github_actions_oci: CI key used by the deploy-oci workflow (SOPS_AGE_KEY).
 keys:
   - &admin age1sgfy6dm4jg72eqx2rw0003cxrt8rkr6q0pp395djh99jwsulw52sc5pv7l
   - &github_actions_oci age1xkf06j67yhw2n5twmyudkqr6gvavukfyuzradkyjagfqt4c8uslqgqve9d
+  - &endor age1ldvr6jjgn6jsufyslq9ghp2kq07j84quct42v72sgdhhkrdjj4fqhatq6t
+  - &coruscant age15t45e0n8ylycjl7avnrz08ew4nn7vg9d9j0rt8yl9yp4742k0qxq9qxyej
+  - &threepio age1g7385yzmn7sa6h92wzjkd33mfhjs7gvv2jkddpn8635rh62le96q8e4ynz
+  - &dathomir age1t3vx37eg9upxskh20mfg78v46d0upefj4ea05ldqhx3j326t99xqy528dp
 creation_rules:
+  # Restic → Cloudflare R2 credentials, used by home-assistant/restic.nix on
+  # both Pi/Turing Pi hosts and by GitHub Actions.
   - path_regex: secrets/cloudflare.yaml$
     key_groups:
       - age:
           - *admin
           - *github_actions_oci
+          - *coruscant
+          - *threepio
+  # OpenTofu/OCI secrets — CI only, no host decrypts these at runtime.
   - path_regex: secrets/oci.yaml$
     key_groups:
       - age:
           - *admin
           - *github_actions_oci
-  - path_regex: secrets/default.yaml$
+  # Per-host secrets: each host can only read its own file. base.nix and
+  # modules/home/secrets.nix select the file by host name.
+  - path_regex: secrets/endor.yaml$
     key_groups:
       - age:
           - *admin
+          - *endor
+  - path_regex: secrets/coruscant.yaml$
+    key_groups:
+      - age:
+          - *admin
+          - *coruscant
+  - path_regex: secrets/threepio.yaml$
+    key_groups:
+      - age:
+          - *admin
+          - *threepio
+  - path_regex: secrets/dathomir.yaml$
+    key_groups:
+      - age:
+          - *admin
+          - *dathomir

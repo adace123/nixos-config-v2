@@ -22,6 +22,10 @@ jobs:
           flakehub: false
       - name: Flake eval smoke check
         run: nix flake show
+      # Guard the documented duplication: flake.nix's literal nixConfig must
+      # match nix-caches.nix (nix cannot evaluate imports for nixConfig).
+      - name: Check nixConfig / nix-caches.nix sync
+        run: ./scripts/check-nix-caches-sync.sh
   linux-check:
     runs-on: ubuntu-latest
     steps:
@@ -31,7 +35,10 @@ jobs:
         with:
           flakehub: false
       - name: Check Nix flake (Linux)
-        run: nix flake check
+        run: nix flake check --all-systems
+  # Eval-only smoke of the darwin configuration. A full `nix flake check` here
+  # would re-evaluate every system and burn macOS runner minutes; actual builds
+  # happen on the real host via `just build`.
   darwin-check:
     runs-on: macos-latest
     steps:
@@ -40,5 +47,7 @@ jobs:
         uses: DeterminateSystems/nix-installer-action@v22
         with:
           flakehub: false
-      - name: Check Nix flake (Darwin)
-        run: nix flake check
+      - name: Evaluate darwin configuration (endor)
+        run: |
+          nix eval .#darwinConfigurations.endor.config.system.build.toplevel.drvPath \
+            --accept-flake-config
