@@ -23,7 +23,7 @@ in
 
     settings = {
       theme = "dark";
-      model = "claude-sonnet-5";
+      model = "claude-opus-5";
       defaultMode = "auto";
       skipAutoPermissionPrompt = true;
       statusLine = {
