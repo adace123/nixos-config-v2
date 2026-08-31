@@ -124,6 +124,8 @@ in
     commands.changelog = shared.commands.changelog.claude-code;
     commands.commit = shared.commands.commit.claude-code;
 
+    rules.git-worktrees = shared.rules.git-worktrees;
+
     skills = {
       code-quality = shared.rules.code-quality;
       best-practices = shared.rules.best-practices;

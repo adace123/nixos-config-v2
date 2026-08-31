@@ -45,6 +45,21 @@ in
       - Write tests for critical functionality
       - Use descriptive names for variables and functions
     '';
+
+    git-worktrees = ''
+      # Git Worktree Workflow
+
+      Always implement new features and bug fixes inside a dedicated git worktree.
+
+      ## Workflow
+      - Before starting a new feature or bug fix, create a worktree:
+        `git worktree add ../<repo>-<branch> -b <branch>`
+      - Use descriptive branch names (e.g. `feature/<short-name>`, `fix/<short-name>`)
+      - Do all implementation, commits, and tests inside the worktree
+      - Never commit directly on the default branch (main/master)
+      - After the work is merged, clean up with `git worktree remove <path>`
+        and delete the branch
+    '';
   };
 
   agents = {
