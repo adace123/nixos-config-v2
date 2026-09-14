@@ -30,7 +30,7 @@ jobs:
             echo "KVM not available (will fall back to emulation)"
           fi
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v22
+        uses: DeterminateSystems/nix-installer-action@v23
         with:
           flakehub: false
           extra-conf: |
@@ -62,7 +62,7 @@ jobs:
           chmod 600 /tmp/age-key.txt
           echo "SOPS_AGE_KEY_FILE=/tmp/age-key.txt" >> "$GITHUB_ENV"
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v22
+        uses: DeterminateSystems/nix-installer-action@v23
         with:
           flakehub: false
       - name: Download image artifact
@@ -91,7 +91,7 @@ jobs:
           chmod 600 /tmp/age-key.txt
           echo "SOPS_AGE_KEY_FILE=/tmp/age-key.txt" >> "$GITHUB_ENV"
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v22
+        uses: DeterminateSystems/nix-installer-action@v23
         with:
           flakehub: false
       - name: Download image artifact
