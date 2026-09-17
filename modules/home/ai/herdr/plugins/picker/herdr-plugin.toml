@@ -1,5 +1,6 @@
 # herdr-picker - a .sh herdr plugin: a generic fuzzy picker over herdr spaces,
-# sessions, tabs, git worktrees, files, custom commands, and agent panes.
+# sessions, tabs, git worktrees, files, custom commands, agent panes, and
+# scheduled automations (via the herdr-automations plugin).
 #
 # Deployment: modules/home/ai/herdr/herdr.nix copies these files into
 # ~/.config/herdr/plugins-managed/picker and registers the plugin via
@@ -14,8 +15,8 @@
 #   command = "herdr-picker.launch"
 #   description = "fuzzy-launch (spaces / sessions / tabs / worktrees / files / commands / agents)"
 #
-# Each of the actions below (spaces, sessions, tabs, worktrees, files, commands, agents) opens the same
-# popup pre-scoped to that category, so you can bind them directly or invoke
+# Each of the actions below (spaces, sessions, tabs, worktrees, files, commands, agents, automations)
+# opens the same popup pre-scoped to that category, so you can bind them directly or invoke
 # them from herdr's action palette.
 #
 # Global commands come from the [[keys.command]] entries in the herdr config.toml.
@@ -78,6 +79,12 @@ id = "agents"
 title = "Herdr Picker: agents"
 platforms = ["linux", "macos"]
 command = ["bash", "launcher.sh", "open", "agents"]
+
+[[actions]]
+id = "automations"
+title = "Herdr Picker: automations"
+platforms = ["linux", "macos"]
+command = ["bash", "launcher.sh", "open", "automations"]
 
 # Pane entrypoint: hosts the interactive picker in a small centred popup (the
 # popup placement must live in the manifest — `plugin pane open --placement` has

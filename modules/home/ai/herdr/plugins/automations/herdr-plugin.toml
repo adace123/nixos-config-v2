@@ -1,0 +1,44 @@
+# herdr-automations - a .sh herdr plugin: cron-scheduled automations.
+#
+# Each automation is one TOML file in the plugin config dir's `automations/`
+# subdirectory (see example-cron.toml). A background daemon, spawned by the
+# [[startup]] hook below, ticks once a minute and fires due automations as
+# visible herdr workspaces: resolve (or create) the workspace, start the agent
+# in a pane, and submit the command.
+#
+# Inspired by https://github.com/mikedclarke/herdr-shepherd (daemon + startup
+# hook + per-action locks + no-backfill semantics), implemented as a .sh plugin
+# to match this repo's herdr-picker conventions (no build step).
+#
+# Deployment: modules/home/ai/herdr/herdr.nix copies these files into
+# ~/.config/herdr/plugins-managed/automations and registers the plugin via
+# `herdr plugin link` in a home.activation block, so a plain `just switch`
+# does it. (Copied to a stable, real directory because herdr canonicalises the
+# linked path and a store symlink would go stale on rebuild.)
+#
+# NOTE: automation TOML files are user data, not repo-managed files. Activation
+# seeds the example file only when automations/ does not exist yet, and never
+# overwrites it afterwards.
+
+id = "herdr-automations"
+name = "Herdr Automations"
+version = "0.1.0"
+min_herdr_version = "0.7.0"
+description = "Cron-scheduled automations: run an agent command in a herdr workspace on a schedule"
+platforms = ["linux", "macos"]
+
+# Startup hook is one-shot: `daemon --detach` spawns the scheduler in the
+# background and exits, so the hook completes cleanly. The daemon inherits
+# herdr's socket env from this context, which is why it must be (re)started
+# from inside herdr — restart the herdr server after install/link.
+[[startup]]
+platforms = ["linux", "macos"]
+command = ["bash", "automations.sh", "daemon", "--detach"]
+
+# Text summary: daemon liveness plus every automation (schedule, last run).
+[[actions]]
+id = "status"
+title = "Automations: Status"
+platforms = ["linux", "macos"]
+contexts = ["global"]
+command = ["bash", "automations.sh", "status"]

@@ -45,21 +45,6 @@ in
       - Write tests for critical functionality
       - Use descriptive names for variables and functions
     '';
-
-    git-worktrees = ''
-      # Git Worktree Workflow
-
-      Always implement new features and bug fixes inside a dedicated git worktree.
-
-      ## Workflow
-      - Before starting a new feature or bug fix, create a worktree:
-        `git worktree add ../<repo>-<branch> -b <branch>`
-      - Use descriptive branch names (e.g. `feature/<short-name>`, `fix/<short-name>`)
-      - Do all implementation, commits, and tests inside the worktree
-      - Never commit directly on the default branch (main/master)
-      - After the work is merged, clean up with `git worktree remove <path>`
-        and delete the branch
-    '';
   };
 
   agents = {
@@ -86,6 +71,11 @@ in
         Update CHANGELOG.md with a new entry for the specified version.
         Follow the Keep a Changelog format: https://keepachangelog.com/
 
+        Keep entries concise: one short line per change, describing what changed
+        from a user's point of view. Rationale, file names, and investigation
+        notes belong in the commit message, not the changelog. If the project's
+        CLAUDE.md defines its own changelog conventions, follow those instead.
+
         Usage: /changelog [version] [change-type] [message]
         Change types: Added, Changed, Deprecated, Removed, Fixed, Security
       '';
@@ -99,6 +89,11 @@ in
         Parse the version, change type, and message from the input
         and update the CHANGELOG.md file accordingly.
         Follow the Keep a Changelog format: https://keepachangelog.com/
+
+        Keep entries concise: one short line per change, describing what changed
+        from a user's point of view. Rationale, file names, and investigation
+        notes belong in the commit message, not the changelog. If the project's
+        CLAUDE.md defines its own changelog conventions, follow those instead.
       '';
     };
 

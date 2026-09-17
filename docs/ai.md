@@ -11,9 +11,10 @@ modules/home/ai/
 ├── pi.nix          # Pi (pi-coding-agent) + its MCP + skills
 ├── hermes.nix      # Hermes (a Pi-compatible agent)
 ├── herdr/          # Herdr terminal multiplexer
-│   ├── herdr.nix   #   config.toml + picker plugin deployment
+│   ├── herdr.nix   #   config.toml + plugin deployment
 │   └── plugins/    #   installed .sh plugins
-│       └── picker/ #   herdr-picker (generic fuzzy picker)
+│       ├── picker/ #   herdr-picker (generic fuzzy picker)
+│       └── automations/ # herdr-automations (cron-scheduled agent runs)
 ├── shared.nix      # Shared rules / code-reviewer / commands across agents
 └── skills.nix      # Skills synced from the mattpocock/skills flake input
 ```
@@ -63,6 +64,9 @@ Add a skill by appending its `skills/<path>` to `commonSkills` in `skills.nix`.
 - **Permissions** — whitelists common read/git commands, asks on writes/pushes.
 - **PostToolUse hook** — auto-formats edited files by extension (`nix fmt`,
   `ruff format`, `dprint`/`prettier`, `markdownlint`, `yamlfmt`).
+- **Git worktree rule** — Claude-only rule (defined in `claude.nix`, not
+  `shared.nix`): implement features/fixes in a dedicated worktree, never
+  commit directly on the default branch.
 - Config is Nix-managed at `~/.claude/settings.json` (`force = true`).
 
 ## OpenCode (`opencode.nix`)
@@ -107,7 +111,7 @@ keybindings, and prefixed popup commands (lazygit, a Pi `commit-all` popup).
 ### Herdr Picker plugin
 
 A `.sh` herdr plugin (`modules/home/ai/herdr/plugins/picker/`) — a generic
-fuzzy picker over seven categories, bound to **`ctrl+C`**
+fuzzy picker over eight categories, bound to **`ctrl+C`**
 (`type = "plugin_action"`, action `herdr-picker.launch`):
 
 - **spaces** — focus a herdr workspace
@@ -117,6 +121,8 @@ fuzzy picker over seven categories, bound to **`ctrl+C`**
 - **files** — open a project file with `$EDITOR`
 - **commands** — run a custom command
 - **agents** — show agent cwd/status/workspace, then focus the agent
+- **automations** — list scheduled automations (cron, workspace, agent, last
+  run); selecting one fires it now (manual trigger)
 
 No argument = **menu** (pick a category, then an item); pass a category to jump
 straight in. The picker opens as a **small centred popup**
@@ -162,7 +168,8 @@ Commands come from two sources (project commands listed first):
 
 The other categories are reachable as plugin actions too (`herdr-picker.spaces`,
 `herdr-picker.sessions`, `herdr-picker.tabs`, `herdr-picker.worktrees`,
-`herdr-picker.files`, `herdr-picker.commands`, `herdr-picker.agents`), so you
+`herdr-picker.files`, `herdr-picker.commands`, `herdr-picker.agents`,
+`herdr-picker.automations`), so you
 can bind or trigger them directly.
 
 Registration is handled automatically: a `home.activation` block copies the two
@@ -172,6 +179,83 @@ plain `just switch` is all that's needed — no manual `herdr plugin link`.
 
 (The copy-to-a-stable-dir step matters: `herdr plugin link` canonicalises the
 linked path, so pointing it at a store symlink would go stale on every rebuild.)
+
+### Herdr Automations plugin
+
+A `.sh` herdr plugin (`modules/home/ai/herdr/plugins/automations/`),
+inspired by [herdr-shepherd](https://github.com/mikedclarke/herdr-shepherd):
+run coding agents on a cron schedule. Each automation specifies a **cron
+schedule**, **workspace**, **agent**, and **command** in a `[[automation]]`
+block in its repo's `.herdr-automations.toml` (the legacy global dir
+`~/.config/herdr/plugins/config/herdr-automations/automations/*.toml` still
+works as a fallback; names must be unique across all sources):
+
+```toml
+[[automation]]
+name = "morning-digest"
+description = "Weekday tech-news briefing"  # optional: shown in list/picker/notifications
+cron = "15 6 * * 1-5"          # 5-field cron (or @hourly/@daily/@weekly/@monthly/@yearly)
+workspace = "ops"              # herdr workspace label (created if missing)
+agent = "claude"               # herdr agent kind (claude | codex | pi | opencode | ...)
+model = "sonnet"               # optional: --model for kinds that accept it
+agent_args = ["--verbose"]     # optional: verbatim extra flags for the agent
+command = "Prepare the morning digest per DIGEST.md."
+directory = "~/projects/ops"   # optional cwd when creating the workspace
+enabled = true                 # optional, default true (omitted = live)
+auto_close = true              # optional: close the workspace when the run ends
+watch_minutes = 240           # optional: stop watching after N minutes (default 240)
+```
+
+A daemon spawned by the plugin's `[[startup]]` hook ticks once a minute over
+every repo in its registry (`automations.sh repos add <path>`; the wizard
+registers automatically) plus the global fallback dir, and fires due
+automations as visible herdr workspaces (resolve-or-create the
+workspace, start the agent in a pane, submit the command), then leaves the
+session open for review. Semantics mirror shepherd's: edits to the TOML files
+apply within a minute with no restart, missed schedules are dropped (no
+backfill after sleep/downtime), an automation never fires twice in the same
+minute, and a manual run refuses while a scheduled run is still active.
+A background watcher follows each scheduled run: one notification if the
+agent blocks on input, `completed` / `attention` / `cancelled` recorded to
+history (`auto_close` tidies the workspace on completion, `watch_minutes`
+bounds the watch), and pre-start failures (herdr unreachable, prompt
+rejected) retry on later ticks up to 3 attempts within 10 minutes.
+A broken entry disables only itself (other blocks in the same file keep running)
+and shows its error in listings. Each
+run's pane gets `HERDR_AUTOMATION=<name>` and `HERDR_TRIGGER=<schedule|manual>`
+in its environment.
+
+```bash
+# from inside herdr (the daemon needs herdr's socket env)
+automations.sh daemon --detach  # start the scheduler (the startup hook does this)
+automations.sh list             # table: name, schedule, enabled, last + next run
+automations.sh status           # daemon liveness + the list
+automations.sh run <name>       # fire now (manual trigger)
+automations.sh open <name>      # focus the workspace of the last run
+automations.sh history [name]   # newest-first run history
+automations.sh show <name>      # details + run/enable/open actions
+automations.sh board [--once]   # live htop-style table (static with --once)
+automations.sh repos [add|remove <path>]  # repo registry
+automations.sh enable <name> | automations.sh disable <name>
+```
+
+(The CLI lives at `~/.config/herdr/plugins-managed/automations/automations.sh`
+after `just switch`.)
+
+All automations are visible in the picker (`ctrl+C` → **Automations**, or the
+`herdr-picker.automations` action), which shows each entry's description, cron, workspace,
+agent, and last run. The list leads with a **+ board** row (live htop-style
+table: vim navigation, run/enable/open keys, auto-refresh) followed by
+**+ new automation…**, then one row per automation — selecting one opens a
+details view (schedule, next run, history) with run/enable/open actions.
+**+ new automation…** opens a guided creation wizard (schedule presets,
+workspace/agent pickers, validation with the daemon's own parser) that appends
+to the current repo's `.herdr-automations.toml` (registering the repo and
+migrating any global automations in on first save), enabled from the start.
+Same wizard via `automations.sh new`.
+First run seeds a disabled
+`example-cron.toml`; automation files are user data and are never overwritten
+by later `just switch` runs.
 
 ## Adding / changing agents
 

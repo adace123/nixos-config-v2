@@ -247,9 +247,12 @@ See [docs/secrets.md](secrets.md) for the full secrets workflow.
 
 ## Auto-upgrades
 
-`system.autoUpgrade` is enabled in `modules/nixos/common.nix`. The host
-automatically pulls and applies updates from the flake on `github:adace123/nixos-config-v2`.
-To disable or adjust, edit `modules/nixos/common.nix`.
+Automatic updates are **disabled** on all NixOS hosts (see
+`modules/nixos/common.nix` for the rationale). Deploy changes intentionally by
+running `just nixos-deploy` (or rsync the flake and run `nixos-rebuild switch`
+manually). To re-enable, edit `modules/nixos/common.nix` and point
+`system.autoUpgrade.flake` at a flake source the host can fetch directly
+(e.g. `git+https://github.com/adace123/nixos-config-v2`).
 
 ## Troubleshooting
 

@@ -220,10 +220,10 @@ just auto-update-status    # view the (disabled) service status
 
 ### NixOS (coruscant)
 
-`system.autoUpgrade` is enabled in `modules/nixos/common.nix`. The host
-rebuilds and applies its local flake checkout automatically (it does not fetch
-new commits from GitHub — push updates by running `just nixos-deploy` or
-rsync-ing the flake to the host first).
+`system.autoUpgrade` is **disabled** in `modules/nixos/common.nix` — the old
+flake-relative flag could not build on the host, so updates were silently
+failing nightly. Deploy intentionally: `just nixos-deploy` (or rsync the flake
+and run `nixos-rebuild switch` manually).
 
 ---
 

@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 #
 # herdr-picker - a herdr .sh plugin: a generic fuzzy picker over herdr spaces,
-# sessions, tabs, git worktrees, files, custom commands, and agent panes.
+# sessions, tabs, git worktrees, files, custom commands, agent panes, and
+# scheduled automations.
 #
 #   launcher.sh                menu: pick a category, then an item
 #   launcher.sh <category>     open the picker straight into a category
-#                              (spaces | sessions | tabs | worktrees | files | commands | agents)
+#                              (spaces | sessions | tabs | worktrees | files | commands | agents | automations)
 #   launcher.sh open [cat]     action entrypoint: open the picker popup
 #   launcher.sh pick           pane entrypoint: draw the tv/fzf picker
 #   launcher.sh rows <cat>     emit rows for tv, as <idx>\t<run>\t<label>\t<badge>
@@ -19,6 +20,7 @@
 #   files      - project files              (open: with $EDITOR)
 #   commands   - global config.toml `[[keys.command]]` + <repo>/.herdr-picker.toml
 #   agents     - herdr agent panes          (open: focus the agent)
+#   automations - herdr-automations entries (open: show details + actions)
 #
 # Env:
 #   HERDR_BIN_PATH     herdr binary (injected by herdr)
@@ -42,6 +44,8 @@ rows_menu() {
 	printf '%d\tmenu:worktrees\tWorktrees\tmenu\n' "$i"
 	i=$((i + 1))
 	printf '%d\tmenu:commands\tCommands\tmenu\n' "$i"
+	i=$((i + 1))
+	printf '%d\tmenu:automations\tAutomations\tmenu\n' "$i"
 	i=$((i + 1))
 	printf '%d\tmenu:agents\tAgents\tmenu\n' "$i"
 	i=$((i + 1))
@@ -202,8 +206,36 @@ rows_for() {
 	sessions) rows_sessions ;;
 	tabs) rows_tabs ;;
 	files) rows_files ;;
+	automations) rows_automations ;;
 	*) rows_menu ;;
 	esac
+}
+
+# Scheduled automations, delegated to the herdr-automations plugin's own
+# `rows` subcommand (it owns the TOML parsing, so the two never drift).
+# Selecting one opens its details view (run/enable/open live inside it).
+# Resolved script-relative
+# first (the two plugins deploy as siblings), then via the config home.
+automations_cli() {
+	local self_dir cli
+	self_dir="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+	cli="$self_dir/../automations/automations.sh"
+	if [ ! -x "$cli" ]; then
+		cli="$HERDR_CONFIG_HOME/plugins-managed/automations/automations.sh"
+	fi
+	if [ -x "$cli" ]; then
+		printf '%s' "$cli"
+	fi
+}
+
+rows_automations() {
+	local cli
+	cli="$(automations_cli)"
+	if [ -n "$cli" ]; then
+		"$cli" rows
+	else
+		printf '1\t:\tAutomations plugin not installed (run just switch to deploy it)\tmissing\n'
+	fi
 }
 
 # --- opening the popup ------------------------------------------------------
@@ -391,12 +423,12 @@ fzf_select() {
 
 case "${1:-}" in
 "" | "menu") open_pane menu ;;
-spaces | sessions | tabs | worktrees | files | commands | agents) open_pane "$1" ;;
+spaces | sessions | tabs | worktrees | files | commands | agents | automations) open_pane "$1" ;;
 open) open_pane "${2:-menu}" ;;
 pick) pick ;;
 rows) rows_for "${2:-${MODE:-menu}}" ;;
 *)
-	printf 'usage: launcher.sh [spaces|sessions|tabs|worktrees|files|commands|agents]\n' >&2
+	printf 'usage: launcher.sh [spaces|sessions|tabs|worktrees|files|commands|agents|automations]\n' >&2
 	exit 2
 	;;
 esac

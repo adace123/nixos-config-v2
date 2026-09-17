@@ -1,0 +1,21 @@
+# Example automation for herdr-automations.
+#
+# Copy to a new file in the same directory (one file per automation, named
+# <name>.toml by convention) and edit. The daemon re-reads these files every
+# tick, so edits apply within a minute with no restart.
+#
+# A broken file disables only itself: it shows up with its error in
+# `automations.sh list` and in the herdr-picker automations category.
+
+name = "example-morning-digest"
+description = "Example: weekday morning digest."
+cron = "15 6 * * 1-5"
+workspace = "ops"
+agent = "claude"
+# model = "sonnet"              # optional: passed as --model (claude|codex|opencode|gemini)
+# agent_args = ["--verbose"]    # optional: verbatim extra args for `herdr agent start`
+# auto_close = true               # optional: close the workspace when the run ends
+# watch_minutes = 240             # optional: stop watching after N minutes (default 240)
+command = "Prepare the morning digest per DIGEST.md."
+directory = "~/projects/ops"
+enabled = false

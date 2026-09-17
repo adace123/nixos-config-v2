@@ -1,4 +1,4 @@
-{ config, host, ... }:
+{ host, ... }:
 let
   caches = import ../../nix-caches.nix;
 in
@@ -21,15 +21,12 @@ in
     openssh.authorizedKeys.keys = host.sshPublicKeys or [ ];
   };
 
-  # Enable automatic updates
-  system.autoUpgrade = {
-    enable = true;
-    allowReboot = true;
-    flags = [
-      "--flake"
-      ".#${config.networking.hostName}"
-    ];
-  };
+  # Automatic updates are DISABLED: `system.autoUpgrade.flags = ["--flake" ".#<host>"]`
+  # resolves relative to the host's working directory, but the flake source only
+  # exists on the development Mac, so nixos-upgrade failed nightly with
+  # "could not find a flake.nix". If unattended upgrades are ever wanted again,
+  # point `system.autoUpgrade.flake` at a real flake source (e.g. a git URL) that
+  # the host can actually fetch. See docs/nixos.md.
 
   # Enable garbage collection
   nix.gc = {

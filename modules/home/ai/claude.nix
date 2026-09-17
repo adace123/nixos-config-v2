@@ -24,7 +24,9 @@ in
     settings = {
       theme = "dark";
       model = "claude-opus-5";
+      advisorModel = "fable";
       defaultMode = "auto";
+      outputStyle = "concise";
       skipAutoPermissionPrompt = true;
       statusLine = {
         type = "command";
@@ -124,7 +126,19 @@ in
     commands.changelog = shared.commands.changelog.claude-code;
     commands.commit = shared.commands.commit.claude-code;
 
-    rules.git-worktrees = shared.rules.git-worktrees;
+    rules.git-worktrees = ''
+      # Git Worktree Workflow
+
+      Always implement new features and bug fixes inside a dedicated git worktree.
+
+      ## Workflow
+      - Before starting a new feature or bug fix, create a worktree
+      - Use descriptive branch names (e.g. `feature/<short-name>`, `fix/<short-name>`)
+      - Do all implementation, commits, and tests inside the worktree
+      - Never commit directly on the default branch (main/master)
+      - After the work is merged, clean up with `git worktree remove <path>`
+        and delete the branch
+    '';
 
     skills = {
       code-quality = shared.rules.code-quality;

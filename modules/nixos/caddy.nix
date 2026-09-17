@@ -36,7 +36,7 @@
     configFile = config.sops.templates."caddyfile".path;
     package = pkgs.caddy.withPlugins {
       plugins = [ "github.com/caddy-dns/cloudflare@v0.2.4" ];
-      hash = "sha256-7GoH8YLCoPmPExQxoga2FHB58zQDoZVf1BBwkVi0SsQ=";
+      hash = "sha256-dQvk6ezY6TQ1J7PjhCXnThF/SqVgPwBO8/RXzHCY+js=";
     };
     environmentFile = config.sops.templates."caddy-env".path;
   };

@@ -23,7 +23,7 @@ in
     settings = {
       hideThinkingBlock = true;
       defaultProvider = "opencode-go";
-      defaultModel = "deepseek-v4-flash";
+      defaultModel = "muse-spark-1.3-contributor";
       defaultThinkingLevel = "high";
       quietStartup = true;
       packages = [
