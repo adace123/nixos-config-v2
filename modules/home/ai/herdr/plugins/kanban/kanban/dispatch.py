@@ -105,10 +105,11 @@ herdr kanban: this card is {task_id}. Keep it current as you work:
   worth noting?    {cli} note "what you found or changed"
   name this card:  {cli} title "<concise title, once you know the real work>"
   found more work? {cli} add "<title>" --notes "why it is separate"
-Run those from this pane — no task id needed, the board finds the card by its
-pane; only I close cards. If you find unrelated work, add a card for it instead
-of doing it here; if the board says a card already covers it, note that one
-instead of filing a second.
+Run those from this pane — no task id needed, because the board finds the card
+by the pane its dispatch recorded. If a command cannot find your card (that pane
+link only comes from a dispatch), pass the id above. Only I close cards. If you
+find unrelated work, add a card for it instead of doing it here; if the board
+says a card already covers it, note that one instead of filing a second.
 
 Your turn is not over until the card is moved — `note` records progress, it does
 not move the card, and a turn that only notes leaves the card saying you are

@@ -335,10 +335,11 @@ herdr kanban: this card is cfg-3. Keep it current as you work:
   worth noting?    herdr-kanban note "what you found or changed"
   name this card:  herdr-kanban title "<concise title, once you know the real work>"
   found more work? herdr-kanban add "<title>" --notes "why it is separate"
-Run those from this pane — no task id needed, the board finds the card by its
-pane; only I close cards. If you find unrelated work, add a card for it instead
-of doing it here; if the board says a card already covers it, note that one
-instead of filing a second.
+Run those from this pane — no task id needed, because the board finds the card
+by the pane its dispatch recorded. If a command cannot find your card (that pane
+link only comes from a dispatch), pass the id above. Only I close cards. If you
+find unrelated work, add a card for it instead of doing it here; if the board
+says a card already covers it, note that one instead of filing a second.
 
 Your turn is not over until the card is moved — `note` records progress, it does
 not move the card, and a turn that only notes leaves the card saying you are
@@ -356,9 +357,13 @@ offer* case is spelled out because an agent ending its turn with "want me to do
 more?" is finished, not blocked, and would otherwise reach for neither verb.
 
 Those commands resolve the card from `HERDR_PANE_ID` (herdr injects it into
-every pane, and the board records it on dispatch), so an agent is never told an
-id it has to carry around. `herdr-kanban --help` prints this verb table and the
-protocol — the same text `herdr-kanban help` gives — before the board's own
+every pane, and the board records it on dispatch), so a *dispatched* agent is
+never told an id it has to carry around. The link is exactly the pane the
+dispatch recorded, and the protocol says so: a card handed to an agent any
+other way — filed outside the board, or dispatched and then cleared when its
+agent exited — is not found by pane, so the error names the id to pass instead
+of reading as "no such card". `herdr-kanban --help` prints this verb table and
+the protocol — the same text `herdr-kanban help` gives — before the board's own
 flags, so an agent that checks its tools finds the commands its prompt names
 rather than a TUI's options. Humans run the same verbs with an explicit id — the
 full `cfg-8`, or just the number `8`, which is unique board-wide:

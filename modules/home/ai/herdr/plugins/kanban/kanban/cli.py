@@ -6,8 +6,8 @@ picks the change up on its next tick — there is no server, socket, or callback
 involved.
 
 The card is found from the caller's pane (`HERDR_PANE_ID`, injected into every
-herdr pane and recorded on dispatch), so an agent never needs to be told its
-task id:
+herdr pane and recorded on dispatch), so a dispatched agent never needs to be
+told its task id:
 
     herdr-kanban status review
     herdr-kanban block "need the production DSN"
@@ -57,8 +57,8 @@ USAGE_COMMANDS = """  {cli} status [<task>] <column>   move a card
   {cli} help                       this text
 
   <task> is a board id (cfg-8, or K3 on a card filed with no workspace) or its
-  number (8); inside a herdr pane it can be omitted to mean "the card for this
-  pane". Columns may be ids or labels."""
+  number (8); inside the pane a card was dispatched to it can be omitted to mean
+  "the card for this pane". Columns may be ids or labels."""
 
 
 def usage() -> str:
@@ -138,9 +138,18 @@ def _find(
         return None, f"no task {reference!r} on the board — try: {CLI} list"
     pane = _pane_id()
     if pane:
+        # The pane is the whole link, and only a dispatch writes one
+        # (`Store.resolve`). A card that reached the agent any other way —
+        # handed over by hand, or filed outside the board — is not found here,
+        # and the bare "no card" that used to answer this was indistinguishable
+        # from "that card does not exist": the protocol says the id is never
+        # needed, so an agent had nothing left to try. Name the situation and
+        # the way back instead (nixos-47).
         return None, (
-            f"no card on the board is dispatched to pane {pane} — pass a task id "
-            f"(see: {CLI} list)"
+            f"no card is dispatched to pane {pane} — the board matches a card to the "
+            f"pane its dispatch recorded, and no dispatch recorded this one. If "
+            f"you were handed a card, pass its id ({CLI} status <id> review, "
+            f"{CLI} show <id>) — {CLI} list shows the board"
         )
     return None, f"pass a task id: {CLI} status K3 review (or {CLI} list)"
 
@@ -401,8 +410,16 @@ def _list(args: list[str], store: Store, config: Config) -> int:
     if not tasks:
         if archived:
             print("no archived cards")
+        elif mine and pane:
+            # Same dead end as `_find`: "no cards for this pane" reads as "the
+            # board is empty" when the card simply was never dispatched here.
+            print(
+                "no cards for this pane — the board matches a card to the pane"
+                f" its dispatch recorded; pass a task id ({CLI} show <id>) or run"
+                f" {CLI} list for the whole board"
+            )
         else:
-            print("no cards" + (" for this pane" if mine and pane else ""))
+            print("no cards")
         return 0
     if archived:
         # Archived cards keep their column, but grouping them by it would put a

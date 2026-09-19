@@ -544,7 +544,7 @@ def check_agent_protocol(check: Checker, tmp: str) -> None:
     import time
     from dataclasses import replace
 
-    from .cli import run_agent_command
+    from .cli import CLI, run_agent_command
     from .config import load_config
     from .dispatch import build_prompt
     from .render import render_plain
@@ -572,7 +572,10 @@ def check_agent_protocol(check: Checker, tmp: str) -> None:
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
             code = run_agent_command(list(argv))
-        return code, out.getvalue().strip()
+        # `_find`'s "no card for this pane" goes to stderr, like every refusal;
+        # the checks care about the message either way (the other checkers join
+        # the two streams for the same reason).
+        return code, (out.getvalue() + err.getvalue()).strip()
 
     try:
         config = load_config()
@@ -599,13 +602,23 @@ def check_agent_protocol(check: Checker, tmp: str) -> None:
             "the dispatch prompt carries the protocol",
             task.id in prompt
             and "herdr-kanban status review" in prompt
-            and "only I close cards" in prompt,
+            and "Only I close cards" in prompt,
         )
         check.check(
             "the protocol ends by requiring the card move",
             "Your turn is not over until the card is moved" in prompt
             and "`note` records progress" in prompt
             and "even if you offer to do more" in prompt,
+        )
+        # The prompt promises the id is never needed, and that promise holds
+        # only for a card a dispatch linked to this pane. The block has to say
+        # which, and how to get back, or an agent handed it another way has no
+        # verb left that works (nixos-47).
+        check.check(
+            "the protocol ties the pane link to a dispatch and names the way back",
+            "because the board finds the card" in prompt
+            and "the pane its dispatch recorded" in prompt
+            and "pass the id above" in prompt,
         )
         prompt_off = build_prompt(card(), replace(config, announce_protocol=False))
         check.check(
@@ -624,6 +637,32 @@ def check_agent_protocol(check: Checker, tmp: str) -> None:
             code == 0 and card().status == "review",
             f"{code} {out}",
         )
+
+        # A pane the board never dispatched into is the one case the protocol's
+        # "no task id needed" cannot cover. It used to answer with a bare "no
+        # card", which an agent cannot tell apart from "that card does not
+        # exist" — so it guessed, or gave up and left the card claiming to be
+        # in progress. The error has to name the situation and the way back.
+        os.environ["HERDR_PANE_ID"] = "w9:pNONE"
+        before = len(card().progress)
+        code, out = cli("note", "from a pane with no dispatched card")
+        check.check(
+            "a pane with no dispatched card is told to pass the id",
+            code == 1
+            and "w9:pNONE" in out
+            and "pass its id" in out
+            and len(card().progress) == before,
+            f"{code} {out}",
+        )
+        code, out = cli("list", "--mine")
+        check.check(
+            "list --mine from that pane offers the board instead of nothing",
+            code == 0
+            and "no cards for this pane" in out
+            and f"{CLI} list" in out,
+            out,
+        )
+        os.environ["HERDR_PANE_ID"] = "w1:pTEST"
         code, out = cli("status", "done")
         check.check(
             "agents cannot close a card",

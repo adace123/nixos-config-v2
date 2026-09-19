@@ -759,7 +759,10 @@ class Store:
 
         Agents get their card without being told its id: herdr injects
         `HERDR_PANE_ID` into the pane the agent runs in, and the board records
-        that pane when it dispatches.
+        that pane when it dispatches. The link is exactly that one recorded
+        string, so a card that was never dispatched (or whose agent has exited,
+        which clears `pane_id`) resolves to nothing from a pane — callers say
+        so and offer the id instead of reporting the card as missing.
         """
         reference = (reference or "").strip()
         if reference:
