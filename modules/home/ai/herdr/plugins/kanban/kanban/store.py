@@ -3,12 +3,20 @@
 Layout:
 
 ```json
-{"version": 1, "seq": 4, "tasks": [{"id": "K4", ...}]}
+{"version": 1, "seq": 4, "tasks": [{"id": "cfg-4", ...}]}
 ```
 
-`seq` only ever grows, so ids are stable and never reused. Order inside a
-column is list order, which is what `j`/`k` reorder and what `H`/`L` preserve
-when a card changes column.
+`seq` only ever grows, so ids are stable and never reused. An id is
+`<code>-<seq>`: a short code for the workspace the card was *filed* in, then
+that counter — `cfg-8`. The code is frozen with the id, the way `parent_id`
+freezes where a card came from: a card is redispatched into another workspace
+(and a workspace can be renamed), and neither may rewrite a name other cards
+and panes already refer to. A card filed with no workspace keeps the plain
+`K<seq>`. See `workspace_code` for how a code is chosen, and
+`Config.workspace_aliases` for the `[workspaces]` overrides.
+
+Order inside a column is list order, which is what `j`/`k` reorder and what
+`H`/`L` preserve when a card changes column.
 
 Writes are atomic (temp file + rename) and serialised with an `flock`, and every
 mutation re-reads the file first — two boards open at once (an overlay and a
@@ -22,9 +30,10 @@ import contextlib
 import fcntl
 import json
 import os
+import re
 import shutil
 import time
-from collections.abc import Iterator
+from collections.abc import Collection, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -38,6 +47,91 @@ PROGRESS_LIMIT = 50
 STEP_LIMIT = 40
 
 PRIORITIES = ("low", "normal", "high", "urgent")
+
+# How much of a workspace label an automatic id code keeps, and how long a
+# configured `[workspaces]` alias may be. Both are about the card's top rule:
+# ` cfg-8 ` shares ~15 cells with the priority and quill badges at the widths
+# the board is actually read at, while an alias is an explicit choice and only
+# has to stay inside herdr's 32-character agent-name budget. Both are applied
+# to a *slug*, so a label loses its separators either way.
+CODE_LIMIT = 6
+ALIAS_LIMIT = 12
+
+# A card id: `<code>-<seq>` (`cfg-8`, `nixos-1`), or the plain `K8` this board
+# wrote before codes existed — and still writes for a card filed with no
+# workspace. Two patterns rather than one `code?seq` because the counter has to
+# be the *last* run of digits: a single greedy match reads `cfg-123` as code
+# `cfg-12` and counter `3`, and a board-wide counter that can be misread is
+# worse than no counter at all. The plain form keeps the old, narrow shape
+# (`K8`, `8`) so a bare `v2` in an argument is still a word and not a card.
+_CODED_ID = re.compile(r"^[A-Za-z][A-Za-z0-9_-]*?-(\d+)$")
+_PLAIN_ID = re.compile(r"^[Kk]?(\d+)$")
+
+
+def slug_code(text: str, limit: int = CODE_LIMIT) -> str:
+    """A short id code out of a workspace label.
+
+    `nixos-config-v2` -> `nixos`, `snowflake-reporting` -> `snowfl`. Everything
+    that is not an ascii letter or digit becomes a separator, runs collapse, and
+    the result is trimmed of separators at both ends — so a truncation never
+    ends in a dash. A leading digit is dropped rather than kept: an id doubles
+    as the dispatched agent's name, and herdr requires those to start with a
+    letter (`[a-z][a-z0-9_-]{0,31}`).
+
+    Returned empty when the text yields nothing usable (all punctuation, or
+    nothing but digits). `workspace_code` then tries herdr's workspace id, and a
+    card filed with no workspace at all keeps the plain `K` id instead of an
+    invented code — a card that says `K12` is honest about not knowing where it
+    was filed, and `[workspaces]` is how you give that workspace a code.
+    """
+    slug = re.sub(r"[^a-z0-9]+", "-", (text or "").lower())
+    slug = slug.strip("-").lstrip("0123456789").strip("-")
+    return slug[:limit].rstrip("-") if limit > 0 else slug
+
+
+def task_seq(task_id: str) -> int:
+    """The counter in an id (`cfg-8` and `K8` are both 8), or 0 for a
+    hand-edited id that is not one."""
+    text = (task_id or "").strip()
+    for pattern in (_CODED_ID, _PLAIN_ID):
+        match = pattern.match(text)
+        if match:
+            return int(match.group(1))
+    return 0
+
+
+def looks_like_id(text: str) -> bool:
+    """Whether an argument is a task reference rather than a column or a word."""
+    return task_seq(text) > 0
+
+
+def workspace_code(
+    aliases: Mapping[str, str], label: str = "", workspace_id: str = ""
+) -> str:
+    """The id code for a card being filed in this workspace.
+
+    `[workspaces]` wins, and may be keyed by the label (`nixos-config-v2 =
+    "cfg"`) or by herdr's own workspace id (`w1 = "cfg"`) — the id survives a
+    `herdr workspace rename`, the label is what you read. Otherwise the label's
+    own slug serves, which is what makes the feature work with no config at all,
+    falling back to herdr's workspace id when there is no label to use (a card
+    filed into a closed workspace, or with herdr unreachable).
+    """
+    for key in (label, label.lower(), workspace_id, workspace_id.lower()):
+        alias = aliases.get(key) if key else None
+        if alias:
+            return slug_code(str(alias), ALIAS_LIMIT)
+    return slug_code(label) or slug_code(workspace_id)
+
+
+def task_id(code: str, seq: int) -> str:
+    """The id for a card: its workspace code, then the board's counter.
+
+    `K<seq>` when there is no code — a card filed with no workspace, or a label
+    that yields nothing slug-worthy. Composition lives here so the board file's
+    ids and the demo board's ids cannot drift apart.
+    """
+    return f"{code}-{seq}" if code else f"K{seq}"
 
 
 def _as_time(value: Any) -> float | None:
@@ -65,18 +159,11 @@ TITLE_SOURCES = ("user", "agent")
 # Who *filed* a card — the same two words, because "an agent put this here" is
 # the same question whether it is about a title or about the card itself.
 CREATED_BY = ("user", "agent")
-# The columns an agent may move its own card into. `todo` is the id this board's
-# queued column used to have; it stays listed so a card on a board that still
-# says `todo` can be moved by an agent (and so the CLI's hint stays honest).
-AGENT_STATUSES: tuple[str, ...] = (
-    "doing",
-    "blocked",
-    "review",
-    "queued",
-    "todo",
-    "backlog",
-)
-HUMAN_ONLY_STATUSES: tuple[str, ...] = ("done",)
+# Which columns an agent may move its own card into, and which are the human's,
+# is the board's business, not this module's: it is derived from the configured
+# columns (`Config.human_only_columns` / `Config.agent_statuses`) and handed to
+# `set_status_from_agent`. A literal list here is exactly what let renaming the
+# Done column quietly hand agents the power to close cards.
 
 
 @dataclass
@@ -112,6 +199,22 @@ class Task:
     dispatched_at: float | None = None
     pane_id: str = ""
     tab_id: str = ""
+    # The label the board last wrote to that tab. Kept so the board can still
+    # recognise its own tab after the card is renamed: herdr's tab is labelled
+    # `<id> <title>`, and a board that recomputed that label from the *current*
+    # title would read its own tab as one somebody repurposed the moment an
+    # agent named the card (see `KanbanApp.agent_tab`).
+    tab_label: str = ""
+    # The git worktree this card's agent runs in, when its dispatch asked for one
+    # (`herdr worktree create`): the checkout path, the branch herdr made, and the
+    # workspace it opened for it. The card's `workspace_id` stays the repo
+    # workspace the worktree was forked from — that is what a later dispatch
+    # forks from, and what the id's code came from — while these three say where
+    # the run actually lives (the board renders and removes by them). All empty
+    # for a card dispatched into its own workspace.
+    worktree_path: str = ""
+    worktree_branch: str = ""
+    worktree_workspace_id: str = ""
     title_source: str = "user"
     # Set once the human edits the title by hand: from then on an agent's title
     # becomes a suggestion instead of an overwrite.
@@ -194,6 +297,10 @@ class Task:
             "agent_model",
             "pane_id",
             "tab_id",
+            "tab_label",
+            "worktree_path",
+            "worktree_branch",
+            "worktree_workspace_id",
             "original_title",
             "parent_id",
         ):
@@ -298,15 +405,9 @@ class Store:
             # — has to carry on past the highest id on the board. `len(tasks)`
             # would be a *guess* that a gap can make too low: with only `K7`
             # left after four deletions, four adds would re-issue `K7` and the
-            # board would have two cards with one name.
-            board.seq = max(
-                (
-                    int(task.id[1:])
-                    for task in board.tasks
-                    if task.id[:1] in "Kk" and task.id[1:].isdigit()
-                ),
-                default=0,
-            )
+            # board would have two cards with one name. Codes do not affect
+            # this: the counter after the last dash is the same board-wide one.
+            board.seq = max((task_seq(task.id) for task in board.tasks), default=0)
         self.board = board
         self._mtime = stat.st_mtime
         self.loaded_at = time.time()
@@ -418,11 +519,18 @@ class Store:
         extra = {key: value for key, value in fields.items() if key in known}
         extra.pop("title", None)
         status = str(extra.pop("status", "") or "backlog")
+        # The code is not a field: it is already legible in the id, and storing
+        # it twice would let the two disagree. Callers that have the config hand
+        # in what `[workspaces]` resolved; a caller that does not (a test, the
+        # demo) still gets the label's own slug rather than falling back to `K`.
+        code = str(fields.get("workspace_code", "") or "") or slug_code(
+            str(extra.get("workspace_label") or extra.get("workspace_id") or "")
+        )
         with self._locked():
             self.board.seq += 1
             now = time.time()
             task = Task(
-                id=f"K{self.board.seq}",
+                id=task_id(code, self.board.seq),
                 title=title,
                 created_at=now,
                 updated_at=now,
@@ -450,9 +558,19 @@ class Store:
             if not changed:
                 return task
             for key in changed:
+                # A status among the edits is a column move, not a field like
+                # the others: route it through the same placement every other
+                # move uses. `on_edit` (the board's `e` form) reaches the store
+                # this way, and setting `status` in place would sort the card
+                # into the new column wherever it sat in the old one.
+                if key == "status":
+                    self._move_to_column(task, fields[key])
+                    continue
                 setattr(task, key, fields[key])
             task.updated_at = time.time()
-            task.note("edited " + ", ".join(sorted(changed)))
+            edits = sorted(key for key in changed if key != "status")
+            if edits:
+                task.note("edited " + ", ".join(edits))
             return task
 
     def delete(self, task_id: str) -> Task | None:
@@ -463,22 +581,37 @@ class Store:
             self.board.tasks.remove(task)
             return task
 
+    def _move_to_column(self, task: Task, status: str) -> bool:
+        """Put `task` at the end of `status`, recording the transition.
+
+        Every status change lands the card the same way — at the end of its new
+        column, with `<old> -> <new>` in its history — whichever door it came
+        through (`set_status`, a dispatch's `hand_over`, or an edit that moved
+        the card). Three callers, one rule; a caller that set `status` in place
+        would leave the card wherever it sat in the old list order, so the new
+        column would be sorted by a position that belonged to another column.
+        """
+        if task.status == status:
+            return False
+        previous = task.status
+        self.board.tasks.remove(task)
+        insert_at = len(self.board.tasks)
+        for index, other in enumerate(self.board.tasks):
+            if other.status == status:
+                insert_at = index + 1
+        self.board.tasks.insert(insert_at, task)
+        task.status = status
+        task.note(f"{previous} -> {status}")
+        return True
+
     def set_status(self, task_id: str, status: str) -> Task | None:
         """Move a card to another column, landing at the end of it."""
         with self._locked():
             task = self.by_id(task_id)
-            if task is None or task.status == status:
+            if task is None:
                 return task
-            previous = task.status
-            self.board.tasks.remove(task)
-            insert_at = len(self.board.tasks)
-            for index, other in enumerate(self.board.tasks):
-                if other.status == status:
-                    insert_at = index + 1
-            self.board.tasks.insert(insert_at, task)
-            task.status = status
-            task.updated_at = time.time()
-            task.note(f"{previous} -> {status}")
+            if self._move_to_column(task, status):
+                task.updated_at = time.time()
             return task
 
     def reorder(self, task_id: str, delta: int) -> Task | None:
@@ -527,7 +660,12 @@ class Store:
         )
 
     def resolve(self, reference: str, pane_id: str = "") -> Task | None:
-        """Find a card from `K3`, `k3`, `3`, or the pane the caller runs in.
+        """Find a card from `cfg-8`, `K3`, `3`, or the pane the caller runs in.
+
+        Ids are matched case-insensitively: the code is lowercase, and typing
+        `CFG-8` is not an error. The bare number is enough on its own, because
+        the counter behind it is board-wide — no two cards share one, whatever
+        their codes say.
 
         Agents get their card without being told its id: herdr injects
         `HERDR_PANE_ID` into the pane the agent runs in, and the board records
@@ -535,12 +673,15 @@ class Store:
         """
         reference = (reference or "").strip()
         if reference:
-            wanted = reference.upper()
-            if wanted.isdigit():
-                wanted = f"K{wanted}"
+            wanted = reference.lower()
             for task in self.board.tasks:
-                if task.id == wanted:
+                if task.id.lower() == wanted:
                     return task
+            number = int(reference) if reference.isdigit() else 0
+            if number > 0:
+                for task in self.board.tasks:
+                    if task_seq(task.id) == number:
+                        return task
             return self.find_by_title(reference)
         if pane_id:
             for task in self.board.tasks:
@@ -549,15 +690,26 @@ class Store:
         return None
 
     def set_status_from_agent(
-        self, task_id: str, status: str, force: bool = False
+        self,
+        task_id: str,
+        status: str,
+        human_only: Collection[str],
+        force: bool = False,
     ) -> tuple[Task | None, str]:
-        """Move a card on an agent's behalf. Returns (task, message)."""
-        if status in HUMAN_ONLY_STATUSES and not force:
+        """Move a card on an agent's behalf. Returns (task, message).
+
+        `human_only` is the board's own set of columns an agent may not close a
+        card into (`Config.human_only_columns`). It is passed in rather than
+        hardcoded so the guard and the `agent_may_set` the CLI advertises come
+        from one place, and so renaming the Done column cannot quietly hand
+        agents the power to close cards.
+        """
+        if status in human_only and not force:
             return (
                 self.by_id(task_id),
-                f"{task_id}: refusing to set {status} — Done is yours to close, not the"
-                " agent's; pass --force if you mean it (the board's own keys are"
-                " unrestricted)",
+                f"{task_id}: refusing to set {status} — that column is yours to"
+                " close, not the agent's; pass --force if you mean it (the board's"
+                " own keys are unrestricted)",
             )
         task = self.set_status(task_id, status)
         if task is None:
@@ -571,7 +723,10 @@ class Store:
 
         A title the human typed is never silently replaced: an agent's title
         then lands in the card's updates instead, where it is visible and one
-        edit away from being applied.
+        edit away from being applied. `force` is the caller saying otherwise —
+        the CLI's `--force`, or the board's `agent_title_overrides`, which is a
+        standing `--force` for the agent's own titles. A replaced title is kept
+        in the card's history (`was: …`), so an override is reversible too.
         """
         cleaned = " ".join((title or "").split())
         with self._locked():
@@ -581,6 +736,18 @@ class Store:
             if not cleaned:
                 return task, f"{task.id}: empty title ignored"
             if cleaned == task.title:
+                # Renaming to the title the card already has is, for an agent,
+                # almost always the capture text coming back: the protocol asks
+                # for a name "once you know the real work", and the first thing
+                # some runs do is re-send the title they were dispatched with.
+                # A bare "unchanged" reads as done; name what the title still
+                # is so the card gets named later, at the end of the run.
+                if task.title_source != "agent" and not task.title_edited:
+                    return (
+                        task,
+                        f"{task.id}: still the capture title {cleaned!r} — rename it"
+                        " to what the work turned out to be",
+                    )
                 return task, f"{task.id}: title unchanged"
 
             if source == "user":
@@ -602,12 +769,23 @@ class Store:
                     f"recorded {cleaned!r} in its updates instead",
                 )
 
+            # The title being replaced, when that title was the human's: the
+            # capture title is already kept in `original_title`, and a human
+            # rename overwrites that, so without this the name you typed would
+            # survive only as the card's current title — gone on the next line.
+            replaced = task.title if task.title_edited else ""
             task.original_title = task.original_title or task.title
             task.title = cleaned
             task.title_source = "agent"
             task.updated_at = time.time()
-            task.note(f"title set by {source}: {cleaned}")
-            return task, f"{task.id} title -> {cleaned} (by {source})"
+            task.note(
+                f"title set by {source}: {cleaned}"
+                + (f" (was: {replaced})" if replaced else "")
+            )
+            return task, (
+                f"{task.id} title -> {cleaned} (by {source}"
+                + (", replacing yours)" if replaced else ")")
+            )
 
     def add_progress(
         self, task_id: str, text: str, by: str = "agent"
@@ -702,17 +880,10 @@ class Store:
             if task is None:
                 return None
             for key, value in fields.items():
-                if key in Task.__dataclass_fields__:
+                # `status` is the column argument, not a field like the rest:
+                # `_move_to_column` owns placing the card and noting the move.
+                if key in Task.__dataclass_fields__ and key != "status":
                     setattr(task, key, value)
-            if task.status != status:
-                previous = task.status
-                self.board.tasks.remove(task)
-                insert_at = len(self.board.tasks)
-                for index, other in enumerate(self.board.tasks):
-                    if other.status == status:
-                        insert_at = index + 1
-                self.board.tasks.insert(insert_at, task)
-                task.status = status
-                task.note(f"{previous} -> {status}")
+            self._move_to_column(task, status)
             task.updated_at = time.time()
             return task

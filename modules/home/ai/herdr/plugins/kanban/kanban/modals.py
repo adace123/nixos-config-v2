@@ -18,7 +18,7 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.css.query import NoMatches
 from textual.screen import ModalScreen
-from textual.widgets import Button, Input, Select, Static, TextArea
+from textual.widgets import Button, Checkbox, Input, Select, Static, TextArea
 
 from . import icons
 from .config import Config
@@ -583,6 +583,11 @@ class TaskDetailModal(Dialog):
             + (" by an agent" if task.created_by == "agent" else "")
             + f"   updated {format_age(task.updated_at)} ago",
         ]
+        if task.worktree_path:
+            rows.append(
+                f"worktree {task.worktree_path}"
+                + (f"   branch {task.worktree_branch}" if task.worktree_branch else "")
+            )
         if task.labels:
             rows.append("labels   " + ", ".join(task.labels))
         if task.parent_id:
@@ -714,8 +719,9 @@ class DispatchModal(Dialog):
         if self.plan.reuses_running_agent:
             return "an agent is already running for this card — this sends it another prompt  ·  ^s send"
         return (
-            "opens a new tab in the workspace and starts the agent there; the prompt "
-            "ends with the board protocol  ·  ^s send"
+            "opens a new tab in the workspace (or a git worktree forked for this "
+            "card) and starts the agent there; the prompt ends with the board "
+            "protocol  ·  ^s send"
         )
 
     def build_body(self) -> Iterator[object]:
@@ -755,6 +761,21 @@ class DispatchModal(Dialog):
                 "flags   " + (" ".join(plan.args) or "—"),
                 classes="field-note",
                 id="dispatch-args",
+            )
+            # Fork (or reuse) a checkout for this run, so two cards on one repo
+            # never share a working tree. On by default when the card already
+            # owns a worktree — its work lives there — or when the board is
+            # configured to fork one for every dispatch.
+            yield Checkbox(
+                "Git worktree",
+                value=plan.worktree or self.config.worktree,
+                id="dispatch-worktree",
+            )
+            yield Static(
+                "run in a checkout forked for this card"
+                + (f"   (reusing {plan.worktree_path})" if plan.worktree_path else ""),
+                classes="field-note",
+                id="dispatch-worktree-note",
             )
         yield Static("Prompt", classes="field-label")
         yield TextArea(plan.prompt, id="dispatch-prompt")
@@ -808,16 +829,17 @@ class DispatchModal(Dialog):
             label = next(
                 (w.label for w in self.workspaces if w.id == workspace_id), workspace_id
             )
-            plan = Plan(
-                task_id=plan.task_id,
+            plan = replace(
+                plan,
                 workspace_id=workspace_id,
                 workspace_label=label,
                 kind=kind,
                 name=name,
                 prompt=prompt or plan.prompt,
-                tab_label=plan.tab_label,
                 args=agent_args(self.config, kind, plan.model),
-                model=plan.model,
+                # Carried on the plan, not reset: the card's checkout is how a
+                # re-dispatch finds its work again (`Executor._provision_worktree`).
+                worktree=self.query_one("#dispatch-worktree", Checkbox).value,
             )
         else:
             plan = replace(plan, prompt=prompt or plan.prompt)
@@ -913,6 +935,7 @@ class HelpModal(Dialog):
                     "  / w c        filter · workspace filter · clear filters",
                     "  !            only the cards whose agents need an answer",
                     "  r ? q        refresh live state · this help · quit",
+                    "  ctrl+c       quit from anywhere, dialogs included",
                     "",
                     "[b]Agent state[/b]",
                     "  ⣷ working   ▲ needs you   ○ idle   ✓ done   ∅ no agent   · unknown",
@@ -933,7 +956,7 @@ class HelpModal(Dialog):
                     "                               linked back to this one)",
                     "  Agents may set doing / blocked / review; only you close a card.",
                     "  x stops a card's agent (its tab) without deleting the card; deleting",
-                    "  a card stops its agent too.",
+                    "  a card stops its agent too (auto_delete_agent = false keeps it).",
                     "",
                     "[b]Where tasks live[/b]",
                     f"  {self.board_path or 'the plugin state directory'}",

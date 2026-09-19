@@ -11,12 +11,15 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
 DEFAULT_TIMEOUT = 8.0
 START_TIMEOUT = 45.0
+# A worktree is a `git worktree add` plus a full checkout: the copy alone can
+# outlast the default timeout on a large repository, so it gets its own clock.
+WORKTREE_TIMEOUT = 90.0
 
 AGENT_STATUSES = ("working", "blocked", "idle", "done", "unknown")
 
@@ -125,6 +128,28 @@ class Pane:
             cwd=str(data.get("cwd") or ""),
             agent_name=str(data.get("agent") or ""),
             focused=bool(data.get("focused")),
+        )
+
+
+@dataclass(frozen=True)
+class Worktree:
+    """A git checkout herdr manages for a workspace."""
+
+    path: str
+    branch: str
+    # The workspace herdr opened for this checkout, or "" while it is closed.
+    # It is also the handle `worktree remove` takes, so a card keeps it to be
+    # able to clean up after its run.
+    workspace_id: str
+    is_linked: bool
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Worktree:
+        return cls(
+            path=str(data.get("path") or ""),
+            branch=str(data.get("branch") or ""),
+            workspace_id=str(data.get("open_workspace_id") or ""),
+            is_linked=bool(data.get("is_linked_worktree")),
         )
 
 
@@ -327,8 +352,14 @@ class Herdr:
         return self._run("pane", "focus", pane_id)
 
     def create_tab(
-        self, workspace_id: str, label: str = "", cwd: str = "", focus: bool = False
+        self,
+        workspace_id: str,
+        label: str = "",
+        cwd: str = "",
+        focus: bool = False,
+        env: Mapping[str, str] | None = None,
     ) -> Result:
+        """Create a tab, optionally setting env vars for the shell it launches."""
         args = ["tab", "create"]
         if workspace_id:
             args += ["--workspace", workspace_id]
@@ -336,6 +367,8 @@ class Herdr:
             args += ["--label", label]
         if cwd:
             args += ["--cwd", cwd]
+        for key, value in (env or {}).items():
+            args += ["--env", f"{key}={value}"]
         args.append("--focus" if focus else "--no-focus")
         return self._run(*args)
 
@@ -351,6 +384,73 @@ class Herdr:
             args += ["--cwd", cwd]
         args.append("--focus" if focus else "--no-focus")
         return self._run(*args)
+
+    # -- worktrees -------------------------------------------------------
+
+    def create_worktree(
+        self,
+        workspace_id: str = "",
+        label: str = "",
+        branch: str = "",
+        base: str = "",
+        path: str = "",
+        cwd: str = "",
+        focus: bool = False,
+    ) -> Result:
+        """Fork a checkout and open it as a workspace of its own.
+
+        `workspace_id` (or `cwd`) names the repository to fork from; herdr
+        always opens the checkout in a new workspace, so a card that asks for a
+        worktree ends up with a workspace of its own rather than a tab in the
+        repo it branched off.
+        """
+        args = ["worktree", "create"]
+        if workspace_id:
+            args += ["--workspace", workspace_id]
+        if cwd:
+            args += ["--cwd", cwd]
+        if branch:
+            args += ["--branch", branch]
+        if base:
+            args += ["--base", base]
+        if path:
+            args += ["--path", path]
+        if label:
+            args += ["--label", label]
+        args.append("--focus" if focus else "--no-focus")
+        return self._run(*args, timeout=WORKTREE_TIMEOUT)
+
+    def open_worktree(
+        self,
+        path: str,
+        workspace_id: str = "",
+        branch: str = "",
+        label: str = "",
+        focus: bool = False,
+    ) -> Result:
+        """Reopen a checkout that already exists on disk as a workspace."""
+        args = ["worktree", "open", "--path", path]
+        if workspace_id:
+            args += ["--workspace", workspace_id]
+        if branch:
+            args += ["--branch", branch]
+        if label:
+            args += ["--label", label]
+        args.append("--focus" if focus else "--no-focus")
+        return self._run(*args, timeout=WORKTREE_TIMEOUT)
+
+    def remove_worktree(self, workspace_id: str, force: bool = False) -> Result:
+        """Close a worktree workspace and delete its checkout.
+
+        `--workspace` is the only handle herdr's remove takes, so this works
+        while the workspace is still open and fails with `workspace_not_found`
+        after it has been closed by hand — the checkout then has to be removed
+        with `git worktree remove`, which is what the board says when it cannot.
+        """
+        args = ["worktree", "remove", "--workspace", workspace_id]
+        if force:
+            args.append("--force")
+        return self._run(*args, timeout=WORKTREE_TIMEOUT)
 
     def start_agent(
         self,
@@ -411,6 +511,9 @@ class Herdr:
 
     def close_tab(self, tab_id: str) -> Result:
         return self._run("tab", "close", tab_id)
+
+    def rename_tab(self, tab_id: str, label: str) -> Result:
+        return self._run("tab", "rename", tab_id, label)
 
     def tab_label(self, tab_id: str) -> str:
         """The label of a live tab, or "" when it no longer exists."""

@@ -13,9 +13,10 @@ import time
 
 from textual import work
 from textual.app import App, ComposeResult
+from textual.binding import Binding
 from textual.worker import Worker
 
-from . import dispatch, icons
+from . import dispatch, icons, notify
 from .config import Config
 from .demo import demo_live, demo_tasks
 from .dispatch import (
@@ -26,6 +27,7 @@ from .dispatch import (
     plan_for,
     record_outcome,
     result_summary,
+    retitle_tab,
 )
 from .herdr import Herdr
 from .modals import (
@@ -44,7 +46,7 @@ from .model import (
     selection_after_move,
 )
 from .render import BoardView
-from .store import Store, Task
+from .store import Store, Task, task_id, workspace_code
 from .widgets import BoardWidget
 
 
@@ -54,6 +56,14 @@ class KanbanApp(App[None]):
     CSS_PATH = "theme.tcss"
     TITLE = "herdr kanban"
     SUB_TITLE = "workspace + agent tasks"
+
+    # Textual spends ctrl+c on a "press q to quit" toast (it keeps the key clear
+    # for copy in its text fields). The board is a terminal program, so the
+    # reflex key has to exit — and `priority` makes it do so from anywhere,
+    # dialogs included, where the focused field would otherwise take the key.
+    BINDINGS = [
+        Binding("ctrl+c", "quit", "quit", show=False, priority=True),
+    ]
 
     def __init__(
         self,
@@ -320,9 +330,15 @@ class KanbanApp(App[None]):
         if target == index:
             return
         new_status = self.config.columns[target].id
+        origin = self.config.label_for(task.status)
         self._set_status(task, new_status)
         self.ui.selected_column = target
-        self.set_notice(f"{task.id} → {self.config.label_for(new_status)}", timeout=2.5)
+        # Both ends of the move: the card was on screen a moment ago, but the
+        # keys under the finger move it again, and "→ In Progress" alone cannot
+        # say where it came from when the board is busy.
+        self.set_notice(
+            f"{task.id} · {origin} → {self.config.label_for(new_status)}", timeout=2.5
+        )
         self.refresh_board()
 
     def reorder_card(self, delta: int) -> None:
@@ -344,10 +360,14 @@ class KanbanApp(App[None]):
             self.store.reorder(task.id, delta)
         self.refresh_board()
 
-    def delete_task(self, task: Task) -> None:
+    def delete_task(self, task: Task, remove_worktree: bool = False) -> None:
         # Stop the agent first: a card is the record of a run, and deleting it
-        # while leaving the run going leaves an agent nobody is tracking.
-        closed = self.close_agent(task)
+        # while leaving the run going leaves an agent nobody is tracking. A
+        # board can opt out (`auto_delete_agent = false`), and then deleting the
+        # card leaves its agent and tab alone — the confirmation names it first
+        # (`action_delete_task`).
+        closed = self.close_agent(task) if self.config.auto_delete_agent else ""
+        removed = self.remove_worktree(task) if remove_worktree else ""
         if self.demo_mode:
             self._demo_tasks.remove(task)
         else:
@@ -355,8 +375,40 @@ class KanbanApp(App[None]):
         self.ui.selected_id = ""
         self._after_change()
         self.notify(
-            f"{task.id} deleted" + (f" · {closed}" if closed else ""),
+            f"{task.id} deleted"
+            + (f" · {closed}" if closed else "")
+            + (f" · {removed}" if removed else ""),
             title="kanban",
+        )
+
+    def may_remove_worktree(self, task: Task) -> bool:
+        """Whether deleting `task` could remove its checkout.
+
+        A worktree is removed by closing the workspace herdr opened for it, so
+        there is nothing to remove without one. And if the card's agent is being
+        kept (`auto_delete_agent = false`) while it is still running, the
+        checkout is that agent's workspace and has to stay with it.
+        """
+        if not task.worktree_path or not task.worktree_workspace_id:
+            return False
+        if not self.config.auto_delete_agent and self.agent_tab(task)[0]:
+            return False
+        return True
+
+    def remove_worktree(self, task: Task) -> str:
+        """Remove `task`'s checkout; return a phrase for the delete notice."""
+        if not task.worktree_workspace_id:
+            return "worktree kept (its workspace is already gone)"
+        if self.demo_mode:
+            return f"demo: would remove worktree {task.worktree_path}"
+        result = self.herdr.remove_worktree(task.worktree_workspace_id)
+        if result.ok:
+            return f"worktree removed ({task.worktree_path})"
+        # The workspace was closed by hand: herdr's `worktree remove` takes only
+        # a workspace id, so the checkout is left for `git worktree remove`.
+        return (
+            f"worktree kept — {result.error_text()}; remove it with:"
+            f" git worktree remove {task.worktree_path}"
         )
 
     # -- screens ---------------------------------------------------------
@@ -393,7 +445,16 @@ class KanbanApp(App[None]):
         if self.demo_mode:
             self._demo_tasks.append(
                 Task(
-                    id=f"K{len(self._demo_tasks) + 1}",
+                    # Same id rule as the real board, so a demo capture looks
+                    # like a real one: the workspace's code, then the counter.
+                    id=task_id(
+                        workspace_code(
+                            self.config.workspace_aliases,
+                            draft.workspace_label,
+                            draft.workspace_id,
+                        ),
+                        len(self._demo_tasks) + 1,
+                    ),
                     title=draft.title,
                     notes=draft.notes,
                     status=draft.status,
@@ -415,6 +476,11 @@ class KanbanApp(App[None]):
                 status=draft.status,
                 workspace_id=draft.workspace_id,
                 workspace_label=draft.workspace_label,
+                workspace_code=workspace_code(
+                    self.config.workspace_aliases,
+                    draft.workspace_label,
+                    draft.workspace_id,
+                ),
                 agent_kind=draft.agent_kind,
                 agent_model=draft.agent_model,
                 priority=draft.priority,
@@ -462,7 +528,6 @@ class KanbanApp(App[None]):
         if draft is None:
             return
         fields: dict[str, object] = {
-            "title": draft.title,
             "notes": draft.notes,
             "status": draft.status,
             "workspace_id": draft.workspace_id,
@@ -472,15 +537,34 @@ class KanbanApp(App[None]):
             "priority": draft.priority,
             "labels": draft.labels,
         }
+        # The title joins the update only when the human changed it in this form.
+        # Sending it every time writes back the title the form was opened with,
+        # which silently reverts an agent's rename that landed while the dialog
+        # was up — the card then shows a name the agent never chose, and `✎`
+        # stays because nothing claimed it. `task` is the card as the form saw
+        # it, so the comparison is exactly "did you type a different title?".
         # Renaming by hand claims the title: from here on an agent's title is
         # recorded as an update instead of replacing yours.
         if draft.title.strip() != task.title:
+            fields["title"] = draft.title
             fields.update(
                 title_source="user",
                 title_edited=True,
                 original_title=task.original_title or task.title,
             )
+        # The key is what says the human changed the title — not its truthiness:
+        # an emptied title is still a rename, and the tab has to follow it.
+        renamed = "title" in fields
         self._update(task, **fields)
+        if renamed and not self.demo_mode:
+            # The tab's label is the card's title too, and the board tells its
+            # own tab from a repurposed one by that label: renaming the card
+            # without renaming the tab would make the board disown the tab it
+            # opened (see `agent_tab`).
+            fresh = self.task(task.id) or task
+            problem = retitle_tab(self.store, fresh, self.herdr)
+            if problem:
+                self.set_notice(f"could not rename {task.id}'s tab: {problem}", timeout=6)
         self._after_change(task.id)
         self.notify(f"{task.id} updated", title="kanban")
 
@@ -535,11 +619,22 @@ class KanbanApp(App[None]):
             self.set_notice("select a card first")
             return
         tab_id, described = self.agent_tab(task)
-        closing = (
-            f"Its agent ({described}) is stopped and its tab closed with it."
-            if tab_id
-            else "It has no agent running."
-        )
+        if not tab_id:
+            closing = "It has no agent running."
+        elif self.config.auto_delete_agent:
+            closing = f"Its agent ({described}) is stopped and its tab closed with it."
+        else:
+            closing = (
+                f"Its agent ({described}) is left running and its tab stays open "
+                "— `auto_delete_agent` is off."
+            )
+        if task.worktree_path:
+            if self.may_remove_worktree(task):
+                closing += (
+                    f"\n\nIts worktree {task.worktree_path} is offered for removal next."
+                )
+            else:
+                closing += f"\n\nIts worktree {task.worktree_path} is kept."
         self.push_screen(
             ConfirmModal(
                 "Delete task",
@@ -547,15 +642,45 @@ class KanbanApp(App[None]):
                 confirm_label="Delete",
                 danger=True,
             ),
-            lambda confirmed, task=task: self.delete_task(task) if confirmed else None,
+            lambda confirmed, task=task: self._after_delete_confirm(confirmed, task),
+        )
+
+    def _after_delete_confirm(self, confirmed: bool | None, task: Task) -> None:
+        """The first confirm said delete; a checkout, if any, is asked about next.
+
+        Worktree removal is a second question rather than a config switch
+        because it is a real loss (the checkout may hold uncommitted work) and
+        the card is the only thing that remembers where it is — after the card
+        is gone, nothing in herdr points at it any more.
+        """
+        if not confirmed:
+            return
+        if not self.may_remove_worktree(task):
+            self.delete_task(task, remove_worktree=False)
+            return
+        branch = f"\n\nbranch {task.worktree_branch}" if task.worktree_branch else ""
+        self.push_screen(
+            ConfirmModal(
+                "Remove worktree",
+                f"Also remove the worktree for {task.id}?\n\n"
+                f"{task.worktree_path}{branch}",
+                confirm_label="Remove",
+                danger=True,
+            ),
+            lambda remove, task=task: self.delete_task(
+                task, remove_worktree=bool(remove)
+            ),
         )
 
     def agent_tab(self, task: Task) -> tuple[str, str]:
         """(tab to close, how to describe it) for a card's dispatched agent.
 
-        Only a tab whose label is still the one the board set at dispatch is
+        Only a tab whose label is still the one the board last wrote is
         considered ours: the same pane may have been closed and reused for
-        something else, and deleting a card should not take that with it.
+        something else, and deleting a card should not take that with it. The
+        label the board writes changes with the card's title (`retitle_tab`), so
+        this is matched against what was written, never against a label guessed
+        from the current title.
         """
         if not task.tab_id:
             return "", ""
@@ -566,20 +691,28 @@ class KanbanApp(App[None]):
         )
         if self.demo_mode:
             return tab_id, described or tab_id
-        if self.herdr.tab_label(tab_id) != dispatch.tab_label_for(task):
+        # The label the board last wrote, not one recomputed from the current
+        # title: an agent that names the card renames the tab with it, and a
+        # board that expected `tab_label_for(task)` here would read its own tab
+        # as somebody else's the moment the card was renamed. Cards dispatched
+        # before the label was recorded fall back to that computation.
+        if self.herdr.tab_label(tab_id) != (
+            task.tab_label or dispatch.tab_label_for(task)
+        ):
             return "", ""
+        return tab_id, described or tab_id
         return tab_id, described or tab_id
 
     def close_agent(self, task: Task) -> str:
         """Stop a card's agent by closing the tab its dispatch opened."""
         tab_id, described = self.agent_tab(task)
         if not tab_id:
-            self._update(task, pane_id="", tab_id="", agent_name="")
+            self._update(task, pane_id="", tab_id="", tab_label="", agent_name="")
             return ""
         result = self.herdr.close_tab(tab_id)
         if not result.ok:
             return f"could not close {tab_id}: {result.error_text()}"
-        self._update(task, pane_id="", tab_id="", agent_name="")
+        self._update(task, pane_id="", tab_id="", tab_label="", agent_name="")
         return f"closed {tab_id}"
 
     def action_close_agent(self) -> None:
@@ -729,8 +862,11 @@ class KanbanApp(App[None]):
             record_outcome(self.store, task.id, plan, outcome, target)
 
         if outcome.ok:
+            where = plan.workspace_label or plan.workspace_id
+            if outcome.worktree_path:
+                where = f"worktree {outcome.worktree_path}"
             self.notify(
-                f"{task_id} sent to {outcome.agent_name or plan.name} in {plan.workspace_label or plan.workspace_id}",
+                f"{task_id} sent to {outcome.agent_name or plan.name} in {where}",
                 title="kanban dispatch",
             )
             self.set_notice(f"{task_id} {result_summary(outcome)}", timeout=6)
@@ -793,11 +929,22 @@ class KanbanApp(App[None]):
         task = self.selected_task()
         if task is None:
             return
-        if not task.workspace_id:
+        # A card dispatched into a worktree is focused at its checkout: that is
+        # the workspace its run is in, and the one you would open a terminal in
+        # to see the work. `task.workspace_id` is only the repo it was forked
+        # from, which stays the fallback when the checkout's workspace is gone.
+        target = task.workspace_id
+        if task.worktree_workspace_id and task.worktree_workspace_id in self.live.workspaces:
+            target = task.worktree_workspace_id
+        if not target:
             self.set_notice(f"{task.id} has no workspace")
             return
-        label = self.live.workspace_label(task)
-        self._focus(lambda: self.herdr.focus_workspace(task.workspace_id), label)
+        label = (
+            self.live.workspaces[target].label
+            if target in self.live.workspaces
+            else target
+        )
+        self._focus(lambda: self.herdr.focus_workspace(target), label)
 
     def action_focus_pane(self) -> None:
         task = self.selected_task()
@@ -920,6 +1067,7 @@ class KanbanApp(App[None]):
                 timeout=self.config.workspace_sync_seconds,
             )
         self._announce_transitions()
+        self._settle_columns()
         if self.config.auto_move:
             self._auto_move()
         self.refresh_board()
@@ -930,7 +1078,8 @@ class KanbanApp(App[None]):
         Blocked is the one state that costs something to ignore — the agent is
         stopped until you answer — and both places that show it (the card's rule
         and the header's count) require looking at the board. So the first time a
-        card arrives in it, herdr raises a notification.
+        card arrives in it, the board raises a herdr notification and — unless
+        `notify_system` is off — a desktop one.
 
         Only *transitions*: the first tick of a board just records where
         everything stands, or opening the board onto a blocked card would ping
@@ -946,22 +1095,62 @@ class KanbanApp(App[None]):
                 task = self.task(task_id)
                 if task is not None:
                     self.herdr_notify(f"{task.id} needs you", task.title)
+                    if self.config.notify_system:
+                        # The toast only reaches someone already looking at
+                        # herdr; the desktop banner reaches them anywhere.
+                        notify.system(f"{task.id} needs you", task.title)
         self._live_status = current
+
+    def _settle_columns(self) -> None:
+        """Keep each card's column honest about what its agent is doing.
+
+        These two rules are unconditional, unlike `auto_move`, which is the
+        opt-in tail of the lifecycle (idle/done -> Review). Each is a card
+        saying the opposite of what is true:
+
+          - a card whose agent has stopped to ask you something belongs in
+            Blocked, wherever it was — that is what "the agent asked a
+            question" looks like from outside;
+          - a card whose agent is working belongs in In Progress, so a card
+            parked in a queued column (or answered out of Blocked) is carried
+            on rather than left with a label that says the opposite.
+
+        A card the human has closed (the `role = "done"` column) is never
+        reopened by a live agent, and a board with no Blocked column leaves a
+        blocked card where it is — the same bargain `herdr-kanban block` makes.
+        """
+        doing = self._dispatch_column("")
+        blocked_column = self.config.blocked_column
+        human_only = set(self.config.human_only_columns)
+        queued = set(self.config.columns_with_role("queued"))
+        for task in self.tasks():
+            status, _ = self.live.for_task(task)
+            if status == "blocked":
+                if (
+                    blocked_column
+                    and task.status != blocked_column
+                    and task.status not in human_only
+                ):
+                    self._set_status(task, blocked_column)
+                continue
+            if status == "working" and doing:
+                if task.status in queued or task.status == blocked_column:
+                    self._set_status(task, doing)
 
     def _auto_move(self) -> None:
         """Opt-in: follow the agent's own progress through the columns."""
         # "" rather than the card's column: this is not a send, so it always
         # means In Progress — a running agent is never queued in Todo.
         doing = self._dispatch_column("")
-        done_column = "review" if "review" in self.config.column_ids else ""
+        review_column = self.config.review_column
         for task in self.tasks():
             if not task.dispatched_at:
                 continue
             status, _ = self.live.for_task(task)
             if status == "working" and doing and task.status != doing:
                 self._set_status(task, doing)
-            elif status in ("idle", "done") and done_column and task.status == doing:
-                self._set_status(task, done_column)
+            elif status in ("idle", "done") and review_column and task.status == doing:
+                self._set_status(task, review_column)
 
 
 def run() -> None:  # pragma: no cover - convenience for `python -m kanban.app`

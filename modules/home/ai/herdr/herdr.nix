@@ -18,6 +18,22 @@ in
     # `herdr-kanban --selftest`, or just `herdr-kanban` outside herdr.
     kanban.cli
   ];
+
+  # herdr's pi integration reports the pane's agent lifecycle, but it cannot see
+  # that `ask_user_question` has stopped the turn to wait on you: the tool runs
+  # inside the turn, so the pane keeps reporting `working` and everything that
+  # reads herdr — the sidebar, the kanban board's Blocked column — sees a busy
+  # agent. This sibling extension translates the questionnaire's own
+  # `rpiv:ask-user:blocked` event onto herdr's `herdr:blocked` channel, which is
+  # the one the integration consumes (pi-subagents uses it the same way for a
+  # run that needs attention), so a waiting pane reads Blocked and reads Working
+  # again the moment you answer.
+  #
+  # A sibling rather than a patch: `herdr-agent-state.ts` is herdr-managed and
+  # replaced by `herdr integration install pi`, and its header says to add
+  # custom hooks beside it. See modules/home/ai/herdr/pi-extensions/.
+  home.file.".pi/agent/extensions/herdr-ask-blocked.ts".source = ./pi-extensions/herdr-ask-blocked.ts;
+
   # herdr plugins (both .sh plugins, deployed via the activation scripts
   # below): herdr-picker (fuzzy launcher) and herdr-automations
   # (cron-scheduled agent runs).

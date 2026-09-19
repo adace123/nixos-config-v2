@@ -21,36 +21,42 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import sys
 from collections.abc import Callable
 from typing import Any
 
+from . import notify
 from .config import Config, load_config
-from .dispatch import CLI, protocol_block
+from .dispatch import CLI, protocol_block, retitle_tab
 from .model import LiveState
 from .render import format_age, truncate
-from .store import AGENT_STATUSES, HUMAN_ONLY_STATUSES, Store, Task, board_path
-
-_ID = re.compile(r"^[Kk]?\d+$")
+from .store import (
+    Store,
+    Task,
+    board_path,
+    looks_like_id,
+    workspace_code,
+)
 
 USAGE_COMMANDS = """  {cli} status [<task>] <column>   move a card
   {cli} block  [<task>] [message]  park it in Blocked + say what you need
   {cli} note   [<task>] <text>     record progress on the card
-  {cli} title  [<task>] <text>     name the card (kept if the human named it)
+  {cli} title  [<task>] <text>     name the card (kept if the human named it,
+                                    unless agent_title_overrides lets agents)
   {cli} step   [<task>]            show the checklist
   {cli} step   [<task>] add <text> | done <n> | undo <n> | rm <n>
   {cli} add    <title> [--workspace <id>] [--agent <kind>] [--column <col>]
-                       [--notes <text>] [--priority <p>] [--label <l>] [--json]
+                       [--notes <text…>] [--priority <p>] [--label <l>] [--json]
                        [--from <task>] [--model <name>] [--force]
   {cli} send   [<task>] [--agent <kind>] [--workspace <id>] [--model <name>]
-                       [--dry-run]
+                       [--worktree|--no-worktree] [--dry-run]
   {cli} list   [--mine] [--json]   list cards
   {cli} show   [<task>] [--json]   one card in full
   {cli} help                       this text
 
-  <task> is a board id (K3) or its number (3); inside a herdr pane it can be
-  omitted to mean "the card for this pane". Columns may be ids or labels."""
+  <task> is a board id (cfg-8, or K3 on a card filed with no workspace) or its
+  number (8); inside a herdr pane it can be omitted to mean "the card for this
+  pane". Columns may be ids or labels."""
 
 
 def usage() -> str:
@@ -83,9 +89,16 @@ def _from_agent() -> bool:
     return bool(_pane_id())
 
 
-def _split_task(args: list[str]) -> tuple[str, list[str]]:
-    """Peel a leading `K3`/`3` off the arguments, when there is one."""
-    if args and _ID.match(args[0]):
+def _split_task(args: list[str], allow_lone_id: bool = True) -> tuple[str, list[str]]:
+    """Peel a leading `cfg-8`/`K3`/`3` off the arguments, when there is one.
+
+    `allow_lone_id=False` is for a verb whose argument is free text (`title`):
+    a one-word title that reads like an id — `eslint-9`, the shape a workspace
+    code makes ordinary — is the title, not the card to rename. A verb that
+    takes an id on its own (`block`, `step`) keeps the default, so
+    `herdr-kanban block cfg-8` still means the card.
+    """
+    if args and (allow_lone_id or len(args) > 1) and looks_like_id(args[0]):
         return args[0], args[1:]
     return "", list(args)
 
@@ -136,6 +149,11 @@ def _describe(task: Task, config: Config) -> str:
         f"{task.id}  [{config.label_for(task.status)}]  {truncate(task.title, 70)}",
         f"     {meta}",
     ]
+    if task.worktree_path:
+        lines.append(
+            f"     worktree {task.worktree_path}"
+            + (f" ({task.worktree_branch})" if task.worktree_branch else "")
+        )
     if task.title_source == "agent" and task.original_title:
         lines.append(
             f"     title from the agent (was: {truncate(task.original_title, 60)})"
@@ -160,6 +178,9 @@ def _task_json(task: Task, config: Config) -> dict[str, Any]:
         "status_label": config.label_for(task.status),
         "workspace": task.workspace_id,
         "workspace_label": task.workspace_label,
+        "worktree_path": task.worktree_path,
+        "worktree_branch": task.worktree_branch,
+        "worktree_workspace": task.worktree_workspace_id,
         "agent_kind": task.agent_kind,
         "agent_model": task.agent_model,
         "agent_name": task.agent_name,
@@ -179,9 +200,7 @@ def _task_json(task: Task, config: Config) -> dict[str, Any]:
         "updated_at": task.updated_at,
         "dispatched_at": task.dispatched_at,
         "columns": config.column_ids,
-        "agent_may_set": [
-            status for status in AGENT_STATUSES if status in config.column_ids
-        ],
+        "agent_may_set": config.agent_statuses,
     }
 
 
@@ -237,18 +256,20 @@ def _status(args: list[str], store: Store, config: Config) -> int:
         return 1
 
     # `status blocked "why"` is shorthand for block + reason.
-    if message and column != "blocked":
+    if message and column != config.blocked_column:
         print(
             f"unexpected extra arguments after {column!r}: {message!r}",
             file=sys.stderr,
         )
         return 2
 
-    _, outcome = store.set_status_from_agent(task.id, column, force=force)
+    _, outcome = store.set_status_from_agent(
+        task.id, column, config.human_only_columns, force=force
+    )
     if message:
         store.add_progress(task.id, message)
     print(outcome)
-    return 1 if column in HUMAN_ONLY_STATUSES and not force else 0
+    return 1 if column in config.human_only_columns and not force else 0
 
 
 def _block(args: list[str], store: Store, config: Config) -> int:
@@ -259,8 +280,10 @@ def _block(args: list[str], store: Store, config: Config) -> int:
         print(error, file=sys.stderr)
         return 1
 
-    if "blocked" in config.column_ids:
-        _, outcome = store.set_status_from_agent(task.id, "blocked")
+    if config.blocked_column:
+        _, outcome = store.set_status_from_agent(
+            task.id, config.blocked_column, config.human_only_columns
+        )
         print(outcome)
     else:
         print(
@@ -289,10 +312,12 @@ def _note(args: list[str], store: Store, _config: Config) -> int:
     return 0
 
 
-def _title(args: list[str], store: Store, _config: Config) -> int:
+def _title(args: list[str], store: Store, config: Config) -> int:
     force = "--force" in args
     args = [arg for arg in args if arg != "--force"]
-    reference, rest = _split_task(args)
+    # The title is free text, so a lone argument is never a card reference: see
+    # `_split_task`. `herdr-kanban title "eslint-9"` names the card.
+    reference, rest = _split_task(args, allow_lone_id=False)
     title = " ".join(rest).strip()
     if not title:
         print(f"usage: {CLI} title [<task>] <new title>", file=sys.stderr)
@@ -301,10 +326,28 @@ def _title(args: list[str], store: Store, _config: Config) -> int:
     if task is None:
         print(error, file=sys.stderr)
         return 1
-    _, outcome = store.set_title(
-        task.id, title, source="agent" if _from_agent() else "user", force=force
+    was = task.title
+    updated, outcome = store.set_title(
+        task.id,
+        title,
+        source="agent" if _from_agent() else "user",
+        # `agent_title_overrides` is a standing `--force` for the agent's own
+        # titles: on a board where the work names the card, an agent's title is
+        # the better one, and the title it replaces is kept in the card's
+        # history. A human renaming by hand never needs it — that title wins
+        # either way.
+        force=force or (_from_agent() and config.agent_title_overrides),
     )
     print(outcome)
+    if updated is not None and updated.title != was:
+        # The card's tab carries the same name (`dispatch.tab_label_for`), and
+        # the board finds its own tab by that label: a rename that left the tab
+        # behind would leave the two disagreeing. A tab the board cannot reach
+        # is not a failed rename — the card was renamed, which is what was
+        # asked — so this is a warning, not the exit code.
+        problem = retitle_tab(store, updated)
+        if problem:
+            print(f"{updated.id}: could not rename its tab: {problem}", file=sys.stderr)
     return 0
 
 
@@ -371,9 +414,7 @@ def _show(args: list[str], store: Store, config: Config) -> int:
             print(f"  {age:>4} ago  {entry.get('what', '')}")
     if task.pane_id:
         print(f"\npane: {task.pane_id}   tab: {task.tab_id or '-'}")
-    allowed = ", ".join(
-        status for status in AGENT_STATUSES if status in config.column_ids
-    )
+    allowed = ", ".join(config.agent_statuses)
     print(f"columns: {', '.join(config.column_ids)}   (agents may set: {allowed})")
     return 0
 
@@ -500,9 +541,28 @@ def _add(args: list[str], store: Store, config: Config) -> int:
             key = value_flags[arg]
             if key == "label":
                 labels.append(args[index + 1])
+                index += 2
+            elif key == "notes":
+                # A note is free text, so it takes every following token up to
+                # the next flag — the same rule `note`, `title` and `block` use
+                # (`" ".join(rest)`). Quoting is therefore optional: an
+                # unquoted `--notes why it is separate` files the whole note
+                # instead of cutting it to `why` and pushing `it is separate`
+                # into the card's title, which is what a one-argument `--notes`
+                # did — the one free-text value in this CLI that silently
+                # required quotes. A following flag still ends the note, so
+                # `--notes why --priority high` keeps working; a dash-word that
+                # is not a flag falls through to the unknown-option error below
+                # rather than being swallowed into the note.
+                note = [args[index + 1]]
+                index += 2
+                while index < len(args) and not args[index].startswith("-"):
+                    note.append(args[index])
+                    index += 1
+                options[key] = " ".join(note)
             else:
                 options[key] = args[index + 1]
-            index += 2
+                index += 2
             continue
         if arg.startswith("-"):
             print(f"unknown option {arg!r}", file=sys.stderr)
@@ -514,7 +574,7 @@ def _add(args: list[str], store: Store, config: Config) -> int:
     if not title:
         print(
             f'usage: {CLI} add "<title>" [--workspace <id>] [--agent <kind>]'
-            " [--column <col>] [--notes <text>] [--force]",
+            " [--column <col>] [--notes <text…>] [--force]",
             file=sys.stderr,
         )
         return 2
@@ -537,6 +597,17 @@ def _add(args: list[str], store: Store, config: Config) -> int:
     if error:
         print(error, file=sys.stderr)
         return 2
+    # Filing straight into the human-only column is setting it, so the same rule
+    # as `status` applies: an agent may not, unless it means it (`--force`). A
+    # human at a shell is not an agent here even if the shell is a herdr pane —
+    # `_from_agent` is the one test every verb uses.
+    if _from_agent() and column in config.human_only_columns and not force:
+        print(
+            f"refusing to file into {column} — that column is yours to close, not"
+            " the agent's; pass --force if you mean it",
+            file=sys.stderr,
+        )
+        return 1
 
     # Which card this one came out of. An agent never has to say: the pane it is
     # working in *is* a card, and that is the card that found the work. An
@@ -576,6 +647,9 @@ def _add(args: list[str], store: Store, config: Config) -> int:
         status=column,
         workspace_id=workspace_id,
         workspace_label=label,
+        # The id's workspace code, frozen here for good: `[workspaces]` if this
+        # label has an alias, otherwise the label's own slug.
+        workspace_code=workspace_code(config.workspace_aliases, label, workspace_id),
         agent_kind=options.get("agent", config.default_agent),
         agent_model=options.get("model", ""),
         priority=options.get("priority", "normal"),
@@ -587,6 +661,15 @@ def _add(args: list[str], store: Store, config: Config) -> int:
         # two — and the board's add form never sets this at all.
         created_by="agent" if _from_agent() else "user",
     )
+    # An agent filing a card is reporting work it found while doing something
+    # else: the one way a card appears without you having asked for it, and —
+    # unlike the board's own capture — with nothing on screen to confirm it. So
+    # the CLI says so where you actually are. No herdr toast goes with it: a
+    # toast only reaches someone looking at herdr, and a board that is running
+    # is about to show the card anyway.
+    if task.created_by == "agent" and config.notify_on_add and config.notify_system:
+        into = f" · found during {task.parent_id}" if task.parent_id else ""
+        notify.system(f"{task.id} filed", f"{task.title}{into}")
     if as_json:
         print(json.dumps(_task_json(task, config), indent=2))
         return 0
@@ -631,6 +714,10 @@ def _send(args: list[str], store: Store, config: Config) -> int:
 
     as_json = "--json" in args
     dry_run = "--dry-run" in args
+    # `--worktree` forces a checkout for this run; `--no-worktree` sends into the
+    # card's own workspace instead. Unset follows the card: a card that already
+    # owns a checkout reuses it.
+    worktree_override: bool | None = None
     options: dict[str, str] = {}
     value_flags = {
         "--agent": "agent",
@@ -645,6 +732,14 @@ def _send(args: list[str], store: Store, config: Config) -> int:
     while index < len(args):
         arg = args[index]
         if arg in ("--json", "--dry-run"):
+            index += 1
+            continue
+        if arg == "--worktree":
+            worktree_override = True
+            index += 1
+            continue
+        if arg == "--no-worktree":
+            worktree_override = False
             index += 1
             continue
         if arg in value_flags and index + 1 < len(args):
@@ -686,6 +781,8 @@ def _send(args: list[str], store: Store, config: Config) -> int:
         fallback_workspace=os.environ.get("HERDR_WORKSPACE_ID", ""),
         fallback_kind=options.get("agent", ""),
     )
+    if worktree_override is not None:
+        plan = replace(plan, worktree=worktree_override)
     if not plan.workspace_id and not plan.reuses_running_agent:
         print(f"{task.id} has no workspace to run in", file=sys.stderr)
         return 1
@@ -702,9 +799,11 @@ def _send(args: list[str], store: Store, config: Config) -> int:
             )
 
     if dry_run:
+        where = plan.workspace_label or plan.workspace_id
+        if plan.worktree:
+            where = f"a worktree of {where}" if where else "a worktree"
         print(
-            f"would send {plan.task_id} to {plan.name} ({plan.kind}) in "
-            f"{plan.workspace_label or plan.workspace_id}\n"
+            f"would send {plan.task_id} to {plan.name} ({plan.kind}) in {where}\n"
             f"     {task.status} -> {target or task.status}"
             + (f"   flags: {' '.join(plan.args)}" if plan.args else "")
             + ("   (reusing the running agent)" if plan.reuses_running_agent else "")
@@ -719,6 +818,8 @@ def _send(args: list[str], store: Store, config: Config) -> int:
                         "model": plan.model,
                         "args": list(plan.args),
                         "workspace": plan.workspace_id,
+                        "worktree": plan.worktree,
+                        "worktree_path": plan.worktree_path,
                         "column": target or task.status,
                         "reuses_agent": plan.reuses_running_agent,
                         "dry_run": True,
@@ -740,10 +841,13 @@ def _send(args: list[str], store: Store, config: Config) -> int:
     if as_json:
         print(json.dumps(_task_json(updated or task, config), indent=2))
         return 0
+    where = plan.workspace_label or plan.workspace_id
+    if outcome.worktree_path:
+        where = f"worktree {outcome.worktree_path}"
     print(
         f"{task.id}  {task.title}\n"
         f"     sent to {outcome.agent_name or plan.name} · "
-        f"{plan.workspace_label or plan.workspace_id} · "
+        f"{where} · "
         f"{config.label_for(target or task.status)}"
     )
     return 0

@@ -18,7 +18,7 @@ from rich.text import Text
 
 from . import icons
 from .config import Column
-from .store import Task
+from .store import Task, task_seq
 
 CARD_HEIGHT = 5
 TITLE_LINES = 2
@@ -542,6 +542,17 @@ def render_card(
     quill = "✎" if task.title_source == "agent" else ""
     badges = priority_glyph + quill
     label = f" {task.id} "
+    # The id shares the top rule with the badges, and a coded id is four cells
+    # longer than the `K8` it replaced. When it will not fit, the *code* is what
+    # goes: the counter behind it is board-wide unique, so ` 8 ` still names one
+    # card, and the meta row below still spells the workspace out. Same rule as
+    # the meta row's tokens — the least important one drops first — and the same
+    # reason: a clipped rule loses its `╮` corner, which reads as a broken card.
+    room = width - 3 - cell_len(badges)
+    if cell_len(label) > room:
+        counter = f" {task_seq(task.id)} "
+        if cell_len(counter) <= room:
+            label = counter
 
     if selected:
         border_style = f"bold {icons.PALETTE['text']}"

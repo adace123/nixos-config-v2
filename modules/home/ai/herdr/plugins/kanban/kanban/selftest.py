@@ -60,14 +60,17 @@ def check_store(check: Checker, tmp: str) -> None:
         notes="details",
         workspace_id="w1",
         workspace_label="nixos-config-v2",
+        # What `herdr-kanban add`/the board hand in: `[workspaces]` resolved
+        # against the label, or the label's own slug when there is no alias.
+        workspace_code="cfg",
         agent_kind="pi",
         status="queued",
     )
     second = store.add(title="Second", agent_kind="claude", status="queued")
     third = store.add(title="Third", agent_kind="codex", status="backlog")
     check.check(
-        "store assigns sequential ids and trims titles",
-        (first.id, second.id, third.id) == ("K1", "K2", "K3")
+        "store assigns sequential ids, codes them by workspace, and trims titles",
+        (first.id, second.id, third.id) == ("cfg-1", "K2", "K3")
         and first.title == "Fix the thing",
         f"{first.id}/{second.id}/{third.id} {first.title!r}",
     )
@@ -77,7 +80,7 @@ def check_store(check: Checker, tmp: str) -> None:
     check.check(
         "set_status moves a card and reorder is column-local",
         [task.id for task in store.in_column("doing")] == ["K2"]
-        and [task.id for task in store.in_column("queued")] == ["K1"],
+        and [task.id for task in store.in_column("queued")] == ["cfg-1"],
         str([task.id for task in store.in_column("queued")]),
     )
     store.reorder(third.id, -5)
@@ -85,6 +88,19 @@ def check_store(check: Checker, tmp: str) -> None:
     check.check(
         "out-of-range reorders are refused",
         [task.id for task in store.in_column("backlog")] == ["K3"],
+    )
+
+    # An edit that changes the card's column (`e` in the board) reaches the
+    # store through `update`, not `set_status`. It still has to move the card
+    # like every other status change: to the end of the new column, with the
+    # transition in its history rather than a bare "edited status".
+    store.update(first.id, status="backlog")
+    check.check(
+        "editing a card's column lands it at the end and records the move",
+        [task.id for task in store.in_column("backlog")] == ["K3", "cfg-1"]
+        and store.by_id(first.id).history[-1]["what"] == "queued -> backlog",
+        f"{[task.id for task in store.in_column('backlog')]} "
+        f"{store.by_id(first.id).history[-1]['what']}",
     )
 
     # A second reader must see exactly what was written (atomic replace + lock).
@@ -155,8 +171,8 @@ def check_store(check: Checker, tmp: str) -> None:
         not plan_fresh.reuses_running_agent
         and plan_fresh.workspace_id == "w1"
         and plan_fresh.kind == "pi"
-        and plan_fresh.name == "k1"
-        and plan_fresh.tab_label.startswith("K1 "),
+        and plan_fresh.name == "cfg-1"
+        and plan_fresh.tab_label.startswith("cfg-1 "),
         f"{plan_fresh.workspace_id} {plan_fresh.kind} {plan_fresh.name}",
     )
     check.check(
@@ -184,8 +200,183 @@ def check_store(check: Checker, tmp: str) -> None:
     )
     check.check(
         "a card in a closed workspace is flagged",
-        view.card("K1") is not None and view.card("K1").workspace_ok,
+        view.card("cfg-1") is not None and view.card("cfg-1").workspace_ok,
     )
+
+
+def check_ids(check: Checker, tmp: str) -> None:
+    """Card ids: `<workspace-code>-<counter>`, and every way back in.
+
+    The code is the feature — a card's name says where it was filed, and `cfg-8`
+    can be pasted into a shell and mean something — while the counter behind it
+    is the invariant that has to survive: it is board-wide, so `8` alone still
+    names exactly one card even though two workspaces' cards share a code. Both
+    halves are pinned here, along with what a badge does with a code too long
+    for the card it sits on.
+    """
+    import contextlib
+    import io
+
+    from .cli import run_agent_command
+    from .config import load_config
+    from .model import LiveState, UiState, build_view
+    from .render import render_card
+    from .store import Store, looks_like_id, slug_code, task_seq, workspace_code
+
+    labels = ("nixos-config-v2", "snowflake-reporting", "argo", "  Mixed  Case ")
+    codes = [slug_code(label) for label in labels]
+    check.check(
+        "a workspace code is the label's own letters, so no config is needed",
+        codes == ["nixos", "snowfl", "argo", "mixed"],
+        str(codes),
+    )
+    useless = [slug_code(label) for label in ("!!!", "2026", "")]
+    check.check(
+        "a label that cannot make a letter-led code keeps the plain K id",
+        useless == ["", "", ""],
+        str(useless),
+    )
+    check.check(
+        "an alias wins, keyed by the label or by herdr's own workspace id",
+        workspace_code({"nixos-config-v2": "cfg"}, "nixos-config-v2", "w1") == "cfg"
+        and workspace_code({"w1": "cfg"}, "renamed since then", "w1") == "cfg"
+        and workspace_code({}, "snowflake-reporting", "w6") == "snowfl",
+        str(
+            (
+                workspace_code({"nixos-config-v2": "cfg"}, "nixos-config-v2", "w1"),
+                workspace_code({"w1": "cfg"}, "renamed since then", "w1"),
+                workspace_code({}, "snowflake-reporting", "w6"),
+            )
+        ),
+    )
+    check.check(
+        "an alias longer than a card badge keeps is still cut to something sane",
+        workspace_code({"w1": "nixos-config-v2"}, "", "w1") == "nixos-config",
+        workspace_code({"w1": "nixos-config-v2"}, "", "w1"),
+    )
+    check.check(
+        "the counter is the last number in an id, whatever the code says",
+        (
+            task_seq("cfg-8"),
+            task_seq("K8"),
+            task_seq("snowfl-123"),
+            task_seq("blocked"),
+        )
+        == (8, 8, 123, 0),
+        str([task_seq(i) for i in ("cfg-8", "K8", "snowfl-123", "blocked")]),
+    )
+    check.check(
+        "only an id shape counts as a task reference, not any word with a digit",
+        looks_like_id("cfg-8")
+        and looks_like_id("K8")
+        and looks_like_id("8")
+        and not looks_like_id("v2")
+        and not looks_like_id("blocked")
+        and not looks_like_id("--notes"),
+    )
+
+    board = Path(tmp) / "ids-board.json"
+    config_file = Path(tmp) / "ids-config.toml"
+    config_file.write_text(
+        # Keyed by herdr's workspace id here: the CLI has no label to key on when
+        # herdr cannot answer, and this is the rename-proof spelling anyway.
+        '[workspaces]\nw1 = "cfg"\nwA = "nixos-config-v2"\n',
+        encoding="utf-8",
+    )
+    saved = {
+        key: os.environ.get(key)
+        for key in ("KANBAN_BOARD_FILE", "KANBAN_CONFIG_FILE")
+    }
+    os.environ["KANBAN_BOARD_FILE"] = str(board)
+    os.environ["KANBAN_CONFIG_FILE"] = str(config_file)
+
+    def cli(*argv: str) -> tuple[int, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = run_agent_command(list(argv))
+        return code, (out.getvalue() + err.getvalue()).strip()
+
+    try:
+        code, out = cli("add", "Aliased card", "--workspace", "w1")
+        filed = Store.open(board)
+        check.check(
+            "a card filed in a workspace takes that workspace's code",
+            code == 0 and filed.tasks and filed.tasks[0].id == "cfg-1",
+            f"{code} {out}",
+        )
+        cli("add", "No alias here", "--workspace", "w6")
+        cli("add", "Long code", "--workspace", "wA")
+        filed_ids = [task.id for task in Store.open(board).tasks]
+        check.check(
+            "a workspace with no alias codes by its own id, and the counter runs on",
+            filed_ids == ["cfg-1", "w6-2", "nixos-config-3"],
+            str(filed_ids),
+        )
+        slipped = Store.open(Path(tmp) / "ids-loose.json").add(
+            title="no explicit code", workspace_label="snowflake-reporting"
+        )
+        check.check(
+            "a store caller with no config still codes by the label",
+            slipped.id == "snowfl-1",
+            slipped.id,
+        )
+
+        store = Store.open(board)
+        found = [
+            task.id if (task := store.resolve(reference)) else None
+            for reference in ("cfg-1", "CFG-1", "1")
+        ]
+        check.check(
+            "a card answers to its id, that id in either case, and its bare number",
+            found == ["cfg-1", "cfg-1", "cfg-1"],
+            str(found),
+        )
+        long_card = store.by_id("nixos-config-3")
+        check.check(
+            "the bare number finds a card however its workspace was coded",
+            store.resolve("3") is long_card and long_card is not None,
+            str(store.resolve("3").id if store.resolve("3") else None),
+        )
+        check.check(
+            "and a code that is not on the board is not a card",
+            store.resolve("snow-1") is None,
+        )
+        code, out = cli("status", "cfg-1", "queued")
+        check.check(
+            "the CLI peels a coded id off its arguments",
+            code == 0 and Store.open(board).by_id("cfg-1").status == "queued",
+            f"{code} {out}",
+        )
+
+        # A coded id is four cells longer than the `K8` it replaced, so the
+        # badge has to give something up on a narrow card rather than clip the
+        # rule's corner. The counter is what stays: the meta row below already
+        # names the workspace in full.
+        view = build_view(
+            load_config(config_file),
+            Store.open(board).tasks,
+            LiveState(),
+            UiState(),
+            width=200,
+            height=24,
+            icon_mode="unicode",
+        )
+        card = view.card("nixos-config-3")
+        wide = str(render_card(card, 22, False, "unicode")[0])
+        narrow = str(render_card(card, 13, False, "unicode")[0])
+        check.check(
+            "a card too narrow for its code keeps the counter in the badge",
+            "nixos-config-3" in wide
+            and "nixos-config-3" not in narrow
+            and " 3 " in narrow,
+            f"{wide!r} | {narrow!r}",
+        )
+    finally:
+        for key, value in saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
 
 
 def check_agent_protocol(check: Checker, tmp: str) -> None:
@@ -214,8 +405,12 @@ def check_agent_protocol(check: Checker, tmp: str) -> None:
         os.environ.pop(key, None)
     os.environ["KANBAN_BOARD_FILE"] = str(board)
 
-    def card(task_id: str = "K1"):
-        return Store.open(board).by_id(task_id)
+    # Filled in by the seed below: this check is about one card, and naming it
+    # `nixos-1` here would pin the code's spelling in two places.
+    card_id = ""
+
+    def card(task_id: str = ""):
+        return Store.open(board).by_id(task_id or card_id)
 
     def cli(*argv: str) -> tuple[int, str]:
         out, err = io.StringIO(), io.StringIO()
@@ -241,6 +436,7 @@ def check_agent_protocol(check: Checker, tmp: str) -> None:
             tab_id="w1:t9",
             dispatched_at=time.time(),
         )
+        card_id = task.id
 
         prompt = build_prompt(card(), config)
         check.check(
@@ -296,6 +492,17 @@ def check_agent_protocol(check: Checker, tmp: str) -> None:
         check.check("an unknown column is refused", code == 2)
 
         # titles ---------------------------------------------------------
+        # An agent that echoes the capture title must be told that nothing
+        # changed — K6 sent back the title it was dispatched with, read
+        # "title unchanged" as the step being done, and the card kept its
+        # capture text for good.
+        code, out = cli("title", "fix that thing")
+        check.check(
+            "echoing the capture title says it is still the capture title",
+            code == 0 and "capture title" in out and card().title == "fix that thing",
+            out[:90],
+        )
+
         code, _ = cli("title", "Fix flake lock drift after the nixpkgs bump")
         renamed = card()
         check.check(
@@ -307,9 +514,19 @@ def check_agent_protocol(check: Checker, tmp: str) -> None:
             f"{renamed.title!r} {renamed.title_source} {renamed.original_title!r}",
         )
 
+        # A workspace-code id makes `eslint-9` a shape a title can have, and
+        # `title` is the one verb whose argument is free text: a lone one is
+        # the title, never a card to rename.
+        code, _ = cli("title", "eslint-9")
+        check.check(
+            "a one-word id-shaped title is a title, not a card reference",
+            code == 0 and card().title == "eslint-9",
+            f"{code} {card().title!r}",
+        )
+
         os.environ.pop("HERDR_PANE_ID", None)
         os.environ.pop("HERDR_ENV", None)
-        code, _ = cli("title", "K1", "Fix flake lock drift")
+        code, _ = cli("title", card_id, "Fix flake lock drift")
         check.check(
             "a human rename claims the title",
             code == 0
@@ -329,6 +546,60 @@ def check_agent_protocol(check: Checker, tmp: str) -> None:
             and kept.progress[-1]["text"]
             == "suggested title: Drift in the llm-agents input pin",
             f"{kept.title!r} / {kept.progress[-1]['text']!r}",
+        )
+
+        # `agent_title_overrides`: that same rename, with the agent's title
+        # allowed to win. The card is human-named, so there is a title to
+        # replace, and what it replaces has to survive somewhere.
+        saved_config = os.environ.get("KANBAN_CONFIG_FILE")
+        os.environ["KANBAN_CONFIG_FILE"] = str(
+            _pin_config(tmp, "pinned-overrides.toml", agent_title_overrides=True)
+        )
+        try:
+            code, out = cli("title", "Drift in the llm-agents input pin")
+            overridden = card()
+            check.check(
+                "agent_title_overrides lets an agent replace the human's title",
+                code == 0
+                and overridden.title == "Drift in the llm-agents input pin"
+                and overridden.title_source == "agent"
+                and any(
+                    "was: Fix flake lock drift" in entry.get("what", "")
+                    for entry in overridden.history
+                ),
+                f"{overridden.title!r} "
+                f"{[e.get('what') for e in overridden.history][-1:]}",
+            )
+            check.check(
+                "and the CLI names whose title it replaced",
+                "replacing yours" in out,
+                out[:90],
+            )
+        finally:
+            if saved_config is None:
+                os.environ.pop("KANBAN_CONFIG_FILE", None)
+            else:
+                os.environ["KANBAN_CONFIG_FILE"] = saved_config
+
+        # Back to the default policy, so the rest of the checks read a card
+        # whose title an agent may only suggest: the human names it again, and
+        # the next agent title has to become an update.
+        os.environ.pop("HERDR_PANE_ID", None)
+        code, _ = cli("title", card_id, "Restic drift, check the lock file")
+        check.check(
+            "a human rename claims the title again",
+            code == 0 and card().title_edited and card().title_source == "user",
+            f"{code} {card().title!r} {card().title_source}",
+        )
+        os.environ["HERDR_PANE_ID"] = "w1:pTEST"
+        code, out = cli("title", "Something the agent would rather call it")
+        check.check(
+            "with the option off an agent's title is a suggestion again",
+            code == 0
+            and card().title == "Restic drift, check the lock file"
+            and card().progress[-1]["text"]
+            == "suggested title: Something the agent would rather call it",
+            f"{card().title!r} / {card().progress[-1]['text']!r}",
         )
 
         code, out = cli("list", "--json")
@@ -353,6 +624,34 @@ def check_agent_protocol(check: Checker, tmp: str) -> None:
             "--force overrides the human's claim",
             code == 0 and card().title_source == "agent",
             f"{code} {card().title_source}",
+        )
+
+        # the CLI an agent checks before it trusts its prompt ---------------
+        from .__main__ import main as board_main
+
+        def run_main(*argv: str) -> tuple[int, str]:
+            stream = io.StringIO()
+            with contextlib.redirect_stdout(stream):
+                code = board_main(list(argv))
+            return code, stream.getvalue()
+
+        code, out = run_main("--help")
+        check.check(
+            "--help answers with the task verbs, not just the board's flags",
+            code == 0
+            and "herdr-kanban title" in out
+            and "herdr-kanban status" in out
+            and "--snapshot" in out,
+            out[:70],
+        )
+
+        # stdout is a pipe here, exactly as it is in an agent's bash tool: the
+        # board must not be launched into it.
+        code, out = run_main()
+        check.check(
+            "a bare invocation with no terminal prints usage instead of a TUI",
+            code == 0 and "herdr-kanban status" in out,
+            out[:70],
         )
 
         from .model import LiveState, UiState, build_view
@@ -389,7 +688,317 @@ def check_agent_protocol(check: Checker, tmp: str) -> None:
                 os.environ[key] = value
 
 
-def _pin_config(tmp: str) -> Path:
+def check_add_notification(check: Checker, tmp: str) -> None:
+    """A card an agent files is announced on the desktop; one from a shell is not.
+
+    `herdr-kanban add` is the protocol's "found more work?" verb — the one path
+    where a card appears on a board nobody is looking at — so the banner is
+    raised by the CLI process itself. These checks run the CLI the way an agent
+    does (`HERDR_PANE_ID` set) against a notifier and a herdr that log instead
+    of popping a real banner or touching a real session.
+    """
+    import contextlib
+    import io
+    import os
+    import time
+
+    from .cli import run_agent_command
+    from .store import Store
+
+    board = Path(tmp) / "add-notify-board.json"
+    log = Path(tmp) / "add-notify.txt"
+    notifier = Path(tmp) / "add-notifier"
+    notifier.write_text(
+        f'#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "{log}"\n', encoding="utf-8"
+    )
+    notifier.chmod(0o755)
+    herdr_log = Path(tmp) / "add-notify-herdr.txt"
+    fake_herdr = Path(tmp) / "add-notify-herdr"
+    fake_herdr.write_text(
+        f'#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "{herdr_log}"\n'
+        'echo \'{"id":"x","result":{}}\'\n',
+        encoding="utf-8",
+    )
+    fake_herdr.chmod(0o755)
+
+    keys = (
+        "KANBAN_BOARD_FILE",
+        "KANBAN_CONFIG_FILE",
+        "KANBAN_NOTIFY_CMD",
+        "HERDR_BIN_PATH",
+        "HERDR_ENV",
+        "HERDR_PANE_ID",
+        "HERDR_WORKSPACE_ID",
+    )
+    saved = {key: os.environ.get(key) for key in keys}
+    for key in keys:
+        os.environ.pop(key, None)
+    os.environ.update(
+        {
+            "KANBAN_BOARD_FILE": str(board),
+            "KANBAN_NOTIFY_CMD": str(notifier),
+            "HERDR_BIN_PATH": str(fake_herdr),
+        }
+    )
+
+    def cli(*argv: str) -> tuple[int, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = run_agent_command(list(argv))
+        return code, out.getvalue().strip()
+
+    def lines(path: Path) -> list[str]:
+        if not path.exists():
+            return []
+        return [line for line in path.read_text(encoding="utf-8").splitlines() if line]
+
+    def wait_for(count: int) -> list[str]:
+        """The notifier is started detached, so give it a moment to land."""
+        for _ in range(40):
+            found = lines(log)
+            if len(found) >= count:
+                return found
+            time.sleep(0.05)
+        return lines(log)
+
+    def silent() -> list[str]:
+        """The same wait for the checks whose answer is *nothing* arrived."""
+        time.sleep(0.5)
+        return lines(log)
+
+    def as_agent(pane: str) -> None:
+        os.environ.update(
+            {"HERDR_ENV": "1", "HERDR_PANE_ID": pane, "HERDR_WORKSPACE_ID": "w1"}
+        )
+
+    def silence(**behavior: str) -> None:
+        """Point the CLI at a config with exactly these `[behavior]` keys."""
+        path = Path(tmp) / "notify-config.toml"
+        body = "".join(f"{key} = {value}\n" for key, value in behavior.items())
+        path.write_text(f"[behavior]\n{body}", encoding="utf-8")
+        os.environ["KANBAN_CONFIG_FILE"] = str(path)
+
+    try:
+        # A card in the pane, so the new one can be linked to the work that found
+        # it — and that link is what the banner's second line should say.
+        seed = Store.open(board)
+        parent = seed.add(title="the thing being worked on", agent_kind="pi")
+        seed.hand_over(
+            parent.id,
+            "doing",
+            pane_id="w1:pAGENT",
+            tab_id="w1:t1",
+            dispatched_at=time.time(),
+        )
+        log.write_text("", encoding="utf-8")
+        herdr_log.write_text("", encoding="utf-8")
+        as_agent("w1:pAGENT")
+        code, out = cli("add", "flake lock drifts on the llm-agents pin")
+        store = Store.open(board)
+        filed = store.find_by_title("flake lock drifts on the llm-agents pin")
+        banners = wait_for(1)
+        check.check(
+            "a card an agent files is announced on the desktop",
+            code == 0
+            and filed is not None
+            and any(f"{filed.id} filed" in line for line in banners),
+            f"{code} {out[:60]} {banners}",
+        )
+        check.check(
+            "the banner names the card the work was found on",
+            filed is not None
+            and any(f"found during {parent.id}" in line for line in banners),
+            str(banners),
+        )
+        check.check(
+            "no herdr toast goes with it — the board is about to show the card",
+            not any("notification" in line for line in lines(herdr_log)),
+            " | ".join(lines(herdr_log)),
+        )
+
+        os.environ.pop("HERDR_PANE_ID", None)
+        os.environ.pop("HERDR_WORKSPACE_ID", None)
+        cli("add", "a card I typed at a shell")
+        check.check(
+            "a card you file yourself raises nothing",
+            silent() == banners,
+            str(lines(log)),
+        )
+
+        as_agent("w1:pAGENT")
+        code, _ = cli("add", "flake lock drifts on the llm-agents pin")
+        check.check(
+            "a refused duplicate is not announced",
+            code == 1 and silent() == banners,
+            f"{code} {lines(log)}",
+        )
+
+        silence(notify_on_add="false")
+        log.write_text("", encoding="utf-8")
+        cli("add", "silenced by its own key")
+        check.check(
+            "notify_on_add = false silences it",
+            silent() == [],
+            str(lines(log)),
+        )
+
+        silence(notify_on_add="true", notify_system="false")
+        log.write_text("", encoding="utf-8")
+        cli("add", "silenced by the delivery switch")
+        check.check(
+            "notify_system = false silences it too — a banner is its only delivery",
+            silent() == [],
+            str(lines(log)),
+        )
+    finally:
+        for key, value in saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
+def check_status_rights(check: Checker, tmp: str) -> None:
+    """Agent status rights follow the board's columns, not literal ids.
+
+    A board that renames its Done column to `closed` must still refuse to let an
+    agent close a card, and the set the CLI advertises as `agent_may_set` must be
+    the set the guard enforces. A column's `role` is what carries the meaning
+    across a rename; the id candidate lists are the fallback.
+    """
+    import contextlib
+    import io
+    import json
+    import os
+
+    from .cli import run_agent_command
+    from .dispatch import build_prompt
+
+    config_file = Path(tmp) / "roles-config.toml"
+    config_file.write_text(
+        "[board]\n"
+        "columns = [\n"
+        '  { id = "icebox", label = "Icebox" },\n'
+        '  { id = "later", label = "Later", role = "queued" },\n'
+        '  { id = "started", label = "Started", role = "doing" },\n'
+        '  { id = "waiting", label = "Waiting", role = "blocked" },\n'
+        '  { id = "checking", label = "Checking", role = "review" },\n'
+        '  { id = "closed", label = "Closed", role = "done" },\n'
+        "]\n"
+        'default_column = "icebox"\n'
+        "[behavior]\nannounce_protocol = true\n",
+        encoding="utf-8",
+    )
+
+    board = Path(tmp) / "roles-board.json"
+    keys = ("KANBAN_BOARD_FILE", "KANBAN_CONFIG_FILE", "HERDR_PANE_ID", "HERDR_ENV")
+    saved = {key: os.environ.get(key) for key in keys}
+    os.environ["KANBAN_BOARD_FILE"] = str(board)
+    os.environ["KANBAN_CONFIG_FILE"] = str(config_file)
+    os.environ.pop("HERDR_PANE_ID", None)
+    os.environ.pop("HERDR_ENV", None)
+
+    def cli(*argv: str) -> tuple[int, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = run_agent_command(list(argv))
+        return code, (out.getvalue() + err.getvalue()).strip()
+
+    try:
+        config = load_config()
+        check.check(
+            "roles name the board's Done, Blocked and Review columns",
+            config.human_only_columns == ["closed"]
+            and config.blocked_column == "waiting"
+            and config.review_column == "checking"
+            and config.send_column("icebox") == "started",
+            f"{config.human_only_columns} {config.blocked_column} "
+            f"{config.review_column} {config.send_column('icebox')}",
+        )
+        check.check(
+            "agent_may_set is every column except the human-only one",
+            config.agent_statuses
+            == ["icebox", "later", "started", "waiting", "checking"],
+            str(config.agent_statuses),
+        )
+
+        seed = Store.open(board)
+        task = seed.add(title="role rights", status="started", workspace_id="w1")
+        seed.hand_over(task.id, "started", pane_id="w1:pR", dispatched_at=time.time())
+
+        def status() -> str:
+            found = Store.open(board).by_id(task.id)
+            return found.status if found else "-"
+
+        os.environ["HERDR_ENV"] = "1"
+        os.environ["HERDR_PANE_ID"] = "w1:pR"
+
+        code, out = cli("status", "closed")
+        check.check(
+            "an agent cannot close a card when the Done id was renamed",
+            code == 1 and status() == "started" and "refusing" in out,
+            f"{code} {status()} {out}",
+        )
+        code, _ = cli("status", "closed", "--force")
+        check.check(
+            "and --force still closes it",
+            code == 0 and status() == "closed",
+            f"{code} {status()}",
+        )
+
+        Store.open(board).set_status(task.id, "started")
+        code, _ = cli("status", "checking")
+        check.check(
+            "an agent may set the board's review column",
+            code == 0 and status() == "checking",
+            f"{code} {status()}",
+        )
+
+        Store.open(board).set_status(task.id, "started")
+        code, _ = cli("block", "need the DSN")
+        check.check(
+            "block parks in the blocked-role column, not a literal `blocked`",
+            code == 0 and status() == "waiting",
+            f"{code} {status()}",
+        )
+
+        code, out = cli("show", "--json")
+        payload = json.loads(out)
+        check.check(
+            "show --json advertises exactly the columns the guard allows",
+            code == 0
+            and payload["agent_may_set"] == config.agent_statuses
+            and "closed" not in payload["agent_may_set"],
+            str(payload["agent_may_set"]),
+        )
+
+        code, out = cli("add", "already closed", "--column", "closed")
+        check.check(
+            "an agent cannot file straight into the human-only column",
+            code == 1 and "refusing" in out,
+            f"{code} {out}",
+        )
+        code, _ = cli("add", "already closed", "--column", "closed", "--force")
+        check.check("and --force files it there", code == 0, str(code))
+
+        prompt = build_prompt(Store.open(board).by_id(task.id), config)
+        check.check(
+            "the protocol names the board's own review column",
+            "herdr-kanban status checking" in prompt
+            and "herdr-kanban status review" not in prompt,
+            prompt.splitlines()[3] if len(prompt.splitlines()) > 3 else prompt[:80],
+        )
+    finally:
+        for key, value in saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
+def _pin_config(
+    tmp: str, name: str = "pinned-config.toml", *, agent_title_overrides: bool = False
+) -> Path:
     """Point every check at a config built from the defaults.
 
     The real board reads ~/.config/herdr/plugins/config/herdr-kanban/config.toml,
@@ -398,7 +1007,7 @@ def _pin_config(tmp: str) -> Path:
     """
     from .config import DEFAULT_COLUMNS
 
-    path = Path(tmp) / "pinned-config.toml"
+    path = Path(tmp) / name
     columns = ", ".join(
         f'{{ id = "{column_id}", label = "{label}" }}'
         for column_id, label in DEFAULT_COLUMNS
@@ -406,6 +1015,10 @@ def _pin_config(tmp: str) -> Path:
     path.write_text(
         f"[board]\ncolumns = [{columns}]\n"
         "[behavior]\nannounce_protocol = true\nsync_seconds = 0.5\n"
+        # Spelled out rather than left to the default, so this board's own
+        # config.toml cannot decide what the checks exercise: the title policy
+        # gets a check each way.
+        f"agent_title_overrides = {'true' if agent_title_overrides else 'false'}\n"
         # Pinned model lists, so a check that reads the picker's options does not
         # depend on what the machine's own config.toml happens to offer.
         '[models]\nclaude = ["sonnet", "opus"]\npi = ["deepseek-v4-flash"]\n',
@@ -701,6 +1314,43 @@ async def check_extras(check: Checker, tmp: str) -> None:
             cli("show", "K7")[1].splitlines()[1] if cli("show", "K7")[1] else "-",
         )
 
+        # --notes is free text -----------------------------------------------
+        # The one free-text value in this CLI that used to take a single
+        # argument: an unquoted note was cut to its first word, with the rest
+        # pushed into the title. `note`/`title`/`block` had always joined the
+        # remaining tokens, so this is the same rule, not a new one.
+        code, out = cli(
+            "add", "Note without quotes", "--notes", "why", "it", "is", "separate"
+        )
+        noted = card("K8")
+        check.check(
+            "add --notes takes the rest of the line, not just its first word",
+            code == 0 and noted is not None and noted.notes == "why it is separate",
+            f"{noted.title!r} / {noted.notes!r}" if noted else "-",
+        )
+        check.check(
+            "and the note is not absorbed into the title",
+            noted is not None and noted.title == "Note without quotes",
+            noted.title if noted else "-",
+        )
+        code, _ = cli(
+            "add",
+            "Note before a flag",
+            "--notes",
+            "quoted or not",
+            "--priority",
+            "high",
+        )
+        flagged = card("K9")
+        check.check(
+            "a flag after an unquoted note is still a flag",
+            code == 0
+            and flagged is not None
+            and flagged.notes == "quoted or not"
+            and flagged.priority == "high",
+            f"{flagged.notes!r} {flagged.priority}" if flagged else "-",
+        )
+
         # steps -------------------------------------------------------------
         code, out = cli("step", "K1", "add", "first")
         cli("step", "K1", "add", "second")
@@ -956,7 +1606,7 @@ async def check_extras(check: Checker, tmp: str) -> None:
             config,
             fresh.tasks,
             LiveState(),
-            UiState(selected_id="K1"),
+            UiState(selected_id=fresh.tasks[0].id if fresh.tasks else ""),
             width=120,
             height=20,
             icon_mode="unicode",
@@ -966,7 +1616,7 @@ async def check_extras(check: Checker, tmp: str) -> None:
         # board (the renderer pads to the pane height).
         check.check(
             "the board renders exactly as tall as the pane",
-            len(rendered.split("\n")) == 20 and "K1" in rendered,
+            len(rendered.split("\n")) == 20 and fresh.tasks[0].id in rendered,
             str(len(rendered.split("\n"))),
         )
     finally:
@@ -1133,7 +1783,7 @@ def check_hardening(check: Checker, tmp: str) -> None:
                 icon_mode="unicode",
             )
         )
-        check.check("and the board renders anyway", "K1" in rendered)
+        check.check("and the board renders anyway", task.id in rendered)
 
         # #4/#8 cell widths -------------------------------------------------
         violations = [
@@ -1431,7 +2081,8 @@ def check_hardening(check: Checker, tmp: str) -> None:
         bool_config.write_text(
             "[ui]\nwidth = true\nheight = false\nshow_agent_kind = true\n"
             "show_status_word = false\n"
-            "[behavior]\nnotify_on_block = false\n",
+            "[behavior]\nnotify_on_block = false\nnotify_system = false\n"
+            "auto_delete_agent = false\n",
             encoding="utf-8",
         )
         saved_config = os.environ.get("KANBAN_CONFIG_FILE")
@@ -1453,22 +2104,29 @@ def check_hardening(check: Checker, tmp: str) -> None:
                 loaded.notify_on_block is False,
                 str(loaded.notify_on_block),
             )
+            check.check(
+                "and the desktop banner has its own switch",
+                loaded.notify_system is False,
+                str(loaded.notify_system),
+            )
+            check.check(
+                "and deleting a card can be told to keep its agent",
+                loaded.auto_delete_agent is False,
+                str(loaded.auto_delete_agent),
+            )
 
             # where a send lands --------------------------------------------
             sending = load_config()
             check.check(
-                "sending a card out of the backlog queues it in Todo",
-                sending.send_column("backlog") == "queued",
-                sending.send_column("backlog"),
-            )
-            check.check(
-                "sending a card already in the flow goes to In Progress",
-                sending.send_column("todo") == "doing"
+                "a send lands in In Progress, wherever the card came from",
+                sending.send_column("backlog") == "doing"
+                and sending.send_column("queued") == "doing"
+                and sending.send_column("todo") == "doing"
                 and sending.send_column("blocked") == "doing"
                 and sending.send_column("review") == "doing",
                 " ".join(
                     sending.send_column(column)
-                    for column in ("todo", "blocked", "review")
+                    for column in ("backlog", "queued", "todo", "blocked", "review")
                 ),
             )
             check.check(
@@ -1486,7 +2144,7 @@ def check_hardening(check: Checker, tmp: str) -> None:
             )
             check.check(
                 "a board that names its columns differently still works",
-                renamed.send_column("later") == "next"
+                renamed.send_column("later") == "started"
                 and renamed.send_column("next") == "started",
                 f"{renamed.send_column('later')}/{renamed.send_column('next')}",
             )
@@ -1495,7 +2153,7 @@ def check_hardening(check: Checker, tmp: str) -> None:
                 columns=[Column("backlog", "Backlog"), Column("done", "Done")],
             )
             check.check(
-                "a board with neither column leaves the card where it is",
+                "a board with no In Progress column leaves the card where it is",
                 bare.send_column("backlog") == "backlog",
                 bare.send_column("backlog"),
             )
@@ -1584,7 +2242,7 @@ async def check_dialogs(check: Checker, tmp: str) -> None:
     config = replace(load_config(), wip_limits={"doing": 1})
     try:
         store = Store.open(board)
-        store.add(
+        occupied = store.add(
             title="already in progress",
             status="doing",
             workspace_id="w1",
@@ -1606,7 +2264,7 @@ async def check_dialogs(check: Checker, tmp: str) -> None:
             )
             check.check(
                 "and says nothing for a card already counted there",
-                app.wip_warning(app.task("K1")) == "",
+                app.wip_warning(app.task(occupied.id)) == "",
             )
 
             # The dialog used to raise InvalidSelectValueError when the card's
@@ -1818,9 +2476,17 @@ prompted = os.path.exists(os.environ["FAKE_LOG"]) and any(
 )
 
 if args[:2] == ["workspace", "list"]:
-    emit({"type": "workspace_list", "workspaces": [
+    workspaces = [
         {"workspace_id": "w1", "label": "probe", "number": 1, "active_tab_id": "w1:t1",
-         "agent_status": "idle"}]})
+         "agent_status": "idle"}]
+    # A worktree workspace, once one has been forked (or reopened): set by the
+    # checks that act out a card which already owns a checkout.
+    if os.environ.get("FAKE_WORKTREE_OPEN") == "1":
+        workspaces.append(
+            {"workspace_id": "w9",
+             "label": os.environ.get("FAKE_WORKTREE_LABEL", "probe-wt"),
+             "number": 9, "active_tab_id": "w9:t1", "agent_status": "idle"})
+    emit({"type": "workspace_list", "workspaces": workspaces})
 if args[:2] == ["agent", "list"]:
     emit({"type": "agent_list", "agents": []})
 if args[:2] == ["pane", "list"]:
@@ -1828,16 +2494,35 @@ if args[:2] == ["pane", "list"]:
                                           "tab_id": "w1:t1", "cwd": os.environ.get("FAKE_CWD", "/tmp")}]})
 if args[:2] == ["tab", "get"]:
     label = os.environ.get("FAKE_TAB_LABEL", "")
+    # A rename in an earlier call is a different process: the fake keeps the
+    # label it was given in a file so a later `tab get` reports what a real
+    # herdr would (`FAKE_TAB_FILE`).
+    saved = os.environ.get("FAKE_TAB_FILE")
+    if saved and os.path.exists(saved):
+        label = open(saved, encoding="utf-8").read()
     if not label:
         fail("tab_not_found", "gone")
     emit({"tab": {"tab_id": args[2], "label": label}})
+if args[:2] == ["tab", "rename"]:
+    if os.environ.get("FAKE_RENAME_FAIL"):
+        fail("tab_not_found", os.environ["FAKE_RENAME_FAIL"])
+    saved = os.environ.get("FAKE_TAB_FILE")
+    if saved:
+        with open(saved, "w", encoding="utf-8") as handle:
+            handle.write(args[3])
+    emit({"tab": {"tab_id": args[2], "label": args[3]}})
 if args[:2] == ["agent", "get"]:
     status = "working" if (reacted and prompted) else "idle"
     seq = 10 if status == "idle" else 11
     emit({"agent": {"agent": args[2], "agent_status": status, "state_change_seq": seq,
                     "pane_id": "w1:p2", "tab_id": "w1:t2"}})
 if args[:2] == ["tab", "create"]:
-    emit({"tab": {"tab_id": "w1:t9"}, "root_pane": {"pane_id": "w1:p9"}})
+    # The tab lands in whichever workspace it was asked for, so a worktree
+    # dispatch is visible in the pane it started the agent in.
+    ws = "w1"
+    if "--workspace" in args:
+        ws = args[args.index("--workspace") + 1]
+    emit({"tab": {"tab_id": f"{ws}:t9"}, "root_pane": {"pane_id": f"{ws}:p9"}})
 if args[:2] == ["agent", "read"]:
     # What a pane really hands back: a box, a status bar, stray blank lines.
     print("\u256d\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e")
@@ -1852,6 +2537,22 @@ if args[:2] == ["agent", "start"]:
     if os.environ.get("FAKE_START_FAIL"):
         fail("agent_name_taken", os.environ["FAKE_START_FAIL"])
     emit({})
+if args[:2] in (["worktree", "create"], ["worktree", "open"]):
+    if os.environ.get("FAKE_WORKTREE_FAIL"):
+        fail("repository_not_trusted", os.environ["FAKE_WORKTREE_FAIL"])
+    emit({"type": "worktree_created",
+          "workspace": {"workspace_id": "w9",
+                        "label": os.environ.get("FAKE_WORKTREE_LABEL", "probe-wt")},
+          "worktree": {"path": os.environ.get("FAKE_WORKTREE_PATH", "/tmp/fake-worktree"),
+                       "branch": os.environ.get("FAKE_WORKTREE_BRANCH", "worktree/fake"),
+                       "open_workspace_id": "w9", "is_linked_worktree": True}})
+if args[:2] == ["worktree", "remove"]:
+    if os.environ.get("FAKE_WORKTREE_REMOVE_FAIL"):
+        fail("workspace_not_found", os.environ["FAKE_WORKTREE_REMOVE_FAIL"])
+    emit({"type": "worktree_removed",
+          "workspace_id": args[args.index("--workspace") + 1],
+          "path": os.environ.get("FAKE_WORKTREE_PATH", "/tmp/fake-worktree"),
+          "forced": "--force" in args})
 emit({"type": "ok"})
 """,
         encoding="utf-8",
@@ -1965,8 +2666,8 @@ async def check_send_now(check: Checker, tmp: str) -> None:
             f"start={started[:1]} prompted={bool(prompted)}",
         )
         check.check(
-            "a card sent out of the backlog lands in Queued",
-            card is not None and card.status == "queued",
+            "a card sent out of the backlog lands in In Progress",
+            card is not None and card.status == "doing",
             card.status if card else "-",
         )
         check.check(
@@ -1989,11 +2690,14 @@ async def check_send_now(check: Checker, tmp: str) -> None:
             return code, (out.getvalue() + err.getvalue()).strip()
 
         assert card is not None
+        # Put it back in the backlog so the dry run shows the rule a send
+        # applies: it starts the agent, so it lands in In Progress, not Queued.
+        Store.open(board).set_status(card.id, "backlog")
         log.write_text("", encoding="utf-8")
         code, out = cli("send", card.id, "--dry-run")
         check.check(
             "send --dry-run plans the dispatch the board would do, and stops",
-            code == 0 and "would send" in out and "queued -> doing" in out,
+            code == 0 and "would send" in out and "backlog -> doing" in out,
             out.replace(chr(10), " | ")[:90],
         )
         check.check(
@@ -2032,6 +2736,219 @@ async def check_send_now(check: Checker, tmp: str) -> None:
                 os.environ[key] = value
 
 
+async def check_worktree_dispatch(check: Checker, tmp: str) -> None:
+    """A dispatch with the worktree option: fork a checkout and run the agent there.
+
+    The whole path is exercised — plan, executor, herdr calls, and the fields
+    the card ends up with — because the point of the option is that the agent
+    runs in a workspace of its own rather than the card's.
+    """
+    import os
+    from dataclasses import replace
+
+    from .app import KanbanApp
+    from .config import load_config
+    from .dispatch import Executor, plan_for, tab_label_for
+    from .herdr import Herdr, Workspace
+    from .model import LiveState
+    from .store import Store
+
+    log = Path(tmp) / "worktree-calls.txt"
+    board = Path(tmp) / "worktree-board.json"
+    fake = _fake_herdr(tmp, "fake-herdr-worktree")
+    worktree_path = str(Path(tmp) / "checkout")
+    env_keys = (
+        "KANBAN_BOARD_FILE",
+        "HERDR_WORKSPACE_ID",
+        "HERDR_PLUGIN_CONTEXT_JSON",
+        "HERDR_BIN_PATH",
+        "FAKE_LOG",
+        "FAKE_REACT",
+        "FAKE_CWD",
+        "FAKE_WORKTREE_PATH",
+        "FAKE_WORKTREE_BRANCH",
+        "FAKE_WORKTREE_OPEN",
+        "FAKE_WORKTREE_REMOVE_FAIL",
+        "FAKE_TAB_LABEL",
+    )
+    saved = {key: os.environ.get(key) for key in env_keys}
+    for key in env_keys:
+        os.environ.pop(key, None)
+    log.write_text("", encoding="utf-8")
+    os.environ.update(
+        {
+            "KANBAN_BOARD_FILE": str(board),
+            "HERDR_WORKSPACE_ID": "w1",
+            "HERDR_BIN_PATH": str(fake),
+            "FAKE_LOG": str(log),
+            "FAKE_REACT": "1",
+            "FAKE_CWD": tmp,
+            "FAKE_WORKTREE_PATH": worktree_path,
+            "FAKE_WORKTREE_BRANCH": "worktree/cfg-1",
+        }
+    )
+
+    def space(workspace_id: str, label: str) -> Workspace:
+        return Workspace(
+            id=workspace_id,
+            label=label,
+            number=1,
+            active_tab_id=f"{workspace_id}:t1",
+            agent_status="idle",
+        )
+
+    def calls() -> list[list[str]]:
+        return [
+            line.split()
+            for line in log.read_text(encoding="utf-8").splitlines()
+        ]
+
+    try:
+        config = replace(load_config(), announce_protocol=True)
+        store = Store.open(board)
+        task = store.add(
+            title="Fork a checkout for this card",
+            workspace_id="w1",
+            workspace_label="probe",
+            agent_kind="pi",
+        )
+
+        # The form offers the option — off by default for a card with no
+        # checkout — and turning it on is what makes the dispatch fork one. The
+        # press path is exercised rather than the widget in isolation, because
+        # the checkbox only matters through the plan it produces and the run
+        # that plan starts.
+        app = KanbanApp(
+            config=config, store=Store.open(board), herdr=Herdr(binary=str(fake))
+        )
+        async with app.run_test(size=(120, 36)) as pilot:
+            await pilot.pause()
+            app.ui.selected_id = task.id
+            await pilot.press("s")
+            await pilot.pause()
+            box = app.screen.query_one("#dispatch-worktree")
+            default_off = box.value is False
+            box.value = True
+            await pilot.press("ctrl+s")
+            for _ in range(60):
+                await pilot.pause(0.05)
+                if app.workers_running() == []:
+                    break
+        check.check(
+            "the send form offers a git worktree option, off by default",
+            default_off,
+        )
+        updated = Store.open(board).by_id(task.id)
+        recorded = calls()
+        check.check(
+            "turning it on forks a checkout and starts the agent in it",
+            updated is not None
+            and any(call[:2] == ["worktree", "create"] for call in recorded)
+            and any(
+                call[:2] == ["tab", "create"]
+                and "--workspace" in call
+                and call[call.index("--workspace") + 1] == "w9"
+                for call in recorded
+            )
+            and any(
+                call[:2] == ["agent", "start"]
+                and "--pane" in call
+                and call[call.index("--pane") + 1] == "w9:p9"
+                for call in recorded
+            ),
+            " | ".join(" ".join(call) for call in recorded)
+            or "no calls",
+        )
+        check.check(
+            "the card records the checkout its run lives in",
+            updated is not None
+            and updated.worktree_path == worktree_path
+            and updated.worktree_branch == "worktree/cfg-1"
+            and updated.worktree_workspace_id == "w9",
+            f"{updated.worktree_path if updated else '-'}"
+            f" / {updated.worktree_workspace_id if updated else '-'}",
+        )
+        check.check(
+            "and keeps the repo it forked from as the card's workspace",
+            updated is not None and updated.workspace_id == "w1",
+            updated.workspace_id if updated else "-",
+        )
+
+        # A re-dispatch reuses the checkout the card already owns instead of
+        # forking another one for the same card.
+        log.write_text("", encoding="utf-8")
+        os.environ["FAKE_WORKTREE_OPEN"] = "1"
+        live2 = LiveState(
+            workspaces={"w1": space("w1", "probe"), "w9": space("w9", "probe-wt")}
+        )
+        again = replace(
+            plan_for(updated, config, live2, fallback_workspace="w1"), worktree=True
+        )
+        outcome2 = Executor(Herdr(binary=str(fake))).run(again)
+        recorded = calls()
+        check.check(
+            "a re-dispatch reuses the card's checkout rather than forking a second",
+            outcome2.ok
+            and not any(call[:2] == ["worktree", "create"] for call in recorded)
+            and not any(call[:2] == ["worktree", "open"] for call in recorded)
+            and any(
+                call[:2] == ["tab", "create"]
+                and call[call.index("--workspace") + 1] == "w9"
+                for call in recorded
+            ),
+            outcome2.detail(),
+        )
+
+        # Deleting the card offers the checkout's removal; the board carries it
+        # out while the workspace herdr opened for it is still there.
+        os.environ["FAKE_TAB_LABEL"] = tab_label_for(updated)
+        app = KanbanApp(
+            config=config, store=Store.open(board), herdr=Herdr(binary=str(fake))
+        )
+        async with app.run_test(size=(110, 30)) as pilot:
+            await pilot.pause()
+            card = app.store.by_id(updated.id)
+            offered = app.may_remove_worktree(card)
+            app.delete_task(card, remove_worktree=True)
+            await pilot.pause()
+        recorded = log.read_text(encoding="utf-8").splitlines()
+        check.check(
+            "deleting the card offers and then removes its checkout",
+            offered
+            and any(
+                call.startswith("worktree remove --workspace w9")
+                for call in recorded
+            ),
+            " | ".join(recorded),
+        )
+
+        # A workspace closed by hand cannot be removed by herdr (`worktree
+        # remove` takes only a workspace id): the board says so and names the
+        # git command instead of pretending the checkout is gone.
+        os.environ["FAKE_WORKTREE_REMOVE_FAIL"] = "workspace w9 not found"
+        shell = Store.open(board)
+        stranded = shell.add(
+            title="a card whose worktree workspace closed",
+            worktree_path=worktree_path,
+            worktree_workspace_id="w9",
+        )
+        app2 = KanbanApp(
+            config=config, store=shell, herdr=Herdr(binary=str(fake))
+        )
+        notice = app2.remove_worktree(shell.by_id(stranded.id))
+        check.check(
+            "a checkout whose workspace is gone is reported, not silently kept",
+            "workspace w9 not found" in notice and "git worktree remove" in notice,
+            notice,
+        )
+    finally:
+        for key, value in saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
 async def check_live_loop(check: Checker, tmp: str) -> None:
     """The polling half: two clocks, and news only when there is news.
 
@@ -2049,6 +2966,13 @@ async def check_live_loop(check: Checker, tmp: str) -> None:
 
     log = Path(tmp) / "live-calls.txt"
     board = Path(tmp) / "live-board.json"
+    notify_log = Path(tmp) / "live-notify.txt"
+    notifier = Path(tmp) / "fake-notifier"
+    notifier.write_text(
+        f'#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "{notify_log}"\n',
+        encoding="utf-8",
+    )
+    notifier.chmod(0o755)
     env_keys = (
         "KANBAN_BOARD_FILE",
         "HERDR_WORKSPACE_ID",
@@ -2056,6 +2980,7 @@ async def check_live_loop(check: Checker, tmp: str) -> None:
         "FAKE_LOG",
         "FAKE_REACT",
         "FAKE_CWD",
+        "KANBAN_NOTIFY_CMD",
     )
     saved = {key: os.environ.get(key) for key in env_keys}
     for key in env_keys:
@@ -2067,6 +2992,7 @@ async def check_live_loop(check: Checker, tmp: str) -> None:
             "FAKE_LOG": str(log),
             "FAKE_REACT": "1",
             "FAKE_CWD": tmp,
+            "KANBAN_NOTIFY_CMD": str(notifier),
         }
     )
 
@@ -2076,6 +3002,25 @@ async def check_live_loop(check: Checker, tmp: str) -> None:
             await pilot.pause(0.05)
             if app.workers_running() == []:
                 return
+
+    def notified() -> list[str]:
+        """The desktop banners the board asked for, in order."""
+        if not notify_log.exists():
+            return []
+        return [
+            line
+            for line in notify_log.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+
+    async def wait_for_notify(count: int) -> list[str]:
+        """The notifier is started detached, so give it a moment to land."""
+        for _ in range(40):
+            lines = notified()
+            if len(lines) >= count:
+                return lines
+            await asyncio.sleep(0.05)
+        return notified()
 
     try:
         store = Store.open(board)
@@ -2143,54 +3088,60 @@ async def check_live_loop(check: Checker, tmp: str) -> None:
                 agents={"k1": blocked},
                 agents_by_pane={str(card.pane_id): blocked},
             )
+            def toasts() -> list[str]:
+                return [
+                    line
+                    for line in log.read_text(encoding="utf-8").splitlines()
+                    if line.startswith("notification show")
+                ]
+
             log.write_text("", encoding="utf-8")
             app.apply_live(quiet)  # first sight: baseline, not news
             await settled(pilot, app)
             check.check(
                 "opening onto a board says nothing, however blocked it is",
-                "notification" not in log.read_text(encoding="utf-8"),
+                "notification" not in log.read_text(encoding="utf-8")
+                and notified() == [],
                 log.read_text(encoding="utf-8").strip()[:60],
             )
             app.apply_live(blocked_live)
             await settled(pilot, app)
-            toasts = [
-                line
-                for line in log.read_text(encoding="utf-8").splitlines()
-                if line.startswith("notification show")
-            ]
+            banners = await wait_for_notify(1)
             check.check(
                 "a card that newly blocks raises a herdr notification",
-                len(toasts) == 1 and f"{card.id} needs you" in toasts[0],
-                str(toasts),
+                len(toasts()) == 1 and f"{card.id} needs you" in toasts()[0],
+                str(toasts()),
+            )
+            check.check(
+                "and asks the desktop too",
+                len(banners) == 1 and f"{card.id} needs you" in banners[0],
+                str(banners),
             )
             app.apply_live(blocked_live)
             await settled(pilot, app)
             check.check(
-                "and it does not repeat while the state stands",
-                len(
-                    [
-                        line
-                        for line in log.read_text(encoding="utf-8").splitlines()
-                        if line.startswith("notification show")
-                    ]
-                )
-                == 1,
+                "and neither repeats while the state stands",
+                len(toasts()) == 1 and len(notified()) == 1,
+            )
+            app.config.notify_system = False
+            app._live_status = {}
+            app.apply_live(quiet)
+            app.apply_live(blocked_live)
+            await settled(pilot, app)
+            check.check(
+                "the desktop banner alone can be turned off",
+                len(toasts()) == 2 and len(notified()) == 1,
+                f"{len(notified())} banner(s)",
             )
             app.config.notify_on_block = False
+            app.config.notify_system = True
             app._live_status = {}
             app.apply_live(quiet)
             app.apply_live(blocked_live)
             await settled(pilot, app)
             check.check(
                 "and the whole thing can be turned off",
-                len(
-                    [
-                        line
-                        for line in log.read_text(encoding="utf-8").splitlines()
-                        if line.startswith("notification show")
-                    ]
-                )
-                == 1,
+                len(toasts()) == 2 and len(notified()) == 1,
                 log.read_text(encoding="utf-8").strip()[-60:],
             )
     finally:
@@ -2199,6 +3150,112 @@ async def check_live_loop(check: Checker, tmp: str) -> None:
                 os.environ.pop(key, None)
             else:
                 os.environ[key] = value
+
+
+def check_settle_columns(check: Checker, tmp: str) -> None:
+    """The column follows the agent, for the states that are never a judgement.
+
+    A card whose agent has stopped to ask you something belongs in Blocked; a
+    card whose agent is working belongs in In Progress, so one parked in a
+    queued column — or answered out of Blocked — is carried on. A card you have
+    closed stays closed.
+    """
+    import os
+    from dataclasses import replace
+
+    from .config import load_config
+    from .herdr import Agent
+    from .model import LiveState
+
+    board = Path(tmp) / "settle-board.json"
+    saved = os.environ.get("KANBAN_BOARD_FILE")
+    os.environ["KANBAN_BOARD_FILE"] = str(board)
+    try:
+        store = Store.open(board)
+
+        def card(title: str, status: str, pane: str = "") -> Task:
+            task = store.add(
+                title=title, status=status, workspace_id="w1", agent_kind="pi"
+            )
+            if pane:
+                store.hand_over(
+                    task.id, status, pane_id=pane, dispatched_at=time.time()
+                )
+            return task
+
+        working = card("an agent is on it", "queued", "w1:p1")
+        waiting = card("waiting its turn", "queued")
+        asking = card("asking you something", "doing", "w1:p3")
+        answered = card("you answered it", "blocked", "w1:p4")
+        closed = card("you closed it", "done", "w1:p5")
+
+        def agent(status: str, pane: str) -> Agent:
+            return Agent(
+                name=pane.replace(":", "-"),
+                status=status,
+                workspace_id="w1",
+                pane_id=pane,
+                tab_id="w1:t9",
+                cwd="",
+                focused=False,
+                title="",
+                logo="",
+            )
+
+        by_pane = {
+            "w1:p1": agent("working", "w1:p1"),
+            "w1:p3": agent("blocked", "w1:p3"),
+            "w1:p4": agent("working", "w1:p4"),
+            "w1:p5": agent("blocked", "w1:p5"),
+        }
+        live = LiveState(
+            workspaces={},
+            agents={item.name: item for item in by_pane.values()},
+            agents_by_pane=by_pane,
+        )
+        app = KanbanApp(
+            config=replace(load_config(_pin_config(tmp)), notify_on_block=False),
+            store=Store.open(board),
+            herdr=Herdr(binary="/nonexistent-herdr"),
+        )
+        app.apply_live(live)
+
+        after = Store.open(board)
+
+        def status_of(task: Task) -> str:
+            found = after.by_id(task.id)
+            return found.status if found else "-"
+
+        check.check(
+            "a queued card whose agent is working moves to In Progress",
+            status_of(working) == "doing",
+            status_of(working),
+        )
+        check.check(
+            "and a queued card with no agent is left where it is",
+            status_of(waiting) == "queued",
+            status_of(waiting),
+        )
+        check.check(
+            "a card whose agent asks a question moves to Blocked",
+            status_of(asking) == "blocked",
+            status_of(asking),
+        )
+        check.check(
+            "and a blocked card whose agent is working again moves to In Progress",
+            status_of(answered) == "doing",
+            status_of(answered),
+        )
+        check.check(
+            "but a card the human closed is not reopened by a live agent",
+            status_of(closed) == "done",
+            status_of(closed),
+        )
+    finally:
+        if saved is None:
+            os.environ.pop("KANBAN_BOARD_FILE", None)
+        else:
+            os.environ["KANBAN_BOARD_FILE"] = saved
 
 
 def check_prompt_delivery(check: Checker, tmp: str) -> None:
@@ -2287,6 +3344,7 @@ def check_prompt_delivery(check: Checker, tmp: str) -> None:
 async def check_delete_stops_agent(check: Checker, tmp: str) -> None:
     """Deleting a card stops its agent; a repurposed tab is left alone."""
     import os
+    from dataclasses import replace
 
     from .app import KanbanApp
     from .config import load_config
@@ -2312,9 +3370,11 @@ async def check_delete_stops_agent(check: Checker, tmp: str) -> None:
     os.environ["KANBAN_BOARD_FILE"] = str(board)
     fake = _fake_herdr(tmp)
 
-    def app_for(store: Store) -> KanbanApp:
+    def app_for(store: Store, config: object = None) -> KanbanApp:
         return KanbanApp(
-            config=load_config(), store=store, herdr=Herdr(binary=str(fake))
+            config=config or load_config(),
+            store=store,
+            herdr=Herdr(binary=str(fake)),
         )
 
     try:
@@ -2400,6 +3460,197 @@ async def check_delete_stops_agent(check: Checker, tmp: str) -> None:
             "a repurposed tab is left alone when the card is deleted",
             not any(call.startswith("tab close") for call in calls),
             " | ".join(calls),
+        )
+
+        # a board that opts out (`auto_delete_agent = false`) keeps the agent
+        store3 = Store.open(board)
+        kept = store3.add(
+            title="a card whose agent the board should keep",
+            agent_kind="pi",
+            workspace_id="w1",
+            status="doing",
+            pane_id="w1:p9",
+            tab_id="w1:t9",
+            agent_name="k3",
+        )
+        log.write_text("", encoding="utf-8")
+        os.environ["FAKE_TAB_LABEL"] = tab_label_for(kept)
+        app3 = app_for(store3, replace(load_config(), auto_delete_agent=False))
+        async with app3.run_test(size=(110, 30)) as pilot:
+            await pilot.pause()
+            app3.delete_task(kept)
+            await pilot.pause()
+        calls = log.read_text(encoding="utf-8").splitlines()
+        check.check(
+            "auto_delete_agent = false deletes the card and leaves its tab alone",
+            not any(call.startswith("tab close") for call in calls)
+            and Store.open(board).by_id(kept.id) is None,
+            " | ".join(calls),
+        )
+    finally:
+        for key, value in saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
+async def check_tab_follows_title(check: Checker, tmp: str) -> None:
+    """A card's name reaches its tab, and the board still knows the tab is its.
+
+    The tab a dispatch opens is labelled `<id> <title>` (`dispatch.tab_label_for`),
+    and that label is also how the board tells its own tab from one that was
+    repurposed — `KanbanApp.agent_tab`, which is what closes the agent when the
+    card is deleted. So a rename has to reach herdr (or the card and its tab
+    disagree about what the work is called), and the label the board matches
+    against has to be the one it actually wrote rather than one recomputed from
+    the title it has since changed: a rename that only reached the card would
+    make the board disown the tab it opened.
+    """
+    import contextlib
+    import io
+    import os
+    from dataclasses import replace
+
+    from .app import KanbanApp
+    from .cli import run_agent_command
+    from .config import load_config
+    from .dispatch import Outcome, Plan, dispatch_fields, retitle_tab, tab_label_for
+    from .herdr import Herdr
+    from .store import Store
+
+    board = Path(tmp) / "tab-title-board.json"
+    log = Path(tmp) / "tab-title-calls.txt"
+    label_file = Path(tmp) / "tab-title-label.txt"
+    keys = (
+        "KANBAN_BOARD_FILE",
+        "HERDR_BIN_PATH",
+        "HERDR_PANE_ID",
+        "HERDR_ENV",
+        "FAKE_LOG",
+        "FAKE_CWD",
+        "FAKE_TAB_LABEL",
+        "FAKE_TAB_FILE",
+        "FAKE_RENAME_FAIL",
+    )
+    saved = {key: os.environ.get(key) for key in keys}
+    fake = _fake_herdr(tmp, "fake-herdr-tab-title")
+    os.environ.pop("FAKE_RENAME_FAIL", None)
+    os.environ.update(
+        {
+            "KANBAN_BOARD_FILE": str(board),
+            "HERDR_BIN_PATH": str(fake),
+            "HERDR_ENV": "1",
+            "HERDR_PANE_ID": "w1:p9",
+            "FAKE_LOG": str(log),
+            "FAKE_CWD": tmp,
+            "FAKE_TAB_FILE": str(label_file),
+        }
+    )
+    try:
+        store = Store.open(board)
+        task = store.add(
+            title="do the thing",
+            agent_kind="pi",
+            workspace_id="w1",
+            workspace_label="nixos-config-v2",
+            status="doing",
+        )
+        first_label = tab_label_for(task)
+        os.environ["FAKE_TAB_LABEL"] = first_label  # what `tab create` left
+        store.hand_over(
+            task.id,
+            "doing",
+            pane_id="w1:p9",
+            tab_id="w1:t9",
+            tab_label=first_label,
+            agent_name="pi",
+            dispatched_at=time.time(),
+        )
+
+        # The label a dispatch writes is recorded on the card; a re-prompt of a
+        # running agent writes no label, so it must not claim one.
+        plan = Plan(
+            task_id=task.id,
+            workspace_id="w1",
+            workspace_label="probe",
+            kind="pi",
+            name=task.slug,
+            prompt="do the thing",
+            tab_label=first_label,
+        )
+        fresh = dispatch_fields(plan, Outcome(True, tab_id="w1:t9", agent_name="pi"))
+        reused = dispatch_fields(
+            replace(plan, reuse_target="pi"),
+            Outcome(True, tab_id="w1:t9", agent_name="pi"),
+        )
+        check.check(
+            "a dispatch records the tab label it wrote, and a re-prompt does not",
+            fresh.get("tab_label") == first_label and "tab_label" not in reused,
+            f"{fresh.get('tab_label')!r} / {sorted(reused)}",
+        )
+
+        # The path an agent takes: `herdr-kanban title` renames the tab with the
+        # card, because the label is the card's title too.
+        log.write_text("", encoding="utf-8")
+        stream = io.StringIO()
+        with contextlib.redirect_stdout(stream), contextlib.redirect_stderr(stream):
+            code = run_agent_command(["title", "A better name for the work"])
+        renamed = Store.open(board).by_id(task.id)
+        second_label = tab_label_for(renamed)
+        calls = log.read_text(encoding="utf-8")
+        check.check(
+            "an agent's rename reaches the tab as well as the card",
+            code == 0
+            and renamed.title == "A better name for the work"
+            and renamed.tab_label == second_label
+            and f"tab rename w1:t9 {second_label}" in calls,
+            f"{calls!r} {renamed.tab_label!r}",
+        )
+
+        app = KanbanApp(
+            config=load_config(),
+            store=Store.open(board),
+            herdr=Herdr(binary=str(fake)),
+        )
+        async with app.run_test(size=(110, 30)) as pilot:
+            await pilot.pause()
+            check.check(
+                "the board still calls the renamed tab its own",
+                app.agent_tab(Store.open(board).by_id(task.id))[0] == "w1:t9",
+                app.agent_tab(Store.open(board).by_id(task.id))[0],
+            )
+
+            # A rename herdr never accepted leaves the tab holding the label the
+            # board last wrote, so the board keeps recognising it. Matching on a
+            # label recomputed from the title would have lost it here.
+            os.environ["FAKE_RENAME_FAIL"] = "herdr is not answering"
+            log.write_text("", encoding="utf-8")
+            stream = io.StringIO()
+            with contextlib.redirect_stdout(stream), contextlib.redirect_stderr(
+                stream
+            ):
+                code = run_agent_command(["title", "Another name entirely"])
+            failed = Store.open(board).by_id(task.id)
+            check.check(
+                "a tab rename herdr refused is reported, and the card is renamed",
+                code == 0
+                and failed.title == "Another name entirely"
+                and "could not rename its tab" in stream.getvalue(),
+                stream.getvalue()[:120],
+            )
+            check.check(
+                "and the board still owns the tab it could not reach",
+                failed.tab_label == second_label
+                and app.agent_tab(failed)[0] == "w1:t9",
+                f"{failed.tab_label!r} / {app.agent_tab(failed)[0]!r}",
+            )
+
+        # The helper on its own: nothing to do for a card with no tab.
+        lonely = Store.open(board).add(title="never dispatched", workspace_id="w1")
+        check.check(
+            "a card with no tab needs no relabelling",
+            retitle_tab(Store.open(board), lonely) == "",
         )
     finally:
         for key, value in saved.items():
@@ -2521,27 +3772,235 @@ async def check_detail_tail(check: Checker, tmp: str) -> None:
                 os.environ[key] = value
 
 
+async def check_edit_title(check: Checker, tmp: str) -> None:
+    """Saving the edit form must not write back a title the human never typed.
+
+    The form is built from the card as it looked when it opened. An agent can
+    rename the card while the dialog is up — that is the point of the protocol —
+    and the draft still carries the old title. Sending it unconditionally
+    reverts the rename, silently, and leaves `✎` on a title the agent never
+    chose, which is indistinguishable from the naming step never running.
+    """
+    from dataclasses import replace
+
+    from .app import KanbanApp
+    from .config import load_config
+    from .dispatch import tab_label_for
+    from .herdr import Herdr
+    from .modals import TaskDraft
+
+    board = Path(tmp) / "edit-title-board.json"
+    log = Path(tmp) / "edit-title-calls.txt"
+    label_file = Path(tmp) / "edit-title-label.txt"
+    env_keys = (
+        "KANBAN_BOARD_FILE",
+        "HERDR_WORKSPACE_ID",
+        "HERDR_PANE_ID",
+        "FAKE_LOG",
+        "FAKE_REACT",
+        "FAKE_CWD",
+        "FAKE_TAB_FILE",
+    )
+    saved_env = {key: os.environ.get(key) for key in env_keys}
+    for key in env_keys:
+        os.environ.pop(key, None)
+    log.write_text("", encoding="utf-8")
+    os.environ.update(
+        {
+            "KANBAN_BOARD_FILE": str(board),
+            "HERDR_WORKSPACE_ID": "w1",
+            "FAKE_LOG": str(log),
+            "FAKE_REACT": "1",
+            "FAKE_CWD": tmp,
+            "FAKE_TAB_FILE": str(label_file),
+        }
+    )
+    fake = _fake_herdr(tmp, "fake-herdr-edit")
+
+    def draft_of(task: Task, **overrides: object) -> TaskDraft:
+        """The draft `TaskFormModal` would hand back for `task`."""
+        fields: dict[str, object] = {
+            "title": task.title,
+            "notes": task.notes,
+            "status": task.status,
+            "workspace_id": task.workspace_id,
+            "workspace_label": task.workspace_label,
+            "agent_kind": task.agent_kind,
+            "agent_model": task.agent_model,
+            "priority": task.priority,
+            "labels": list(task.labels),
+        }
+        fields.update(overrides)
+        return TaskDraft(**fields)
+
+    async def save(draft: TaskDraft, task: Task) -> None:
+        app = KanbanApp(
+            config=replace(load_config(), announce_protocol=True),
+            store=Store.open(board),
+            herdr=Herdr(binary=str(fake)),
+        )
+        async with app.run_test(size=(120, 36)) as pilot:
+            await pilot.pause()
+            app.on_edit(draft, task)
+            await pilot.pause()
+
+    try:
+        seeded = Store.open(board)
+        card = seeded.add(
+            title="ctrl+c in herdr kanban plugin should exit",
+            workspace_id="w1",
+            workspace_label="nixos-config-v2",
+        )
+
+        # The form opens on the capture title, the agent names the card while it
+        # is up, and the human saves a different field.
+        stale = Store.open(board).by_id(card.id)
+        opened = Store.open(board)
+        opened.set_title(card.id, "Bind ctrl+c to quit the board", source="agent")
+        await save(draft_of(stale, priority="high"), stale)
+
+        kept = Store.open(board).by_id(card.id)
+        check.check(
+            "saving the edit form does not revert an agent's rename",
+            kept.title == "Bind ctrl+c to quit the board"
+            and kept.priority == "high"
+            and not kept.title_edited,
+            f"{kept.title!r} {kept.priority!r} edited={kept.title_edited}",
+        )
+
+        # A title the human actually typed still claims the card.
+        human = Store.open(board).by_id(card.id)
+        await save(draft_of(human, title="Quit the board with ctrl+c"), human)
+        claimed = Store.open(board).by_id(card.id)
+        check.check(
+            "a title the human typed in the form still claims the card",
+            claimed.title == "Quit the board with ctrl+c"
+            and claimed.title_edited
+            and claimed.title_source == "user",
+            f"{claimed.title!r} {claimed.title_source} {claimed.title_edited}",
+        )
+
+        # A rename typed in the form reaches the tab too: the tab carries the
+        # card's name, and the board recognises its own tab by that label, so a
+        # card renamed in the board while its tab kept the old name would leave
+        # the board unable to close the agent it started.
+        tabbed = Store.open(board)
+        tabbed.update(
+            card.id,
+            pane_id="w1:p9",
+            tab_id="w1:t9",
+            tab_label=tab_label_for(tabbed.by_id(card.id)),
+        )
+        log.write_text("", encoding="utf-8")
+        stale = Store.open(board).by_id(card.id)
+        await save(draft_of(stale, title="The board owns the tab name"), stale)
+        renamed = Store.open(board).by_id(card.id)
+        calls = log.read_text(encoding="utf-8")
+        check.check(
+            "a rename typed in the form renames the card's tab with it",
+            renamed.title == "The board owns the tab name"
+            and renamed.tab_label == tab_label_for(renamed)
+            and f"tab rename w1:t9 {tab_label_for(renamed)}" in calls,
+            f"{calls!r} {renamed.tab_label!r}",
+        )
+    finally:
+        for key, value in saved_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
+async def check_quit(check: Checker, tmp: str) -> None:
+    """Ctrl+C has to quit — from the board and from a dialog.
+
+    Textual binds ctrl+c to a "press q to quit" toast of its own, which inside a
+    herdr overlay is a key that appears to do nothing, and `q` is not the reflex
+    key. A dialog is the case worth pinning: its focused Input is the widget
+    Textual keeps ctrl+c for.
+    """
+
+    async def quitting(press: list[str], label: str, stem: str) -> None:
+        app = KanbanApp(
+            config=load_config(_pin_config(tmp)),
+            store=Store.open(Path(tmp) / f"{stem}.json"),
+            herdr=Herdr(binary="/nonexistent-herdr"),
+            demo=True,
+        )
+        async with app.run_test(size=(120, 36)) as pilot:
+            await pilot.pause()
+            for key in press[:-1]:
+                await pilot.press(key)
+                await pilot.pause()
+            opened = app.screen.__class__.__name__
+            focused = app.focused.__class__.__name__ if app.focused else "-"
+            await pilot.press(press[-1])
+            await pilot.pause()
+            check.check(
+                f"ctrl+c quits {label}",
+                app._exit,
+                f"{opened} / {focused}",
+            )
+
+    await quitting(["ctrl+c"], "the board", "quit-board")
+    await quitting(["a", "ctrl+c"], "a dialog", "quit-dialog")
+
+
 async def _run(check: Checker) -> None:
     with TemporaryDirectory() as tmp:
+        # A check must not inherit the pane it was run from. `herdr-kanban add`
+        # reads HERDR_PANE_ID (who filed the card), HERDR_WORKSPACE_ID (where —
+        # which now decides the card's id code) and HERDR_BIN_PATH (which binary
+        # to ask about workspaces), and this selftest runs inside a herdr pane
+        # often enough — as a pre-commit hook — that inheriting them would make
+        # the answer depend on the terminal. Checks that need herdr set what
+        # they need themselves; the pin is a binary that cannot answer, so a
+        # workspace lookup fails the same way everywhere.
+        pane_env = {
+            key: value
+            for key, value in os.environ.items()
+            if key.startswith("HERDR_")
+        }
+        for key in pane_env:
+            os.environ.pop(key, None)
+        os.environ["HERDR_BIN_PATH"] = str(Path(tmp) / "no-such-herdr")
+
         saved = os.environ.get("KANBAN_CONFIG_FILE")
+        saved_notify = os.environ.get("KANBAN_NOTIFY_CMD")
         os.environ["KANBAN_CONFIG_FILE"] = str(_pin_config(tmp))
+        # A real desktop banner must never fire during the checks; the one check
+        # that wants to see a banner points this at a script that logs instead.
+        os.environ["KANBAN_NOTIFY_CMD"] = "true"
         try:
             check_store(check, tmp)
+            check_ids(check, tmp)
             check_agent_protocol(check, tmp)
+            check_add_notification(check, tmp)
+            check_status_rights(check, tmp)
             await check_quick_capture(check, tmp)
             await check_extras(check, tmp)
             check_hardening(check, tmp)
             await check_dialogs(check, tmp)
             await check_send_now(check, tmp)
+            await check_worktree_dispatch(check, tmp)
+            await check_edit_title(check, tmp)
             await check_live_loop(check, tmp)
+            check_settle_columns(check, tmp)
             check_prompt_delivery(check, tmp)
+            check_dispatch_env(check, tmp)
             await check_delete_stops_agent(check, tmp)
+            await check_tab_follows_title(check, tmp)
             await check_detail_tail(check, tmp)
+            await check_quit(check, tmp)
         finally:
             if saved is None:
                 os.environ.pop("KANBAN_CONFIG_FILE", None)
             else:
                 os.environ["KANBAN_CONFIG_FILE"] = saved
+            if saved_notify is None:
+                os.environ.pop("KANBAN_NOTIFY_CMD", None)
+            else:
+                os.environ["KANBAN_NOTIFY_CMD"] = saved_notify
         store = Store(Path(tmp) / "board.json")
         store.load()
         app = KanbanApp(
@@ -2574,7 +4033,7 @@ async def _run(check: Checker) -> None:
 
             # A card must follow its agent by pane ID: herdr reports the kind
             # ("pi") as the agent label, not the name we started it with.
-            k3 = app.task("K3")
+            k3 = app.task("cfg-3")
             status, online = app.live.for_task(k3) if k3 else ("", False)
             check.check(
                 "a card follows its agent by pane, not by label",
@@ -2584,7 +4043,7 @@ async def _run(check: Checker) -> None:
             blocked = [c for c in app.current_view().cards() if c.status == "blocked"]
             check.check(
                 "a blocked agent is reflected on its card",
-                any(c.task.id == "K6" for c in blocked),
+                any(c.task.id == "work-6" for c in blocked),
                 str([c.task.id for c in blocked]),
             )
 
@@ -2619,6 +4078,15 @@ async def _run(check: Checker) -> None:
                 "L moves the card to the next column",
                 task.status != origin,
                 f"{origin} -> {task.status}",
+            )
+            check.check(
+                "the move says where it came from and where it went",
+                app.ui.notice
+                == (
+                    f"{task.id} · {app.config.label_for(origin)}"
+                    f" → {app.config.label_for(task.status)}"
+                ),
+                app.ui.notice,
             )
             await pilot.press("H")
             check.check("H moves it back", task.status == origin)
@@ -2764,6 +4232,63 @@ async def _run(check: Checker) -> None:
             await pilot.pause()
             small = app.current_view()
             check.check("survives a tiny pane", small.width >= 40 and small.height >= 6)
+
+
+def check_dispatch_env(check: Checker, tmp: str) -> None:
+    """A dispatch tab carries the marker that tells a shell to skip direnv.
+
+    The board's tab is a vehicle for the agent, not a dev session: without the
+    marker a repo with a dev shell — this one — pays `nix print-dev-env` and
+    prints the dev-shell banner into the pane while `agent start` is still
+    waiting for a prompt (modules/home/zsh.nix, docs/kanban.md).
+    """
+    import os
+
+    from .dispatch import Executor, Plan
+    from .herdr import Herdr
+
+    log = Path(tmp) / "tab-create-calls.txt"
+    saved = {k: os.environ.get(k) for k in ("FAKE_LOG", "FAKE_REACT", "FAKE_CWD")}
+    os.environ["FAKE_LOG"] = str(log)
+    os.environ["FAKE_REACT"] = "1"
+    os.environ["FAKE_CWD"] = tmp
+    try:
+        herdr = Herdr(binary=str(_fake_herdr(tmp, "fake-herdr-tab")))
+        log.write_text("", encoding="utf-8")
+        plan = Plan(
+            task_id="K1",
+            workspace_id="w1",
+            workspace_label="probe",
+            kind="pi",
+            name="k1",
+            prompt="do the thing",
+            tab_label="K1 do the thing",
+        )
+        outcome = Executor(herdr).run(plan)
+        creates = [
+            line
+            for line in log.read_text(encoding="utf-8").splitlines()
+            if line.startswith("tab create")
+        ]
+        check.check(
+            "a dispatched tab is created with the direnv-skipping marker",
+            outcome.ok
+            and any("--env HERDR_KANBAN_DISPATCH=1" in line for line in creates),
+            " | ".join(creates),
+        )
+
+        log.write_text("", encoding="utf-8")
+        herdr.create_tab("w1", label="mine", cwd=tmp)
+        check.check(
+            "a tab created without env markers gets no --env argument",
+            "--env" not in log.read_text(encoding="utf-8"),
+        )
+    finally:
+        for key, value in saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
 
 
 def run_selftest(args: argparse.Namespace | None = None) -> int:

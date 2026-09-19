@@ -11,8 +11,9 @@ modules/home/ai/
 ├── pi.nix          # Pi (pi-coding-agent) + its MCP + skills
 ├── hermes.nix      # Hermes (a Pi-compatible agent)
 ├── herdr/          # Herdr terminal multiplexer
-│   ├── herdr.nix   #   config.toml + plugin deployment
+│   ├── herdr.nix   #   config.toml + plugin/extension deployment
 │   ├── kanban-package.nix # packaging for the kanban board (Textual TUI)
+│   ├── pi-extensions/ #  pi-side hooks (the pane state bridge)
 │   └── plugins/    #   installed herdr plugins
 │       ├── picker/ #   herdr-picker (generic fuzzy picker)
 │       ├── automations/ # herdr-automations (cron-scheduled agent runs)
@@ -306,6 +307,30 @@ Same wizard via `automations.sh new`.
 First run seeds a disabled
 `example-cron.toml`; automation files are user data and are never overwritten
 by later `just switch` runs.
+
+### Pi pane state (`pi-extensions/`)
+
+herdr's pi integration (`~/.pi/agent/extensions/herdr-agent-state.ts`, written
+by `herdr integration install pi` and **herdr-managed — do not edit it**) reports
+whether a turn is *running*, and that is all herdr's sidebar, `agent list` and
+the kanban board know. Pi's `ask_user_question` runs **inside** a turn, so a pane
+sitting on a questionnaire kept reporting `working`: the board's card stayed in
+**In Progress** and the spinner never stopped, even though the agent was stopped
+waiting on you.
+
+`modules/home/ai/herdr/pi-extensions/herdr-ask-blocked.ts` is a **sibling**
+extension — `home.file` → `~/.pi/agent/extensions/`, the place herdr's own file
+header points extra hooks at — that translates
+`@juicesharp/rpiv-ask-user-question`'s `rpiv:ask-user:blocked` event onto the
+`herdr:blocked` channel the integration already consumes (the same channel
+pi-subagents uses to report a run that needs attention). It raises at most once
+per lower, labels the state with the question being asked, and clears on
+`agent_settled` as a safety net, so the integration's count cannot stick.
+
+So a waiting pane reads **Blocked** while the questionnaire is open and
+**Working** again the instant you answer — which is exactly the transition the
+board's Blocked ⇄ In Progress reconciliation watches for. Extensions load at Pi
+startup: restart Pi (or `/reload` for an auto-discovered file) after a switch.
 
 ### Herdr Kanban plugin
 

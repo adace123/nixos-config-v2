@@ -3,6 +3,12 @@
 Lets the board be looked at (and screenshotted) without touching the real board
 file or requiring a running herdr server — including the states that are hard to
 reproduce on demand: a blocked agent, a closed workspace, an agent that exited.
+
+The ids are hand-written, like the titles: `<workspace-code>-<counter>`, the
+shape a board writes on its own (`store.task_id`). The codes here are the short
+ones a `[workspaces]` table buys you — `cfg` for nixos-config-v2, `snow` for
+snowflake-reporting — because the illustration these cards become should show
+the feature at its best rather than its six-letter fallback.
 """
 
 from __future__ import annotations
@@ -43,7 +49,7 @@ def _task(
 def demo_tasks() -> list[Task]:
     return [
         _task(
-            "K1",
+            "cfg-1",
             "Fix flake lock drift after nixpkgs bump",
             "backlog",
             "w1",
@@ -52,7 +58,7 @@ def demo_tasks() -> list[Task]:
             priority="high",
         ),
         _task(
-            "K2",
+            "cfg-2",
             "Tidy the nixvim treesitter grammar exclusions",
             "backlog",
             "w1",
@@ -60,7 +66,7 @@ def demo_tasks() -> list[Task]:
             kind="claude",
         ),
         _task(
-            "K3",
+            "cfg-3",
             "Add herdr kanban board plugin",
             "doing",
             "w1",
@@ -116,18 +122,18 @@ def demo_tasks() -> list[Task]:
             ],
         ),
         _task(
-            "K4",
+            "argo-4",
             "Review the tsk board integration",
             "review",
             "w8",
             "argo",
             kind="codex",
-            agent_name="k4-codex",
+            agent_name="argo-4-codex",
             dispatched_at=_NOW - 7200,
             pane_id="w8:p3",
         ),
         _task(
-            "K5",
+            "pers-5",
             "Bump the pi package pins",
             "queued",
             "wB",
@@ -136,7 +142,7 @@ def demo_tasks() -> list[Task]:
             notes="Some git/npm versions intentionally differ — check before bumping.",
         ),
         _task(
-            "K6",
+            "work-6",
             "Ship the sidebars and the theme",
             "queued",
             "w4",
@@ -155,7 +161,7 @@ def demo_tasks() -> list[Task]:
             ],
         ),
         _task(
-            "K7",
+            "snow-7",
             "Write release notes for the SD image workflow",
             "done",
             "w6",
@@ -164,14 +170,14 @@ def demo_tasks() -> list[Task]:
             dispatched_at=_NOW - 86400,
         ),
         _task(
-            "K8",
+            "jupy-8",
             "Investigate flaky worktree trust prompt",
             "doing",
             "w9",
             "jupyter",
             kind="opencode",
             priority="urgent",
-            agent_name="k8-opencode",
+            agent_name="jupy-8-opencode",
             dispatched_at=_NOW - 5400,
             pane_id="w9:p2",
         ),

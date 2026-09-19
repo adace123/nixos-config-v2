@@ -44,16 +44,31 @@ icon_mode = "brand"
 [board]
 # Columns, in order. `id` is what lives in the board file, `label` is the
 # heading. Renaming or removing a column that still has tasks hides those
-# cards, so clear them first. `blocked` is the column agents park their card in
-# when they need you, and the ids `backlog`/`queued`/`doing` are also how a send
-# decides where a card lands: backlog -> queued, anything else -> doing.
+# cards, so clear them first.
+#
+# `role` names what a column *means* and is optional, but it is what keeps
+# behaviour attached to the column rather than its id: with `role = "done"`
+# agents still cannot close a card after you rename the id to `closed`, `block`
+# still parks in the `blocked`-role column, and the dispatch protocol sends
+# finished work to the `review`-role column. Without a role the board falls
+# back to matching the id (`done`, `closed`, `complete`, `completed` for Done;
+# `blocked`/`waiting`/`on-hold`/`hold`; `review`/`reviewing`/`verify`/
+# `validation`; `doing`/`in-progress`/`progress`/`started` for a send;
+# `queued`/`todo`/`next`/`ready` for Queued).
+#
+# The `done` role is the one column only you may move a card into; every other
+# column is in the `agent_may_set` the CLI advertises and the set the guard
+# enforces. `doing` is also where a send lands: a send starts the card's agent,
+# so it goes to In Progress wherever it came from. `queued` is a column you
+# park committed-but-unstarted work in by hand — the board moves a card out of
+# it if its agent turns out to be working.
 columns = [
   { id = "backlog", label = "Backlog" },
-  { id = "queued", label = "Queued" },
-  { id = "doing", label = "In Progress" },
-  { id = "blocked", label = "Blocked" },
-  { id = "review", label = "Review" },
-  { id = "done", label = "Done" },
+  { id = "queued", label = "Queued", role = "queued" },
+  { id = "doing", label = "In Progress", role = "doing" },
+  { id = "blocked", label = "Blocked", role = "blocked" },
+  { id = "review", label = "Review", role = "review" },
+  { id = "done", label = "Done", role = "done" },
 ]
 # Agent kind pre-selected in the add form, and the column new tasks land in.
 default_agent = "pi"
@@ -62,6 +77,26 @@ default_column = "backlog"
 # wip_limits = { doing = 5 }
 # Cards untouched for this many days are tinted yellow, and red at 2x.
 stale_after_days = 3
+
+# Short codes for card ids. A card is filed as `<code>-<counter>` (`snow-8`): the
+# code of the workspace it was filed in, then this board's one ever-growing
+# counter, which is what makes `8` alone name exactly one card. Without an entry
+# here a workspace codes by its own label, slugified and cut to six characters
+# (`nixos-config-v2` -> `nixos`), which reads fine for a short label and badly
+# for a long one — hence the table below. Key an entry by the label, or by
+# herdr's workspace id (`w1 = "cfg"`) — the id survives a `herdr workspace
+# rename`, which the label does not. The code is frozen into the id when the
+# card is filed; changing it here only affects new cards.
+[workspaces]
+enrollment = "enrol"          # `enroll` is cut to six, which reads like a typo
+webapp = "web"                # `webap` is not a word
+snowflake-reporting = "snow"  # `snowfl` is not a word either
+commerce = "comm"
+jupyter = "jupy"              # `jupite` is a truncation, not an abbreviation
+incentive = "inc"
+personal = "pers"
+# Left to the fallback: nixos-config-v2 -> `nixos`, and the labels that are
+# already short enough to be their own code (`work`, `argo`).
 
 [behavior]
 # How often the board re-reads live agent and workspace state, in seconds.
@@ -73,15 +108,43 @@ workspace_sync_seconds = 10.0
 # Raise a herdr notification when an agent newly blocks on you. Only transitions
 # are announced, so opening the board onto a blocked card stays quiet.
 notify_on_block = true
+# Say so when an agent files a card (`herdr-kanban add "<title>"`, what the
+# protocol below tells it to do with work it found). The CLI's own `created_by`
+# decides, so a card captured in the board's form is never announced.
+notify_on_add = true
+# The delivery switch for both of the above: also ask the desktop (macOS
+# Notification Center via terminal-notifier or osascript, notify-send on Linux),
+# because the herdr toast only reaches someone already looking at herdr. A card
+# an agent files raises no toast at all, so for that one this key is the only
+# delivery there is.
+notify_system = true
 # When true, a card moves to "doing" as soon as its dispatched agent starts
 # working, and to "review" when the agent finishes without an error. Off by
 # default: the board is yours to move, and agents that follow the protocol
 # below move their own cards explicitly instead.
 auto_move = false
+# Deleting a card (`d`) also stops its agent by closing the tab its dispatch
+# opened: a card is the record of a run, and a card that is gone should not
+# leave an agent nobody is tracking. Set to false to delete the card and leave
+# the agent running — the confirmation says which it will do.
+auto_delete_agent = true
 # Append the board protocol to every dispatch prompt: the task id, the
 # `herdr-kanban status|block|note|title` commands, and the rule that only you
 # close a card. Set to false for a prompt that is only the task text.
 announce_protocol = true
+# Whether an agent's generated title replaces one you set by hand, on the card
+# and on the herdr tab the dispatch opened. On: the card is named by what the
+# work turned out to be, and the title you had typed is kept in the card's
+# history (`was: …`). Off (the default): a title you typed wins, and an agent's
+# name is recorded under Updates as a suggestion instead. `--force` on one
+# `herdr-kanban title` call does the same as on, for that call alone.
+agent_title_overrides = true
+# Whether the send form's **Git worktree** option is already ticked when it
+# opens. Off by default: a worktree changes where the agent runs — a fresh
+# checkout instead of the workspace you are in — which is worth a deliberate
+# click. A card that already owns a worktree always opens with the option on,
+# because the checkout is where its work lives.
+worktree = false
 
 # Flags handed to the agent when the board starts it — the same ones you would
 # type after `herdr agent start … --`. Without these a dispatched agent runs

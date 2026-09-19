@@ -35,6 +35,7 @@ let
     "icons"
     "modals"
     "model"
+    "notify"
     "render"
     "selftest"
     "store"

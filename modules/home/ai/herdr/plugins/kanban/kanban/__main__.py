@@ -25,7 +25,9 @@ from .store import Store, board_path
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="kanban", description="Herdr kanban board")
+    parser = argparse.ArgumentParser(
+        prog="herdr-kanban", description="Herdr kanban board"
+    )
     parser.add_argument("--version", action="store_true", help="print version and exit")
     parser.add_argument(
         "--snapshot",
@@ -206,6 +208,25 @@ def run_screen_snapshot(args: argparse.Namespace) -> int:
     return 0
 
 
+def help_text() -> str:
+    """Everything `herdr-kanban --help` should say, task verbs first.
+
+    The flags below are the board's own (development aids, the pane
+    entrypoint); a bare `--help` that printed only those read like a different
+    program from the `herdr-kanban title …` a dispatch prompt names, which is
+    how an agent that checks its tools before using them talked itself out of
+    naming a card. The verbs come first, then the board's flags.
+    """
+    from .cli import usage as cli_usage
+
+    return (
+        cli_usage()
+        + "\n\nThe board itself (a herdr-plugin action opens it as a pane; these"
+        " flags are\nfor development and for the launcher):\n"
+        + build_parser().format_help()
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
 
@@ -215,6 +236,18 @@ def main(argv: list[str] | None = None) -> int:
 
     if raw and raw[0] in AGENT_COMMANDS:
         return run_agent_command(raw)
+
+    # `--help` is how an agent confirms the commands its dispatch prompt names.
+    if "-h" in raw or "--help" in raw:
+        print(help_text())
+        return 0
+
+    if not raw and not sys.stdout.isatty():
+        # A terminal gets the board; a pipe does not. Launching a full-screen
+        # TUI into an agent's captured bash output hangs until it is killed —
+        # the 300-second stall of a prompt that only came here to ask for help.
+        print(help_text())
+        return 0
 
     args = build_parser().parse_args(raw)
 

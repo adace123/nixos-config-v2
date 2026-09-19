@@ -99,8 +99,14 @@
         source ~/.config/op/plugins.sh
       fi
 
-      # Direnv integration
-      eval "$(direnv hook zsh)"
+      # Direnv integration. Skipped in the throwaway tab a herdr-kanban dispatch
+      # opens: the board marks that pane with HERDR_KANBAN_DISPATCH, and loading
+      # this repo's flake dev shell there costs seconds and prints its banner
+      # into the pane while the agent it exists for is still starting
+      # (modules/home/ai/herdr/plugins/kanban/kanban/dispatch.py, docs/kanban.md).
+      if [[ -z "''${HERDR_KANBAN_DISPATCH:-}" ]]; then
+        eval "$(direnv hook zsh)"
+      fi
 
       # Zoxide integration with fzf for interactive selection
       # This enables tab completion for 'z' command and 'zi' for interactive fzf picker
@@ -127,8 +133,10 @@
         echo -ne '\e[5 q'
       }
 
-      # Run fastfetch on new terminal
-      if [[ -o interactive ]] && [[ -z "$TMUX" ]] && [[ -z "$FASTFETCH_RAN" ]]; then
+      # Run fastfetch on new terminal. Skipped in the same herdr-kanban dispatch
+      # tab as the direnv hook above: the card would scroll the pane out from
+      # under the agent the tab was opened for, before `agent start` runs.
+      if [[ -o interactive ]] && [[ -z "$TMUX" ]] && [[ -z "$FASTFETCH_RAN" ]] && [[ -z "''${HERDR_KANBAN_DISPATCH:-}" ]]; then
         export FASTFETCH_RAN=1
         fastfetch --config ~/.config/fastfetch/config.jsonc
       fi
