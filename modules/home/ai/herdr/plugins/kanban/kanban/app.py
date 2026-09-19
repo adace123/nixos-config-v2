@@ -1,0 +1,975 @@
+"""The board application.
+
+State lives here: the board file (through `Store`), the last herdr snapshot
+(`LiveState`), and the cursor/filter (`UiState`). Widgets only draw and forward
+input; every mutation goes through a method on this class so the board, the
+store, and the toast messages can never drift apart.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import time
+
+from textual import work
+from textual.app import App, ComposeResult
+from textual.worker import Worker
+
+from . import dispatch, icons
+from .config import Config
+from .demo import demo_live, demo_tasks
+from .dispatch import (
+    Executor,
+    Outcome,
+    Plan,
+    dispatch_fields,
+    plan_for,
+    record_outcome,
+    result_summary,
+)
+from .herdr import Herdr
+from .modals import (
+    ConfirmModal,
+    DispatchModal,
+    FilterModal,
+    HelpModal,
+    TaskDetailModal,
+    TaskDraft,
+    TaskFormModal,
+)
+from .model import (
+    LiveState,
+    UiState,
+    build_view,
+    selection_after_move,
+)
+from .render import BoardView
+from .store import Store, Task
+from .widgets import BoardWidget
+
+
+class KanbanApp(App[None]):
+    """The herdr kanban board."""
+
+    CSS_PATH = "theme.tcss"
+    TITLE = "herdr kanban"
+    SUB_TITLE = "workspace + agent tasks"
+
+    def __init__(
+        self,
+        config: Config,
+        store: Store,
+        herdr: Herdr,
+        quick_add: bool = False,
+        demo: bool = False,
+    ) -> None:
+        super().__init__()
+        self.config = config
+        self.store = store
+        self.herdr = herdr
+        self.quick_add = quick_add
+        self.demo_mode = demo
+        self.live = LiveState()
+        self.ui = UiState()
+        self.icon_mode = icons.icon_mode(config.icon_mode)
+        self.executor = Executor(herdr)
+        self._notice_timer: object | None = None
+        # The last read of each half of herdr's world, so the slow half can be
+        # re-read on its own clock (`workspace_sync_seconds`) and the fast half
+        # (`sync_seconds`) never waits for it.
+        self._workspaces: dict = {}
+        self._workspaces_ok = False
+        self._workspaces_error = ""
+        self._workspaces_read_at = 0.0
+        # task id -> the live status it had last tick, for the transition
+        # announcements in `_announce_transitions`.
+        self._live_status: dict[str, str] = {}
+        self._demo_tasks: list[Task] = []
+
+    # -- lifecycle -------------------------------------------------------
+
+    def compose(self) -> ComposeResult:
+        yield BoardWidget(id="board")
+
+    def on_mount(self) -> None:
+        if self.demo_mode:
+            self._demo_tasks = demo_tasks()
+            self.live = demo_live()
+        else:
+            self.store.load()
+        self.query_one(BoardWidget).focus()
+        self.select_first()
+        if not self.demo_mode:
+            self.refresh_live()
+            self.set_interval(self.config.sync_seconds, self.refresh_live)
+        if self.config.load_error:
+            self.set_notice(f"config: {self.config.load_error}", timeout=10)
+        if self.quick_add:
+            self.call_after_refresh(self.action_add_task)
+
+    def on_unmount(self) -> None:
+        self.ui.notice = ""
+
+    # -- data ------------------------------------------------------------
+
+    def tasks(self) -> list[Task]:
+        return list(self._demo_tasks) if self.demo_mode else list(self.store.tasks)
+
+    def task(self, task_id: str) -> Task | None:
+        return next((task for task in self.tasks() if task.id == task_id), None)
+
+    def workspaces(self) -> list:
+        return sorted(self.live.workspaces.values(), key=lambda item: item.number)
+
+    def children_of(self, task_id: str) -> list[Task]:
+        """Cards filed from `task_id` — the follow-ups one run turned up.
+
+        Scanned from `tasks()` rather than the store so `--demo` and a real board
+        answer the same question the same way.
+        """
+        return [task for task in self.tasks() if task.parent_id == task_id]
+
+    def current_view(self) -> BoardView:
+        try:
+            widget = self.query_one(BoardWidget)
+            width = widget.size.width or 120
+            height = widget.size.height or 40
+        except Exception:  # pragma: no cover - before the first mount
+            width, height = 120, 40
+        return build_view(
+            self.config,
+            self.tasks(),
+            self.live,
+            self.ui,
+            width=max(40, width),
+            height=max(6, height),
+            board_path=str(self.store.path),
+            icon_mode=self.icon_mode,
+        )
+
+    def refresh_board(self) -> None:
+        with contextlib.suppress(Exception):
+            self.query_one(BoardWidget).refresh()
+
+    def set_notice(self, text: str, timeout: float = 5.0) -> None:
+        self.ui.notice = text
+        if self._notice_timer is not None:
+            with contextlib.suppress(Exception):
+                self._notice_timer.stop()  # type: ignore[attr-defined]
+        if timeout > 0:
+            self._notice_timer = self.set_timer(timeout, self.clear_notice)
+        self.refresh_board()
+
+    def clear_notice(self) -> None:
+        if self.ui.notice:
+            self.ui.notice = ""
+            self.refresh_board()
+
+    def post(self, callback, *args: object) -> None:
+        """Hand work back from a worker thread, tolerating a shutting-down app."""
+        try:
+            self.call_from_thread(callback, *args)
+        except Exception:  # pragma: no cover - shutdown races
+            pass
+
+    def workers_running(self) -> list[Worker]:
+        """In-flight sync/dispatch/notification workers (used by the selftest)."""
+        return [worker for worker in self.workers if not worker.is_finished]
+
+    # -- selection -------------------------------------------------------
+
+    def selected_task(self) -> Task | None:
+        return self.task(self.ui.selected_id) if self.ui.selected_id else None
+
+    def _selected_row(self, view: BoardView) -> int:
+        if self.ui.selected_column >= len(view.columns):
+            return 0
+        cards = view.columns[self.ui.selected_column].cards
+        for index, card in enumerate(cards):
+            if card.task.id == self.ui.selected_id:
+                return index
+        return 0
+
+    def select_first(self) -> None:
+        view = self.current_view()
+        for index, column in enumerate(view.columns):
+            if column.cards:
+                self.ui.selected_column = index
+                self.ui.selected_id = column.cards[0].task.id
+                break
+        self.refresh_board()
+
+    def select_card(self, task_id: str) -> None:
+        view = self.current_view()
+        for index, column in enumerate(view.columns):
+            if any(card.task.id == task_id for card in column.cards):
+                self.ui.selected_column = index
+                break
+        self.ui.selected_id = task_id
+        self.refresh_board()
+
+    def select_column(self, index: int) -> None:
+        view = self.current_view()
+        if not 0 <= index < len(view.columns):
+            return
+        self.ui.selected_column = index
+        cards = view.columns[index].cards
+        row = self._selected_row(view)
+        self.ui.selected_id = cards[min(row, len(cards) - 1)].task.id if cards else ""
+        self.refresh_board()
+
+    def select_edge(self, first: bool) -> None:
+        view = self.current_view()
+        if self.ui.selected_column >= len(view.columns):
+            return
+        cards = view.columns[self.ui.selected_column].cards
+        if cards:
+            self.ui.selected_id = (cards[0] if first else cards[-1]).task.id
+            self.refresh_board()
+
+    def move_selection(self, dcolumn: int, dcard: int) -> None:
+        view = self.current_view()
+        if not view.columns:
+            return
+        if dcolumn:
+            index = max(
+                0, min(len(view.columns) - 1, self.ui.selected_column + dcolumn)
+            )
+            row = self._selected_row(view)
+            self.ui.selected_column = index
+            cards = view.columns[index].cards
+            self.ui.selected_id = (
+                cards[min(row, len(cards) - 1)].task.id if cards else ""
+            )
+        elif dcard:
+            cards = view.columns[self.ui.selected_column].cards
+            if not cards:
+                direction = 1 if dcard > 0 else -1
+                target = self._neighbour_column(direction)
+                if target is not None:
+                    self.ui.selected_column = target
+                    cards = view.columns[target].cards
+                    self.ui.selected_id = cards[0].task.id
+            else:
+                row = self._selected_row(view) + dcard
+                row = max(0, min(len(cards) - 1, row))
+                self.ui.selected_id = cards[row].task.id
+        self.refresh_board()
+
+    def _neighbour_column(self, direction: int) -> int | None:
+        view = self.current_view()
+        index = self.ui.selected_column + direction
+        while 0 <= index < len(view.columns):
+            if view.columns[index].cards:
+                return index
+            index += direction
+        return None
+
+    # -- card mutations --------------------------------------------------
+
+    def _after_change(self, task_id: str = "") -> None:
+        if task_id:
+            self.ui.selected_id = task_id
+        view = self.current_view()
+        self.ui.selected_id = selection_after_move(view, self.ui)
+        self.refresh_board()
+
+    def _set_status(self, task: Task, status: str) -> None:
+        if self.demo_mode:
+            task.status = status
+        else:
+            self.store.set_status(task.id, status)
+
+    def _update(self, task: Task, **fields: object) -> None:
+        if self.demo_mode:
+            for key, value in fields.items():
+                setattr(task, key, value)
+        else:
+            self.store.update(task.id, **fields)
+
+    def toggle_step(self, task_id: str, index: int) -> Task | None:
+        """Tick or untick step `index` (1-based). Used by the detail view."""
+        task = self.task(task_id)
+        if task is None or not 1 <= index <= len(task.steps):
+            return None
+        done = not bool(task.steps[index - 1].get("done"))
+        if self.demo_mode:
+            task.steps[index - 1]["done"] = done
+            task.steps[index - 1]["by"] = "user" if done else ""
+        else:
+            self.store.set_step(task_id, index, done=done, by="user")
+            task = self.store.by_id(task_id)
+        self.refresh_board()
+        return task
+
+    def move_card_column(self, delta: int) -> None:
+        task = self.selected_task()
+        if task is None:
+            self.set_notice("select a card first")
+            return
+        view = self.current_view()
+        index = next(
+            (
+                position
+                for position, column in enumerate(view.columns)
+                if column.column.id == task.status
+            ),
+            self.ui.selected_column,
+        )
+        target = max(0, min(len(self.config.columns) - 1, index + delta))
+        if target == index:
+            return
+        new_status = self.config.columns[target].id
+        self._set_status(task, new_status)
+        self.ui.selected_column = target
+        self.set_notice(f"{task.id} → {self.config.label_for(new_status)}", timeout=2.5)
+        self.refresh_board()
+
+    def reorder_card(self, delta: int) -> None:
+        task = self.selected_task()
+        if task is None:
+            return
+        if self.demo_mode:
+            siblings = [t for t in self._demo_tasks if t.status == task.status]
+            index = siblings.index(task)
+            target = index + delta
+            if 0 <= target < len(siblings):
+                other = siblings[target]
+                a, b = self._demo_tasks.index(task), self._demo_tasks.index(other)
+                self._demo_tasks[a], self._demo_tasks[b] = (
+                    self._demo_tasks[b],
+                    self._demo_tasks[a],
+                )
+        else:
+            self.store.reorder(task.id, delta)
+        self.refresh_board()
+
+    def delete_task(self, task: Task) -> None:
+        # Stop the agent first: a card is the record of a run, and deleting it
+        # while leaving the run going leaves an agent nobody is tracking.
+        closed = self.close_agent(task)
+        if self.demo_mode:
+            self._demo_tasks.remove(task)
+        else:
+            self.store.delete(task.id)
+        self.ui.selected_id = ""
+        self._after_change()
+        self.notify(
+            f"{task.id} deleted" + (f" · {closed}" if closed else ""),
+            title="kanban",
+        )
+
+    # -- screens ---------------------------------------------------------
+
+    def action_add_task(self) -> None:
+        # Seed from the workspace the board was opened from, then the active
+        # workspace filter, then the first open workspace — so quick capture
+        # (a, type, ⏎) always lands somewhere sensible.
+        workspaces = self.workspaces()
+        default_workspace = (
+            self.herdr.current_workspace()
+            or self.ui.workspace_filter
+            or (workspaces[0].id if workspaces else "")
+        )
+        self.push_screen(
+            TaskFormModal(
+                config=self.config,
+                workspaces=workspaces,
+                mode=self.icon_mode,
+                default_workspace=default_workspace,
+                default_workspace_label=(
+                    self.live.workspaces[default_workspace].label
+                    if default_workspace in self.live.workspaces
+                    else ""
+                ),
+                default_kind=self.config.default_agent,
+            ),
+            self.on_draft,
+        )
+
+    def on_draft(self, draft: TaskDraft | None) -> None:
+        if draft is None:
+            return
+        if self.demo_mode:
+            self._demo_tasks.append(
+                Task(
+                    id=f"K{len(self._demo_tasks) + 1}",
+                    title=draft.title,
+                    notes=draft.notes,
+                    status=draft.status,
+                    workspace_id=draft.workspace_id,
+                    workspace_label=draft.workspace_label,
+                    agent_kind=draft.agent_kind,
+                    agent_model=draft.agent_model,
+                    priority=draft.priority,
+                    labels=draft.labels,
+                    created_at=time.time(),
+                    updated_at=time.time(),
+                )
+            )
+            created = self._demo_tasks[-1]
+        else:
+            created = self.store.add(
+                title=draft.title,
+                notes=draft.notes,
+                status=draft.status,
+                workspace_id=draft.workspace_id,
+                workspace_label=draft.workspace_label,
+                agent_kind=draft.agent_kind,
+                agent_model=draft.agent_model,
+                priority=draft.priority,
+                labels=draft.labels,
+            )
+        self.ui.selected_id = created.id
+        self.ui.filter_text = ""
+        self._after_change(created.id)
+        # Send now: the form has already been through the workspace and the agent
+        # kind, so it is the review step and a second dialog would be asking
+        # twice. The dispatch's own notification is the confirmation — which is
+        # also what the quick-capture toast is for. When nothing was started (no
+        # workspace to run in), fall through to the ordinary capture
+        # confirmation: the card exists either way.
+        if draft.send_now and self.send_now(created):
+            return
+        workspace = draft.workspace_label or "no workspace"
+        agent = icons.kind_label(draft.agent_kind) if draft.agent_kind else "no agent"
+        self.notify(
+            f"{created.id} · {created.title}\n{workspace} · {agent}",
+            title="kanban",
+        )
+        # Quick capture opens in a popup that closes the moment it saves, so
+        # leave the confirmation somewhere it will still be seen.
+        if self.quick_add and not self.demo_mode:
+            self.toast(created.id, created.title, workspace, agent)
+
+    def action_edit_task(self) -> None:
+        task = self.selected_task()
+        if task is None:
+            self.set_notice("select a card first")
+            return
+        self.push_screen(
+            TaskFormModal(
+                config=self.config,
+                workspaces=self.workspaces(),
+                mode=self.icon_mode,
+                task=task,
+                default_kind=task.agent_kind or self.config.default_agent,
+            ),
+            lambda draft, task=task: self.on_edit(draft, task),
+        )
+
+    def on_edit(self, draft: TaskDraft | None, task: Task) -> None:
+        if draft is None:
+            return
+        fields: dict[str, object] = {
+            "title": draft.title,
+            "notes": draft.notes,
+            "status": draft.status,
+            "workspace_id": draft.workspace_id,
+            "workspace_label": draft.workspace_label,
+            "agent_kind": draft.agent_kind,
+            "agent_model": draft.agent_model,
+            "priority": draft.priority,
+            "labels": draft.labels,
+        }
+        # Renaming by hand claims the title: from here on an agent's title is
+        # recorded as an update instead of replacing yours.
+        if draft.title.strip() != task.title:
+            fields.update(
+                title_source="user",
+                title_edited=True,
+                original_title=task.original_title or task.title,
+            )
+        self._update(task, **fields)
+        self._after_change(task.id)
+        self.notify(f"{task.id} updated", title="kanban")
+
+    def action_detail(self) -> None:
+        task = self.selected_task()
+        if task is None:
+            self.set_notice("select a card first")
+            return
+        status, online = self.live.for_task(task)
+        agent = self.live.lookup(task)
+        self.push_screen(
+            TaskDetailModal(
+                interval=self.config.sync_seconds,
+                task=task,
+                config=self.config,
+                herdr=self.herdr,
+                live_status=status,
+                agent_online=online,
+                workspace_label=self.live.workspace_label(task),
+                workspace_ok=self.live.workspace_ok(task),
+                icon_mode=self.icon_mode,
+                agent_title=agent.title if agent else "",
+            ),
+            lambda action, task=task: self.on_detail_action(action, task),
+        )
+
+    def on_detail_action(self, action: str | None, task: Task) -> None:
+        if action == "dispatch":
+            self.dispatch_task(task)
+        elif action == "edit":
+            self.ui.selected_id = task.id
+            self.action_edit_task()
+        elif action == "focus_agent":
+            self.ui.selected_id = task.id
+            self.action_focus_agent()
+        elif action == "focus_workspace":
+            self.ui.selected_id = task.id
+            self.action_focus_workspace()
+        elif action == "delete":
+            self.action_delete_task()
+        elif action == "close_agent":
+            self.ui.selected_id = task.id
+            self.action_close_agent()
+        if not self.demo_mode and self.store.reload():
+            # The detail view can tick steps, so the board behind it may be
+            # showing a step counter that just changed.
+            self.refresh_board()
+
+    def action_delete_task(self) -> None:
+        task = self.selected_task()
+        if task is None:
+            self.set_notice("select a card first")
+            return
+        tab_id, described = self.agent_tab(task)
+        closing = (
+            f"Its agent ({described}) is stopped and its tab closed with it."
+            if tab_id
+            else "It has no agent running."
+        )
+        self.push_screen(
+            ConfirmModal(
+                "Delete task",
+                f"Delete {task.id} — {task.title}?\n\n{closing}",
+                confirm_label="Delete",
+                danger=True,
+            ),
+            lambda confirmed, task=task: self.delete_task(task) if confirmed else None,
+        )
+
+    def agent_tab(self, task: Task) -> tuple[str, str]:
+        """(tab to close, how to describe it) for a card's dispatched agent.
+
+        Only a tab whose label is still the one the board set at dispatch is
+        considered ours: the same pane may have been closed and reused for
+        something else, and deleting a card should not take that with it.
+        """
+        if not task.tab_id:
+            return "", ""
+        agent = self.live.lookup(task)
+        tab_id = (agent.tab_id if agent is not None else "") or task.tab_id
+        described = (
+            (agent.title or agent.pane_id) if agent is not None else task.pane_id
+        )
+        if self.demo_mode:
+            return tab_id, described or tab_id
+        if self.herdr.tab_label(tab_id) != dispatch.tab_label_for(task):
+            return "", ""
+        return tab_id, described or tab_id
+
+    def close_agent(self, task: Task) -> str:
+        """Stop a card's agent by closing the tab its dispatch opened."""
+        tab_id, described = self.agent_tab(task)
+        if not tab_id:
+            self._update(task, pane_id="", tab_id="", agent_name="")
+            return ""
+        result = self.herdr.close_tab(tab_id)
+        if not result.ok:
+            return f"could not close {tab_id}: {result.error_text()}"
+        self._update(task, pane_id="", tab_id="", agent_name="")
+        return f"closed {tab_id}"
+
+    def action_close_agent(self) -> None:
+        """Stop the agent without deleting the card."""
+        task = self.selected_task()
+        if task is None:
+            self.set_notice("select a card first")
+            return
+        tab_id, described = self.agent_tab(task)
+        if not tab_id:
+            self.set_notice(f"{task.id} has no agent running")
+            return
+        self.push_screen(
+            ConfirmModal(
+                "Stop agent",
+                f"Stop the agent for {task.id} ({described})?\n\n"
+                "The card stays on the board; its tab and agent are closed.",
+                confirm_label="Stop",
+                danger=True,
+            ),
+            lambda confirmed, task=task: self.stop_agent(task) if confirmed else None,
+        )
+
+    def stop_agent(self, task: Task) -> None:
+        message = self.close_agent(task)
+        self.notify(
+            f"{task.id}: {message or 'no agent to stop'}",
+            title="kanban",
+            severity="information" if message else "warning",
+        )
+        self._after_change(task.id)
+
+    # -- dispatch --------------------------------------------------------
+
+    def action_dispatch(self) -> None:
+        task = self.selected_task()
+        if task is None:
+            self.set_notice("select a card first")
+            return
+        self.dispatch_task(task)
+
+    def dispatch_task(self, task: Task) -> None:
+        plan = self.plan_for_task(task)
+        if not plan.workspace_id and not plan.reuses_running_agent:
+            self.set_notice(f"{task.id} has no workspace — edit it first", timeout=6)
+            return
+        self.push_screen(
+            DispatchModal(
+                plan,
+                self.config,
+                self.workspaces(),
+                self.icon_mode,
+                wip_warning=self.wip_warning(task),
+            ),
+            lambda confirmed, task=task: self.on_plan(confirmed, task),
+        )
+
+    def wip_warning(self, task: Task) -> str:
+        """A note when dispatching would push a column past its wip_limits.
+
+        Silence when the card is already counted in that column: re-prompting a
+        running agent does not add work in progress.
+        """
+        column_id = self._dispatch_column(task.status)
+        limit = self.config.wip_limit(column_id)
+        if not limit or task.status == column_id:
+            return ""
+        tasks = self._demo_tasks if self.demo_mode else self.store.tasks
+        count = sum(1 for other in tasks if other.status == column_id)
+        if count < limit:
+            return ""
+        return (
+            f"⚠ {self.config.label_for(column_id)} is at its limit "
+            f"({count}/{limit}) — this card makes it {count + 1}"
+        )
+
+    def plan_for_task(self, task: Task) -> Plan:
+        """What sending `task` would do, with the board's own defaults filled in."""
+        return plan_for(
+            task,
+            self.config,
+            self.live,
+            fallback_workspace=self.herdr.current_workspace(),
+            fallback_kind=self.config.default_agent,
+        )
+
+    def send_now(self, task: Task) -> bool:
+        """Start `task`'s agent straight away, without the dispatch form.
+
+        The add form's shortcut: the card was just written down and the form has
+        already been through its workspace and agent, so making the user confirm
+        the same two fields again is a dialog for the sake of a dialog. Returns
+        False when nothing was started, so the caller can still confirm that the
+        card itself was saved.
+        """
+        plan = self.plan_for_task(task)
+        if not plan.workspace_id and not plan.reuses_running_agent:
+            self.set_notice(
+                f"{task.id} saved, but it has no workspace to run in", timeout=6
+            )
+            return False
+        warning = self.wip_warning(task)
+        if warning:
+            self.notify(warning, title="kanban", severity="warning")
+        if self.demo_mode:
+            self.set_notice(
+                f"demo: would send {plan.task_id} to {plan.name} ({plan.kind})"
+            )
+            return True
+        self.set_notice(f"sending {plan.task_id} to {plan.name}…", timeout=0)
+        self.run_dispatch(plan, task.id)
+        return True
+
+    def on_plan(self, plan: Plan | None, task: Task) -> None:
+        if plan is None:
+            return
+        if self.demo_mode:
+            self.set_notice(
+                f"demo: would send {plan.task_id} to {plan.name} ({plan.kind})"
+            )
+            return
+        self.set_notice(f"sending {plan.task_id} to {plan.name}…", timeout=0)
+        self.run_dispatch(plan, task.id)
+
+    @work(thread=True, exclusive=True, group="dispatch")
+    def run_dispatch(self, plan: Plan, task_id: str) -> None:
+        outcome = self.executor.run(
+            plan,
+            on_step=lambda step: self.post(
+                self.set_notice,
+                f"{plan.task_id} · {step.label}: {step.detail}"[:120],
+                0,
+            ),
+        )
+        self.post(self.after_dispatch, task_id, plan, outcome)
+
+    def after_dispatch(self, task_id: str, plan: Plan, outcome: Outcome) -> None:
+        task = self.task(task_id)
+        if task is None:
+            return
+        target = self._dispatch_column(task.status)
+        if self.demo_mode:
+            # Demo cards live in memory, so the shared store path does not apply:
+            # same fields, written straight onto the throwaway task.
+            self._hand_over(task, target, **dispatch_fields(plan, outcome))
+        else:
+            record_outcome(self.store, task.id, plan, outcome, target)
+
+        if outcome.ok:
+            self.notify(
+                f"{task_id} sent to {outcome.agent_name or plan.name} in {plan.workspace_label or plan.workspace_id}",
+                title="kanban dispatch",
+            )
+            self.set_notice(f"{task_id} {result_summary(outcome)}", timeout=6)
+            if target:
+                self.ui.selected_column = self.config.column_ids.index(target)
+        else:
+            self.notify(
+                f"{task_id} dispatch failed — {outcome.error or 'see the board'}",
+                title="kanban dispatch",
+                severity="error",
+                timeout=10,
+            )
+            self.set_notice(f"{task_id} failed: {outcome.detail()}"[:140], timeout=10)
+        self.ui.selected_id = task_id
+        self._after_change(task_id)
+        self.refresh_live()
+
+    def _hand_over(self, task: Task, status: str, **fields: object) -> None:
+        if self.demo_mode:
+            for key, value in fields.items():
+                setattr(task, key, value)
+            task.status = status
+        else:
+            self.store.hand_over(task.id, status, **fields)
+
+    def _dispatch_column(self, current: str) -> str:
+        """The column a send lands in — the rule itself lives with the columns
+        (`Config.send_column`), since which columns exist and what they mean is
+        config knowledge, not board behaviour."""
+        return self.config.send_column(current)
+
+    # -- herdr focus -----------------------------------------------------
+
+    def _focus(self, call, description: str) -> None:
+        if self.demo_mode:
+            self.set_notice(f"demo: would focus {description}")
+            return
+        result = call()
+        if result.ok:
+            self.set_notice(f"focused {description}", timeout=3)
+        else:
+            self.notify(
+                f"could not focus {description}: {result.error_text()}",
+                severity="warning",
+                title="herdr",
+            )
+
+    def action_focus_agent(self) -> None:
+        task = self.selected_task()
+        if task is None:
+            return
+        agent = self.live.lookup(task)
+        if agent is None:
+            self.set_notice(f"{task.id} has no running agent yet — press s to send it")
+            return
+        label = agent.title or agent.pane_id
+        self._focus(lambda: self.herdr.focus_agent(agent.pane_id or agent.name), label)
+
+    def action_focus_workspace(self) -> None:
+        task = self.selected_task()
+        if task is None:
+            return
+        if not task.workspace_id:
+            self.set_notice(f"{task.id} has no workspace")
+            return
+        label = self.live.workspace_label(task)
+        self._focus(lambda: self.herdr.focus_workspace(task.workspace_id), label)
+
+    def action_focus_pane(self) -> None:
+        task = self.selected_task()
+        if task is None:
+            return
+        if not task.pane_id:
+            self.set_notice(f"{task.id} has no pane yet")
+            return
+        self._focus(lambda: self.herdr.focus_pane(task.pane_id), task.pane_id)
+
+    # -- filters and misc ------------------------------------------------
+
+    def action_filter(self) -> None:
+        self.push_screen(FilterModal(self.ui.filter_text), self.on_filter)
+
+    def on_filter(self, text: str | None) -> None:
+        if text is None:
+            return
+        self.ui.filter_text = text
+        self._after_change()
+
+    def action_clear_filters(self) -> None:
+        self.ui.filter_text = ""
+        self.ui.workspace_filter = ""
+        self.ui.only_blocked = False
+        self.set_notice("filters cleared", timeout=2)
+        self._after_change()
+
+    def action_only_blocked(self) -> None:
+        """Show only the cards whose agents are waiting on an answer.
+
+        The header has always counted them; this is the key that gets you to
+        them, from any workspace, in one keystroke.
+        """
+        self.ui.only_blocked = not self.ui.only_blocked
+        if self.ui.only_blocked:
+            view = self.current_view()
+            self.ui.selected_id = selection_after_move(view, self.ui)
+            count = sum(1 for card in view.cards())
+            self.set_notice(
+                f"needs you: {count} card{'s' if count != 1 else ''}", timeout=3
+            )
+        else:
+            self.set_notice("showing every card", timeout=2)
+        self._after_change()
+
+    def action_cycle_workspace(self) -> None:
+        options = [""] + [workspace.id for workspace in self.workspaces()]
+        current = self.ui.workspace_filter
+        index = options.index(current) + 1 if current in options else 1
+        self.ui.workspace_filter = options[index] if index < len(options) else ""
+        label = self.ui.workspace_filter or "all workspaces"
+        self.set_notice(f"workspace filter: {label}", timeout=3)
+        self._after_change()
+
+    @work(thread=True, exclusive=True, group="notify")
+    def herdr_notify(self, title: str, body: str = "") -> None:
+        """A toast in the running herdr session."""
+        self.herdr.notify(title, body)
+
+    def toast(self, task_id: str, title: str, workspace: str, agent: str) -> None:
+        self.herdr_notify(f"{task_id} captured · {workspace}", f"{title}  ({agent})")
+
+    def action_help(self) -> None:
+        self.push_screen(
+            HelpModal(
+                config=self.config,
+                board_path=str(self.store.path),
+                icon_mode=self.icon_mode,
+            )
+        )
+
+    def action_quit(self) -> None:
+        self.exit()
+
+    # -- live sync -------------------------------------------------------
+
+    @work(thread=True, exclusive=True, group="sync")
+    def refresh_live(self, force: bool = False) -> None:
+        if self.demo_mode:
+            return
+        self.post(self.apply_live, self.read_live(force))
+
+    def read_live(self, force: bool = False) -> LiveState:
+        """Read herdr, on two clocks, and return it as a `LiveState`.
+
+        Two clocks because they are two different costs: agent state is what
+        changes and what the board is for, while workspaces are opened and closed
+        by hand a few times an hour. Reading both every tick meant a
+        `herdr workspace list` nobody needed on every tick — which is exactly
+        what `workspace_sync_seconds` was documented to prevent. Blocking: the
+        sync worker calls this, and so can a test.
+        """
+        now = time.monotonic()
+        due = now - self._workspaces_read_at >= self.config.workspace_sync_seconds
+        if force or due or not self._workspaces_ok:
+            workspaces, workspace_result = self.herdr.workspaces()
+            self._workspaces = {workspace.id: workspace for workspace in workspaces}
+            self._workspaces_ok = workspace_result.ok
+            self._workspaces_error = (
+                "" if workspace_result.ok else workspace_result.error_text()
+            )
+            self._workspaces_read_at = now
+        agents, agent_result = self.herdr.agents()
+        return LiveState(
+            workspaces=self._workspaces,
+            agents={agent.name: agent for agent in agents},
+            agents_by_pane={agent.pane_id: agent for agent in agents},
+            down=not (self._workspaces_ok or agent_result.ok),
+            error=self._workspaces_error,
+        )
+
+    def apply_live(self, live: LiveState) -> None:
+        self.live = live
+        if not self.demo_mode and self.store.reload():
+            self.ui.selected_id = selection_after_move(self.current_view(), self.ui)
+        if live.down:
+            self.set_notice(
+                f"herdr unreachable: {live.error}"[:120],
+                timeout=self.config.workspace_sync_seconds,
+            )
+        self._announce_transitions()
+        if self.config.auto_move:
+            self._auto_move()
+        self.refresh_board()
+
+    def _announce_transitions(self) -> None:
+        """Say so when an agent newly starts waiting on you.
+
+        Blocked is the one state that costs something to ignore — the agent is
+        stopped until you answer — and both places that show it (the card's rule
+        and the header's count) require looking at the board. So the first time a
+        card arrives in it, herdr raises a notification.
+
+        Only *transitions*: the first tick of a board just records where
+        everything stands, or opening the board onto a blocked card would ping
+        every single time you looked at it, having learned nothing new.
+        """
+        if self.demo_mode or not self.config.notify_on_block:
+            return
+        current = {task.id: self.live.for_task(task)[0] for task in self.tasks()}
+        if self._live_status:
+            for task_id, status in current.items():
+                if status != "blocked" or self._live_status.get(task_id) == "blocked":
+                    continue
+                task = self.task(task_id)
+                if task is not None:
+                    self.herdr_notify(f"{task.id} needs you", task.title)
+        self._live_status = current
+
+    def _auto_move(self) -> None:
+        """Opt-in: follow the agent's own progress through the columns."""
+        # "" rather than the card's column: this is not a send, so it always
+        # means In Progress — a running agent is never queued in Todo.
+        doing = self._dispatch_column("")
+        done_column = "review" if "review" in self.config.column_ids else ""
+        for task in self.tasks():
+            if not task.dispatched_at:
+                continue
+            status, _ = self.live.for_task(task)
+            if status == "working" and doing and task.status != doing:
+                self._set_status(task, doing)
+            elif status in ("idle", "done") and done_column and task.status == doing:
+                self._set_status(task, done_column)
+
+
+def run() -> None:  # pragma: no cover - convenience for `python -m kanban.app`
+    from .config import load_config
+    from .herdr import Herdr as HerdrClient
+    from .store import board_path
+
+    KanbanApp(load_config(), Store(board_path()), HerdrClient()).run()
+
+
+__all__ = ["KanbanApp"]

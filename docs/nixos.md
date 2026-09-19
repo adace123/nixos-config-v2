@@ -10,20 +10,20 @@ The NixOS configuration lives under:
 ```text
 hosts/coruscant/default.nix          # host identity (hostname, system)
 flake-parts/nixos.nix                # NixOS output wiring from host metadata
-modules/nixos/common.nix             # shared NixOS settings
-modules/nixos/beszel.nix             # Beszel monitoring hub
-modules/nixos/                  # host-specific modules
-  base.nix                      # hostname, SOPS, Tailscale auth
-  home-assistant/               # HA container + MQTT + Zigbee2MQTT + ESPHome
-  caddy.nix                     # Caddy reverse proxy (Cloudflare DNS)
-  podman.nix                    # Podman engine + remote socket for the Mac
-  beszel.nix                    # Beszel monitoring hub
-  ssd.nix                       # Disko SSD partition layout + boot config
-  sd.nix                        # SD-root storage (Turing Pi / TP2 nodes)
-  rpi-boot.nix                  # Shared RPi kernel/boot settings
-  installer.nix                 # Minimal SD-card installer image
-  home-assistant/restic.nix     # Restic → R2 backups (see docs/backups.md)
-  configuration.yaml            # Home Assistant base configuration template
+modules/nixos/                       # host-specific modules
+  common.nix                         # shared NixOS settings (SOPS, Tailscale)
+  base.nix                           # hostname, SOPS, Tailscale auth
+  home-assistant/                    # HA container + MQTT + Zigbee2MQTT + ESPHome
+    default.nix                      # HA container, Mosquitto, Zigbee2MQTT, ESPHome
+    restic.nix                       # Restic → R2 backups (see docs/backups.md)
+    configuration.yaml               # Home Assistant base configuration template
+  caddy.nix                          # Caddy reverse proxy (Cloudflare DNS)
+  podman.nix                         # Podman engine + remote socket for the Mac
+  beszel.nix                         # Beszel monitoring hub
+  ssd.nix                            # Disko SSD partition layout + boot config
+  sd.nix                             # SD-root storage (Turing Pi / TP2 nodes)
+  rpi-boot.nix                       # Shared RPi kernel/boot settings
+  installer.nix                      # Minimal SD-card installer image
 ```
 
 ## Hardware

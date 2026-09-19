@@ -1,0 +1,112 @@
+# herdr-kanban settings
+#
+# This file is repo-managed (modules/home/ai/herdr/plugins/kanban/config.toml)
+# and is copied to the plugin config dir (~/.config/herdr/plugins/config/
+# herdr-kanban/) on every activation, so editing it here is the source of
+# truth. Every key is optional — a missing file or key falls back to the same
+# defaults baked into the app.
+
+[ui]
+# "overlay" fills the active pane and restores focus/zoom on close (the
+# manifest default); "popup" opens a centred session-modal of width/height.
+placement = "overlay"
+width = "95%"
+height = "90%"
+# Quick capture (the `herdr-kanban.quick-add` action, bound to prefix+shift+k)
+# gets its own geometry: a centred popup with just the add form is the point of
+# a capture shortcut, so it defaults to a popup whatever `placement` says.
+quick_add_placement = "popup"
+quick_add_width = "80%"
+quick_add_height = "75%"
+# Spin the working indicator on cards whose agent is busy.
+animate = true
+# Show how long each card has been sitting there (omitted under 90s, since "0s"
+# is noise). Ages are tinted once they pass stale_after_days below.
+show_age = true
+# The rest of the card's meta row: the agent's mark (`π`), optionally with the
+# kind beside it (`π pi`), and the live status word on the card's bottom rule
+# (`◐ working`), which has room at every column width. The mark is always there —
+# these keys only hide *words*.
+#
+# Off by default: the mark is already unique per kind (and tinted with the
+# vendor's colour), and the name costs four to eight cells that the workspace
+# label, the age and the step counter want more. The name is still on the detail
+# view (`⏎`), in both agent pickers, and in `herdr-kanban list`/`show`, so nothing
+# is lost — it is only kept off the tightest row. Turn it back on if you do not
+# recognise the marks yet.
+show_agent_kind = false
+show_status_word = true
+# Agent glyphs: "brand" uses the HerdrAgentIconsMax font (installed by
+# herdr-radar) when it is available, and "unicode" always uses herdr-radar's
+# text marks — the same ones its sidebar falls back to.
+icon_mode = "brand"
+
+[board]
+# Columns, in order. `id` is what lives in the board file, `label` is the
+# heading. Renaming or removing a column that still has tasks hides those
+# cards, so clear them first. `blocked` is the column agents park their card in
+# when they need you, and the ids `backlog`/`queued`/`doing` are also how a send
+# decides where a card lands: backlog -> queued, anything else -> doing.
+columns = [
+  { id = "backlog", label = "Backlog" },
+  { id = "queued", label = "Queued" },
+  { id = "doing", label = "In Progress" },
+  { id = "blocked", label = "Blocked" },
+  { id = "review", label = "Review" },
+  { id = "done", label = "Done" },
+]
+# Agent kind pre-selected in the add form, and the column new tasks land in.
+default_agent = "pi"
+default_column = "backlog"
+# Optional per-column card limits, shown as "3/5" and highlighted when full.
+# wip_limits = { doing = 5 }
+# Cards untouched for this many days are tinted yellow, and red at 2x.
+stale_after_days = 3
+
+[behavior]
+# How often the board re-reads live agent and workspace state, in seconds.
+sync_seconds = 2.0
+# How often workspaces are re-read separately (they change far less often):
+# agent state keeps to sync_seconds, workspaces to this, so a tick does not pay
+# for a `herdr workspace list` it does not need.
+workspace_sync_seconds = 10.0
+# Raise a herdr notification when an agent newly blocks on you. Only transitions
+# are announced, so opening the board onto a blocked card stays quiet.
+notify_on_block = true
+# When true, a card moves to "doing" as soon as its dispatched agent starts
+# working, and to "review" when the agent finishes without an error. Off by
+# default: the board is yours to move, and agents that follow the protocol
+# below move their own cards explicitly instead.
+auto_move = false
+# Append the board protocol to every dispatch prompt: the task id, the
+# `herdr-kanban status|block|note|title` commands, and the rule that only you
+# close a card. Set to false for a prompt that is only the task text.
+announce_protocol = true
+
+# Flags handed to the agent when the board starts it — the same ones you would
+# type after `herdr agent start … --`. Without these a dispatched agent runs
+# with none of the flags you use interactively.
+#
+# A card can also carry its own model (`Model` in the add/edit form, `--model` on
+# the CLI), which *replaces* a `--model` pair here rather than adding a second
+# one — two of them in one argv is a last-wins coin toss.
+#
+# [agents.claude]
+# args = ["--permission-mode=auto"]
+#
+# [agents.pi]
+# args = ["--model", "deepseek-v4-flash"]
+#
+# [agents.codex]
+# args = ["--full-auto"]
+
+# Model names the add/edit form offers, per agent kind, in this order. They are
+# passed to the CLI verbatim, so only list what the agent you have actually
+# accepts — a name it rejects fails at `agent start`, where the board names the
+# step that broke. A kind with no list (or no `[models]` at all) offers just
+# `default`, meaning "whatever `[agents.<kind>] args` already say".
+[models]
+claude = ["sonnet", "opus", "haiku"]
+# pi = ["deepseek-v4-flash", "glm-5.3-flash"]
+# codex = ["gpt-5-codex"]
+# opencode = ["opencode/deepseek-v4-flash-free"]

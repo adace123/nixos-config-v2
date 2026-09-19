@@ -841,6 +841,13 @@ setup-work-ssh:
 check-updates:
     ./scripts/check-for-updates.sh
 
+# Check the npm cache for stale registry metadata that makes `npm install
+# <pkg>@latest` / `pi update --extensions` fail with ETARGET
+# (see scripts/check-npm-cache.sh and docs/ai.md)
+[group('workflow')]
+npm-cache-check:
+    ./scripts/check-npm-cache.sh
+
 # Show auto-update service status and trigger manual check
 [group('workflow')]
 auto-update-status:

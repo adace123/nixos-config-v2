@@ -1,0 +1,718 @@
+"""The board file: one JSON document the plugin owns.
+
+Layout:
+
+```json
+{"version": 1, "seq": 4, "tasks": [{"id": "K4", ...}]}
+```
+
+`seq` only ever grows, so ids are stable and never reused. Order inside a
+column is list order, which is what `j`/`k` reorder and what `H`/`L` preserve
+when a card changes column.
+
+Writes are atomic (temp file + rename) and serialised with an `flock`, and every
+mutation re-reads the file first — two boards open at once (an overlay and a
+popup) cannot silently clobber each other. Tasks are user data, so the file is
+meant to be readable, diffable, and hand-editable.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import fcntl
+import json
+import os
+import shutil
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Any
+
+from .config import PLUGIN_ID
+
+SCHEMA_VERSION = 1
+HISTORY_LIMIT = 25
+PROGRESS_LIMIT = 50
+STEP_LIMIT = 40
+
+PRIORITIES = ("low", "normal", "high", "urgent")
+
+
+def _as_time(value: Any) -> float | None:
+    """A timestamp out of JSON, which the user may have hand-edited.
+
+    A board file is meant to be editable, so `"updated_at": "yesterday"` has to
+    survive: the renderer does real arithmetic on these, and a string there
+    takes the whole board down rather than one card.
+    """
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value.strip())
+        except ValueError:
+            return None
+    return None
+
+
+# Who set a card's title, and who may set what. Agents keep their own card
+# current but never close it: `done` is the human's call.
+TITLE_SOURCES = ("user", "agent")
+# Who *filed* a card — the same two words, because "an agent put this here" is
+# the same question whether it is about a title or about the card itself.
+CREATED_BY = ("user", "agent")
+# The columns an agent may move its own card into. `todo` is the id this board's
+# queued column used to have; it stays listed so a card on a board that still
+# says `todo` can be moved by an agent (and so the CLI's hint stays honest).
+AGENT_STATUSES: tuple[str, ...] = (
+    "doing",
+    "blocked",
+    "review",
+    "queued",
+    "todo",
+    "backlog",
+)
+HUMAN_ONLY_STATUSES: tuple[str, ...] = ("done",)
+
+
+@dataclass
+class Task:
+    id: str = ""
+    title: str = ""
+    notes: str = ""
+    status: str = "backlog"
+    workspace_id: str = ""
+    workspace_label: str = ""
+    agent_kind: str = ""
+    agent_name: str = ""
+    # The model this card's agent should run on, as the CLI names it (`--model
+    # <value>`). Empty means "whatever `[agents.<kind>] args` already say", which
+    # is the default and the only safe default: the board cannot know what a
+    # given CLI accepts. Stored on the card because the send may be tomorrow.
+    agent_model: str = ""
+    priority: str = "normal"
+    labels: list[str] = field(default_factory=list)
+    # "agent" when the filing command came from inside a herdr pane, "user"
+    # when it did not — the same test `title_source` uses, because there is no
+    # marker that says "an agent is typing": the pane the command runs in is
+    # the only evidence herdr gives (see `cli._from_agent`). Cards you add in
+    # the board itself never claim an agent filed them.
+    created_by: str = "user"
+    # The card this one was filed from — "found while working on K3". An agent
+    # that trips over unrelated work records where it tripped, so the follow-up
+    # keeps its reason after the run that produced it is over. Empty for a card
+    # you thought of yourself.
+    parent_id: str = ""
+    created_at: float = 0.0
+    updated_at: float = 0.0
+    dispatched_at: float | None = None
+    pane_id: str = ""
+    tab_id: str = ""
+    title_source: str = "user"
+    # Set once the human edits the title by hand: from then on an agent's title
+    # becomes a suggestion instead of an overwrite.
+    title_edited: bool = False
+    # The title as it stood before the first replacement, so a rename is
+    # always reversible.
+    original_title: str = ""
+    progress: list[dict[str, Any]] = field(default_factory=list)
+    # A checklist: [{"text", "done", "at", "by"}]. A better progress signal
+    # than a pile of notes, for hand-worked and agent-worked cards alike.
+    steps: list[dict[str, Any]] = field(default_factory=list)
+    history: list[dict[str, Any]] = field(default_factory=list)
+
+    @property
+    def slug(self) -> str:
+        """A name safe to hand to `herdr agent start` (`[a-z][a-z0-9_-]{0,31}`)."""
+        slug = "".join(ch for ch in self.id.lower() if ch.isalnum() or ch in "-_")
+        return slug or "task"
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Task:
+        known = {f for f in cls.__dataclass_fields__}
+        clean = {key: value for key, value in data.items() if key in known}
+        labels = clean.get("labels")
+        clean["labels"] = [str(x) for x in labels] if isinstance(labels, list) else []
+        history = clean.get("history")
+        clean["history"] = history if isinstance(history, list) else []
+        progress = clean.get("progress")
+        clean["progress"] = (
+            [
+                {
+                    "at": _as_time(item.get("at")) or 0.0,
+                    "by": str(item.get("by", "")),
+                    "text": str(item.get("text", "")),
+                }
+                for item in progress
+                if isinstance(item, dict)
+            ][:PROGRESS_LIMIT]
+            if isinstance(progress, list)
+            else []
+        )
+        steps = clean.get("steps")
+        clean["steps"] = (
+            [
+                {
+                    "text": str(step.get("text", "")),
+                    "done": bool(step.get("done")),
+                    "at": _as_time(step.get("at")) or 0.0,
+                    "by": str(step.get("by", "")),
+                }
+                for step in steps
+                if isinstance(step, dict)
+            ][:STEP_LIMIT]
+            if isinstance(steps, list)
+            else []
+        )
+        clean["created_at"] = _as_time(clean.get("created_at")) or 0.0
+        clean["updated_at"] = _as_time(clean.get("updated_at")) or 0.0
+        clean["dispatched_at"] = _as_time(clean.get("dispatched_at"))
+        if clean.get("title_source") not in TITLE_SOURCES:
+            clean["title_source"] = "user"
+        if clean.get("created_by") not in CREATED_BY:
+            # Missing, hand-mangled, or from a board file written before this
+            # field existed: the card is as good as one you typed.
+            clean["created_by"] = "user"
+        for key in ("title_edited",):
+            if not isinstance(clean.get(key), bool):
+                clean[key] = False
+        if clean.get("priority") not in PRIORITIES:
+            clean["priority"] = "normal"
+        for key in (
+            "id",
+            "title",
+            "notes",
+            "status",
+            "workspace_id",
+            "workspace_label",
+            "agent_kind",
+            "agent_name",
+            "agent_model",
+            "pane_id",
+            "tab_id",
+            "original_title",
+            "parent_id",
+        ):
+            if not isinstance(clean.get(key), str):
+                clean[key] = ""
+        return cls(**clean)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    def note(self, what: str) -> None:
+        self.history.append({"at": round(time.time(), 3), "what": what})
+        del self.history[:-HISTORY_LIMIT]
+
+    def update_entry(self, text: str, by: str = "agent") -> None:
+        """A progress line ("found it in flake.lock:190") shown in the detail view."""
+        self.progress.append({"at": round(time.time(), 3), "by": by, "text": text})
+        del self.progress[:-PROGRESS_LIMIT]
+
+    @property
+    def steps_done(self) -> int:
+        return sum(1 for step in self.steps if step.get("done"))
+
+
+@dataclass
+class Board:
+    version: int = SCHEMA_VERSION
+    seq: int = 0
+    tasks: list[Task] = field(default_factory=list)
+
+
+def state_dir() -> Path:
+    """Where the board file lives.
+
+    herdr injects `HERDR_PLUGIN_STATE_DIR` for plugin commands; the fallback
+    keeps the *same* directory shape so the standalone `herdr-kanban` CLI and
+    the in-herdr board open the same board instead of two look-alike files.
+    """
+    env = os.environ.get("HERDR_PLUGIN_STATE_DIR")
+    if env:
+        return Path(env).expanduser()
+    xdg = os.environ.get("XDG_STATE_HOME") or str(Path.home() / ".local" / "state")
+    return Path(xdg).expanduser() / "herdr" / "plugins" / PLUGIN_ID
+
+
+def board_path() -> Path:
+    env = os.environ.get("KANBAN_BOARD_FILE")
+    return Path(env).expanduser() if env else state_dir() / "board.json"
+
+
+class Store:
+    """Loads, mutates, and persists the board file."""
+
+    def __init__(self, path: Path | None = None) -> None:
+        self.path = path or board_path()
+        self.board = Board()
+        self.loaded_at: float = 0.0
+        self._mtime: float | None = None
+        self._dirty = False
+
+    # -- loading ---------------------------------------------------------
+
+    @classmethod
+    def open(cls, path: Path | None = None) -> Store:
+        """A store with the board already read — the common case."""
+        store = cls(path)
+        store.load()
+        return store
+
+    def load(self) -> None:
+        self._mtime = None
+        self._read()
+
+    def _read(self) -> None:
+        try:
+            stat = self.path.stat()
+        except OSError:
+            self.board = Board()
+            self._mtime = None
+            self.loaded_at = time.time()
+            return
+        try:
+            raw = json.loads(self.path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError, UnicodeDecodeError):
+            # A corrupt board must not take the board down: keep the file for
+            # the user to rescue and carry on with an empty in-memory board.
+            self.board = Board()
+            self._mtime = stat.st_mtime
+            self.loaded_at = time.time()
+            return
+        tasks = raw.get("tasks") if isinstance(raw, dict) else None
+        board = Board(
+            version=int(raw.get("version") or SCHEMA_VERSION),
+            seq=int(raw.get("seq") or 0),
+        )
+        if isinstance(tasks, list):
+            board.tasks = [
+                Task.from_dict(item) for item in tasks if isinstance(item, dict)
+            ]
+        if not board.seq:
+            # A file that lost `seq` — hand-edited, or written by something else
+            # — has to carry on past the highest id on the board. `len(tasks)`
+            # would be a *guess* that a gap can make too low: with only `K7`
+            # left after four deletions, four adds would re-issue `K7` and the
+            # board would have two cards with one name.
+            board.seq = max(
+                (
+                    int(task.id[1:])
+                    for task in board.tasks
+                    if task.id[:1] in "Kk" and task.id[1:].isdigit()
+                ),
+                default=0,
+            )
+        self.board = board
+        self._mtime = stat.st_mtime
+        self.loaded_at = time.time()
+
+    def reload(self) -> bool:
+        """Re-read if the file changed underneath us. True when it did."""
+        try:
+            mtime = self.path.stat().st_mtime
+        except OSError:
+            mtime = None
+        if mtime == self._mtime:
+            return False
+        self._read()
+        return True
+
+    @property
+    def dirty(self) -> bool:
+        return self._dirty
+
+    # -- writing ---------------------------------------------------------
+
+    def payload(self) -> dict[str, Any]:
+        """The exact document that would be written right now."""
+        return {
+            "version": SCHEMA_VERSION,
+            "seq": self.board.seq,
+            "tasks": [task.to_dict() for task in self.board.tasks],
+        }
+
+    def _write(self, payload: dict[str, Any]) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = self.path.with_name(f".{self.path.name}.{os.getpid()}.tmp")
+        with open(tmp, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2, ensure_ascii=False)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        # Keep the previous generation. Copied rather than renamed: a reader
+        # must never see the board file missing, and `_read` treats a missing
+        # file as an empty board — which the next write would then persist.
+        if self.path.exists():
+            with contextlib.suppress(OSError):
+                shutil.copy2(self.path, self.backup_path)
+        os.replace(tmp, self.path)
+        try:
+            self._mtime = self.path.stat().st_mtime
+        except OSError:
+            self._mtime = None
+        self._dirty = False
+
+    @property
+    def backup_path(self) -> Path:
+        return self.path.with_name(self.path.name + ".bak")
+
+    @contextmanager
+    def _locked(self) -> Iterator[None]:
+        """Serialise read-modify-write across concurrent boards."""
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        lock_path = self.path.with_name(f".{self.path.name}.lock")
+        handle = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX)
+            self.reload()
+            before = self.payload()
+            yield
+            # Only write when something actually changed. Mutations that turn
+            # out to be no-ops (a status set to the value it already has, an
+            # edit with no effective diff, an empty note) would otherwise bump
+            # the mtime — waking every other open board's reload — and, worse,
+            # rotate board.json.bak so the rollback copy becomes a duplicate of
+            # the live file instead of the previous generation.
+            after = self.payload()
+            if after != before:
+                self._write(after)
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)
+            os.close(handle)
+
+    # -- queries ---------------------------------------------------------
+
+    @property
+    def tasks(self) -> list[Task]:
+        return self.board.tasks
+
+    def by_id(self, task_id: str) -> Task | None:
+        return next((task for task in self.board.tasks if task.id == task_id), None)
+
+    def in_column(self, status: str) -> list[Task]:
+        return [task for task in self.board.tasks if task.status == status]
+
+    def columns_with(self, column_ids: list[str]) -> dict[str, list[Task]]:
+        """Column id -> tasks, in board order, for the given columns only."""
+        grouped: dict[str, list[Task]] = {column_id: [] for column_id in column_ids}
+        for task in self.board.tasks:
+            if task.status in grouped:
+                grouped[task.status].append(task)
+        return grouped
+
+    def orphans(self, column_ids: list[str]) -> list[Task]:
+        """Tasks whose status is not a column any more (config changed)."""
+        known = set(column_ids)
+        return [task for task in self.board.tasks if task.status not in known]
+
+    # -- mutations -------------------------------------------------------
+
+    def add(self, **fields: Any) -> Task:
+        title = str(fields.get("title", "")).strip() or "Untitled"
+        known = {name for name in Task.__dataclass_fields__}
+        extra = {key: value for key, value in fields.items() if key in known}
+        extra.pop("title", None)
+        status = str(extra.pop("status", "") or "backlog")
+        with self._locked():
+            self.board.seq += 1
+            now = time.time()
+            task = Task(
+                id=f"K{self.board.seq}",
+                title=title,
+                created_at=now,
+                updated_at=now,
+                status=status,
+                **extra,
+            )
+            # Say who filed it, so the history answers the question the card
+            # itself only implies. Agents are the interesting case; a card you
+            # wrote reads the way it always has.
+            origin = " by agent" if task.created_by == "agent" else ""
+            task.note(f"created in {task.status}{origin}")
+            self.board.tasks.append(task)
+            return task
+
+    def update(self, task_id: str, **fields: Any) -> Task | None:
+        with self._locked():
+            task = self.by_id(task_id)
+            if task is None:
+                return None
+            changed = [
+                key
+                for key, value in fields.items()
+                if key in Task.__dataclass_fields__ and getattr(task, key) != value
+            ]
+            if not changed:
+                return task
+            for key in changed:
+                setattr(task, key, fields[key])
+            task.updated_at = time.time()
+            task.note("edited " + ", ".join(sorted(changed)))
+            return task
+
+    def delete(self, task_id: str) -> Task | None:
+        with self._locked():
+            task = self.by_id(task_id)
+            if task is None:
+                return None
+            self.board.tasks.remove(task)
+            return task
+
+    def set_status(self, task_id: str, status: str) -> Task | None:
+        """Move a card to another column, landing at the end of it."""
+        with self._locked():
+            task = self.by_id(task_id)
+            if task is None or task.status == status:
+                return task
+            previous = task.status
+            self.board.tasks.remove(task)
+            insert_at = len(self.board.tasks)
+            for index, other in enumerate(self.board.tasks):
+                if other.status == status:
+                    insert_at = index + 1
+            self.board.tasks.insert(insert_at, task)
+            task.status = status
+            task.updated_at = time.time()
+            task.note(f"{previous} -> {status}")
+            return task
+
+    def reorder(self, task_id: str, delta: int) -> Task | None:
+        """Move a card up/down within its own column."""
+        if delta == 0:
+            return self.by_id(task_id)
+        with self._locked():
+            task = self.by_id(task_id)
+            if task is None:
+                return None
+            siblings = self.in_column(task.status)
+            index = siblings.index(task)
+            target = index + delta
+            if not 0 <= target < len(siblings):
+                return task
+            current_at = self.board.tasks.index(task)
+            other = siblings[target]
+            other_at = self.board.tasks.index(other)
+            self.board.tasks[current_at], self.board.tasks[other_at] = (
+                self.board.tasks[other_at],
+                self.board.tasks[current_at],
+            )
+            task.updated_at = time.time()
+            return task
+
+    # -- agent-facing writes ---------------------------------------------
+
+    def find_by_title(self, title: str) -> Task | None:
+        """The card with this title, ignoring case and whitespace runs.
+
+        Both are ignored because the caller is usually an agent writing a title
+        from memory, and the question this answers — "is this already on the
+        board?" — is worth answering generously. First match wins: any match is
+        enough to stop a second card being filed for the same thing.
+        """
+        wanted = " ".join((title or "").split()).lower()
+        if not wanted:
+            return None
+        return next(
+            (
+                task
+                for task in self.board.tasks
+                if " ".join(task.title.split()).lower() == wanted
+            ),
+            None,
+        )
+
+    def resolve(self, reference: str, pane_id: str = "") -> Task | None:
+        """Find a card from `K3`, `k3`, `3`, or the pane the caller runs in.
+
+        Agents get their card without being told its id: herdr injects
+        `HERDR_PANE_ID` into the pane the agent runs in, and the board records
+        that pane when it dispatches.
+        """
+        reference = (reference or "").strip()
+        if reference:
+            wanted = reference.upper()
+            if wanted.isdigit():
+                wanted = f"K{wanted}"
+            for task in self.board.tasks:
+                if task.id == wanted:
+                    return task
+            return self.find_by_title(reference)
+        if pane_id:
+            for task in self.board.tasks:
+                if task.pane_id and task.pane_id == pane_id:
+                    return task
+        return None
+
+    def set_status_from_agent(
+        self, task_id: str, status: str, force: bool = False
+    ) -> tuple[Task | None, str]:
+        """Move a card on an agent's behalf. Returns (task, message)."""
+        if status in HUMAN_ONLY_STATUSES and not force:
+            return (
+                self.by_id(task_id),
+                f"{task_id}: refusing to set {status} — Done is yours to close, not the"
+                " agent's; pass --force if you mean it (the board's own keys are"
+                " unrestricted)",
+            )
+        task = self.set_status(task_id, status)
+        if task is None:
+            return None, f"no task {task_id} on the board"
+        return task, f"{task.id} -> {status}"
+
+    def set_title(
+        self, task_id: str, title: str, source: str = "agent", force: bool = False
+    ) -> tuple[Task | None, str]:
+        """Rename a card, respecting whether the human has claimed the title.
+
+        A title the human typed is never silently replaced: an agent's title
+        then lands in the card's updates instead, where it is visible and one
+        edit away from being applied.
+        """
+        cleaned = " ".join((title or "").split())
+        with self._locked():
+            task = self.by_id(task_id)
+            if task is None:
+                return None, f"no task {task_id} on the board"
+            if not cleaned:
+                return task, f"{task.id}: empty title ignored"
+            if cleaned == task.title:
+                return task, f"{task.id}: title unchanged"
+
+            if source == "user":
+                task.original_title = task.original_title or task.title
+                task.title = cleaned
+                task.title_source = "user"
+                task.title_edited = True
+                task.updated_at = time.time()
+                task.note("title edited by hand")
+                return task, f"{task.id} title -> {cleaned}"
+
+            if task.title_edited and not force:
+                task.update_entry(f"suggested title: {cleaned}")
+                task.updated_at = time.time()
+                task.note("agent title suggestion kept as an update")
+                return (
+                    task,
+                    f"{task.id}: kept your title {task.title!r}; "
+                    f"recorded {cleaned!r} in its updates instead",
+                )
+
+            task.original_title = task.original_title or task.title
+            task.title = cleaned
+            task.title_source = "agent"
+            task.updated_at = time.time()
+            task.note(f"title set by {source}: {cleaned}")
+            return task, f"{task.id} title -> {cleaned} (by {source})"
+
+    def add_progress(
+        self, task_id: str, text: str, by: str = "agent"
+    ) -> tuple[Task | None, str]:
+        cleaned = " ".join((text or "").split())
+        with self._locked():
+            task = self.by_id(task_id)
+            if task is None:
+                return None, f"no task {task_id} on the board"
+            if not cleaned:
+                return task, f"{task.id}: empty update ignored"
+            task.update_entry(cleaned, by=by)
+            task.updated_at = time.time()
+            return task, f"{task.id}: update recorded"
+
+    # -- checklists ------------------------------------------------------
+
+    def add_step(
+        self, task_id: str, text: str, by: str = "agent"
+    ) -> tuple[Task | None, str]:
+        cleaned = " ".join((text or "").split())
+        with self._locked():
+            task = self.by_id(task_id)
+            if task is None:
+                return None, f"no task {task_id} on the board"
+            if not cleaned:
+                return task, f"{task.id}: empty step ignored"
+            if len(task.steps) >= STEP_LIMIT:
+                return task, f"{task.id}: already has {STEP_LIMIT} steps"
+            task.steps.append({"text": cleaned, "done": False, "at": 0.0, "by": by})
+            task.updated_at = time.time()
+            task.note(f"step added: {cleaned}")
+            return task, f"{task.id}: step {len(task.steps)} added"
+
+    def set_step(
+        self,
+        task_id: str,
+        index: int,
+        done: bool | None = None,
+        text: str = "",
+        by: str = "agent",
+    ) -> tuple[Task | None, str]:
+        """Tick, untick, or rename step `index` (1-based, as typed)."""
+        with self._locked():
+            task = self.by_id(task_id)
+            if task is None:
+                return None, f"no task {task_id} on the board"
+            if not task.steps:
+                return task, f"{task.id} has no steps yet — add one first"
+            if not 1 <= index <= len(task.steps):
+                return task, (
+                    f"{task.id} has {len(task.steps)} step(s); {index} is out of range"
+                )
+            step = task.steps[index - 1]
+            if text:
+                step["text"] = " ".join(text.split())
+            if done is not None:
+                step["done"] = done
+                step["at"] = time.time() if done else 0.0
+                step["by"] = by if done else ""
+            task.updated_at = time.time()
+            mark = "x" if step.get("done") else " "
+            return task, f"{task.id} step {index}: [{mark}] {step.get('text', '')}"
+
+    def remove_step(self, task_id: str, index: int) -> tuple[Task | None, str]:
+        with self._locked():
+            task = self.by_id(task_id)
+            if task is None:
+                return None, f"no task {task_id} on the board"
+            if not 1 <= index <= len(task.steps):
+                return task, (
+                    f"{task.id} has {len(task.steps)} step(s); {index} is out of range"
+                )
+            removed = task.steps.pop(index - 1)
+            task.updated_at = time.time()
+            task.note(f"step removed: {removed.get('text', '')}")
+            return task, f"{task.id}: step {index} removed"
+
+    def step_lines(self, task: Task) -> list[str]:
+        """Render a card's checklist, 1-based, for `show` and the detail view."""
+        return [
+            f"{index}. [{'x' if step.get('done') else ' '}] {step.get('text', '')}"
+            for index, step in enumerate(task.steps, start=1)
+        ]
+
+    # -- convenience -----------------------------------------------------
+
+    def hand_over(self, task_id: str, status: str, **fields: Any) -> Task | None:
+        """Set fields and move columns in one write (used by dispatch)."""
+        with self._locked():
+            task = self.by_id(task_id)
+            if task is None:
+                return None
+            for key, value in fields.items():
+                if key in Task.__dataclass_fields__:
+                    setattr(task, key, value)
+            if task.status != status:
+                previous = task.status
+                self.board.tasks.remove(task)
+                insert_at = len(self.board.tasks)
+                for index, other in enumerate(self.board.tasks):
+                    if other.status == status:
+                        insert_at = index + 1
+                self.board.tasks.insert(insert_at, task)
+                task.status = status
+                task.note(f"{previous} -> {status}")
+            task.updated_at = time.time()
+            return task

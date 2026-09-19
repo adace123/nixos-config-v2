@@ -29,7 +29,6 @@ in
             overwriteBackup = true;
             sharedModules = [
               inputs.sops-nix.homeManagerModules.sops
-              inputs.zed-extensions.homeManagerModules.default
             ];
             users.${host.user.name} = {
               imports = [ ../modules/home ];

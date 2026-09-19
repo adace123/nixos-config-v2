@@ -1,0 +1,52 @@
+# herdr-kanban — a herdr plugin: a live kanban board for agent work.
+#
+# Tasks are herdr-native: every card carries the workspace it belongs to, the
+# agent that should do it, and a status column. Dispatch a card and the plugin
+# starts that agent in that workspace, prompts it with the task, and mirrors
+# the real agent state (working / blocked / done) back onto the card.
+#
+# Deployment: modules/home/ai/herdr/herdr.nix copies this manifest and its
+# launcher into a stable, real directory
+# (~/.config/herdr/plugins-managed/kanban) and registers the plugin with
+# `herdr plugin link`, because herdr canonicalises the linked path and a store
+# symlink would go stale on every rebuild.
+#
+# Bind the board to a key in herdr's config.toml:
+#   [[keys.command]]
+#   key = "prefix+k"
+#   type = "plugin_action"
+#   command = "herdr-kanban.open"
+#   description = "kanban board"
+#
+# `herdr-kanban.quick-add` opens the board with the add-task form already up,
+# seeded from the workspace you launched it from.
+
+id = "herdr-kanban"
+name = "Herdr Kanban"
+version = "0.1.0"
+min_herdr_version = "0.9.0"
+description = "Kanban board for agent work: plan tasks per workspace and agent, dispatch them into live panes, and watch their state."
+platforms = ["linux", "macos"]
+
+# The board itself. `overlay` opens a temporary zoomed overlay over the active
+# pane and restores focus and zoom when it closes; set `ui.placement = "popup"`
+# in the plugin config to open it as a centred modal instead.
+[[panes]]
+id = "board"
+title = "Kanban"
+placement = "overlay"
+command = ["bash", "launcher.sh", "board"]
+
+[[actions]]
+id = "open"
+title = "Kanban: open board"
+description = "Open the kanban board overlay."
+contexts = ["global", "workspace"]
+command = ["bash", "launcher.sh", "open"]
+
+[[actions]]
+id = "quick-add"
+title = "Kanban: quick add task"
+description = "Open the board with the add-task form, seeded from the current workspace."
+contexts = ["global", "workspace"]
+command = ["bash", "launcher.sh", "open", "--quick-add"]

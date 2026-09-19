@@ -119,6 +119,9 @@ same pattern: add host metadata, then reuse shared modules.
 - **Dev toolchains** — `nodejs.nix` (Bun default + Node 22/20, TS tooling),
   `python.nix` (Python 3.14 + uv, ruff, mypy), `packages.nix` (ripgrep, fd,
   bat, eza, fzf, direnv, nh, lazygit, … — see the file for the full list).
+  The generated `~/.npmrc` deliberately omits `prefer-offline` so npm
+  revalidates registry metadata instead of serving stale packuments (the
+  `ETARGET` failure this caused is described in [docs/ai.md](ai.md)).
 - **fastfetch** (`fastfetch.nix`) — `fastfetch` replaces `neofetch`, with a
   clean JSON config.
 
@@ -150,8 +153,13 @@ Herdr) that run in this shell.
 | `modules/home/nix.nix` | `~/.config/nix/nix.conf` (Determinate Nix) |
 | `modules/home/1password-agent.nix` | 1Password SSH agent key mappings |
 | `modules/home/nixvim/` | Neovim (nvf) with LSP/Treesitter |
-| `modules/home/zed/` | Zed editor settings and keybindings |
 | `modules/home/ai/` | AI agents — see [docs/ai.md](ai.md) |
+
+### Disabled modules
+
+| Directory | Status |
+|-----------|--------|
+| `modules/home/zed/` | Present but not imported — `./zed` is commented out in `modules/home/default.nix`, so Zed is configured by hand. The `zed-extensions` overlay (`flake-parts/darwin.nix`) and the `zed-extensions` input (`flake.nix`) remain so re-enabling is a one-line change. |
 
 ## Troubleshooting
 

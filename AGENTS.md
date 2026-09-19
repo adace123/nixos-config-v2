@@ -249,7 +249,8 @@ These are the repo's living docs — keep them in sync with the code:
 - `docs/home-assistant.md` — HA layout, integrations, automations, backups link
 - `docs/backups.md` — Restic → R2 backups, schedule, retention, restore, DR
 - `docs/dathomir.md` — OCI Always-Free VPS + `infra/` OpenTofu workflow
-- `docs/ai.md` — AI agents (Claude, OpenCode, Pi, Hermes, Herdr), skills
+- `docs/ai.md` — AI agents (Claude, OpenCode, Pi, Hermes, Herdr)
+- `docs/kanban.md` — the herdr-kanban board: cards, keys, the agent protocol, config, skills
 - `docs/deployment.md` — deploy/rollback/GC + CI (GitHub Actions) reference
 - `docs/secrets.md` — SOPS secrets workflow
 - `scripts/README.md` — helper shell scripts (incl. `ai-selector`)
@@ -261,6 +262,9 @@ These are the repo's living docs — keep them in sync with the code:
 - **Adding/renaming a `just` recipe or script** → note it in the doc that lists commands. New package/homebrew installs belong in the relevant module doc or `darwin.md`/`nixos.md` "Adding Packages" section.
 - **Changing secrets, services, infrastructure, or CI** → update `secrets.md`, the host/module doc, `deployment.md`/`dathomir.md`, and `infra/README.md` as applicable.
 - **New AI agent or skill** → update `docs/ai.md`.
+- **Board behaviour, keys, protocol or config** → update `docs/kanban.md`. Its
+  protocol block is checked against `PROTOCOL_TEMPLATE` by a pre-commit hook
+  (`scripts/check-kanban-protocol-sync.sh`), so change both or the commit fails.
 - **Backup/restore/retention changes** → update `docs/backups.md`.
 - Keep the doc's table of contents / file trees accurate; prune dead references. Docs are linted by `markdownlint` in pre-commit.
 

@@ -1,0 +1,218 @@
+/* herdr-kanban — Catppuccin Mocha styling for the board and its dialogs.
+ *
+ * The board itself is drawn by the renderer (so the pane stays a single widget
+ * and clicks line up with what is on screen); this file styles the screen
+ * background and the modal dialogs around it.
+ */
+
+Screen {
+    background: #1e1e2e;
+    color: #cdd6f4;
+}
+
+BoardWidget {
+    width: 1fr;
+    height: 1fr;
+}
+
+ModalScreen {
+    align: center middle;
+    background: #11111b 70%;
+}
+
+/* -- dialog chrome --------------------------------------------------------- */
+
+#dialog,
+#task-form,
+#dispatch-form,
+#filter-form,
+#help-dialog,
+#confirm-dialog {
+    background: #181825;
+    border: round #45475a;
+    border-title-color: #b4befe;
+    padding: 1 2;
+    width: 84;
+    max-width: 96%;
+    height: auto;
+    max-height: 90%;
+}
+
+/* The long forms and the help text size to the screen and scroll their body,
+ * so the buttons and the hint line are always reachable on a short terminal. */
+#task-form,
+#dispatch-form,
+#help-dialog {
+    height: 90%;
+}
+
+#dialog-body {
+    height: 1fr;
+}
+
+#filter-form #dialog-body,
+#confirm-dialog #dialog-body {
+    height: auto;
+}
+
+#dispatch-form,
+#task-form {
+    width: 92;
+}
+
+#help-dialog {
+    width: 96;
+}
+
+#filter-form,
+#confirm-dialog {
+    width: 72;
+}
+
+#dialog-title {
+    color: #cdd6f4;
+    text-style: bold;
+    padding: 0 0 1 0;
+}
+
+#dialog-hint {
+    color: #6c7086;
+    padding: 1 0 0 0;
+}
+
+#dialog-buttons {
+    height: auto;
+    align-horizontal: right;
+    padding: 1 0 0 0;
+}
+
+#dialog-buttons Button {
+    margin-left: 2;
+    min-width: 12;
+}
+
+.field-label {
+    color: #89b4fa;
+    padding: 1 0 0 0;
+}
+
+.field-note {
+    color: #6c7086;
+    padding: 0 0 1 0;
+}
+
+.field-row {
+    height: auto;
+}
+
+.field-col {
+    width: 1fr;
+    height: auto;
+    padding-right: 1;
+}
+
+Input,
+Select,
+TextArea {
+    background: #313244;
+    border: tall #45475a;
+    color: #cdd6f4;
+}
+
+Input:focus,
+Select:focus {
+    border: tall #89b4fa;
+}
+
+TextArea {
+    height: 6;
+    border: tall #45475a;
+}
+
+TextArea:focus {
+    border: tall #89b4fa;
+}
+
+#dispatch-prompt {
+    height: 9;
+}
+
+#field-notes {
+    height: 5;
+}
+
+Button {
+    background: #313244;
+    color: #cdd6f4;
+    border: none;
+    height: 3;
+}
+
+Button.-primary {
+    background: #89b4fa;
+    color: #11111b;
+    text-style: bold;
+}
+
+Button.-error {
+    background: #f38ba8;
+    color: #11111b;
+    text-style: bold;
+}
+
+Button.-success {
+    background: #a6e3a1;
+    color: #11111b;
+    text-style: bold;
+}
+
+Button:focus {
+    border: tall #b4befe;
+}
+
+/* -- detail ---------------------------------------------------------------- */
+
+#detail-facts,
+#detail-notes,
+#detail-updates,
+#detail-tail {
+    background: #1e1e2e;
+    border: round #313244;
+    padding: 0 1;
+    height: auto;
+    width: 1fr;
+}
+
+#detail-facts {
+    color: #bac2de;
+}
+
+#detail-tail {
+    color: #a6adc8;
+    max-height: 18;
+}
+
+#detail-notes,
+#detail-updates {
+    color: #cdd6f4;
+    max-height: 10;
+}
+
+#dispatch-reuse {
+    color: #fab387;
+    border: round #fab387;
+    padding: 0 1;
+    height: auto;
+}
+
+/* -- help and confirm ------------------------------------------------------ */
+
+#help-text {
+    color: #bac2de;
+    height: auto;
+}
+
+#confirm-message {
+    color: #cdd6f4;
+    height: auto;
+}

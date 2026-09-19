@@ -16,6 +16,25 @@ just switch HOST=endor
 Requires Homebrew. If Homebrew is not installed, `just switch` installs it
 automatically.
 
+`switch` runs the build through `tee` and passes `--no-nom` to `nh`: the log is
+captured for the failure path, and plain streaming build logs also sidestep
+nix-output-monitor's TUI, which renders poorly on a pipe and can leave the
+terminal in synchronized-output mode (no visible output) if it dies mid-build.
+
+### When a switch fails
+
+If the build/activation fails, the recipe prints the failure and pipes the log
+into `pi` (`pi -p --no-session --approve @<log> ...`) for automated diagnosis
+and fixing. Pi edits the repo to address the root cause but does not re-run the
+switch itself — re-run `just switch` after it reports back.
+
+- `PI_FIX=0 just switch` — skip the auto-fix; the log path is printed so you can
+  inspect it yourself.
+- Interrupts (`Ctrl-C`) exit 130 and a signal-killed build (e.g. 134/SIGABRT)
+  exits with that status *without* calling pi — those are not config errors.
+- The build log is a temp file (path printed on failure) and is kept, so it can
+  be read after the run.
+
 ### Preview changes without applying
 
 ```bash

@@ -63,6 +63,10 @@
       ls = "${pkgs.eza}/bin/eza --color=always --icons=always";
       lg = "${pkgs.lazygit}/bin/lazygit";
       update = "nh darwin switch";
+      # Pi extension updates: force npm to revalidate cached registry metadata
+      # (env config outranks every .npmrc). See docs/ai.md for the stale-packument
+      # `ETARGET` failure this avoids, and `just npm-cache-check` to diagnose it.
+      pi-update = "NPM_CONFIG_PREFER_OFFLINE=false pi update --extensions";
       python = "python3";
       cat = "bat";
       ts = "tailscale";

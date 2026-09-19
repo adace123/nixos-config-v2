@@ -12,6 +12,11 @@
       inputs',
       ...
     }:
+    let
+      # The kanban board's headless checks. Built here so the hook runs the same
+      # packaged artifact the herdr plugin launches, not the working tree.
+      kanban = import ../modules/home/ai/herdr/kanban-package.nix { inherit pkgs; };
+    in
     {
       # Formatter used by `nix fmt` (kept in sync with the pre-commit nixfmt hook)
       # nixfmt-tree discovers the git tree itself — bare nixfmt reads stdin and
@@ -50,6 +55,32 @@
           description = "Verify flake.nix nixConfig matches nix-caches.nix";
           entry = "${pkgs.bash}/bin/bash ${../scripts/check-nix-caches-sync.sh}";
           files = "^(flake\.nix|nix-caches\.nix)$";
+          pass_filenames = false;
+        };
+
+        # The board is launched into a herdr pane, so anything broken at import
+        # or in the store/render paths shows up as a pane that opens and closes.
+        # These run the packaged app (its own store build, so a module the flake
+        # cannot see fails here too) whenever the plugin changes.
+        kanban-selftest = {
+          enable = true;
+          name = "kanban-selftest";
+          description = "Run the herdr-kanban board's headless checks";
+          entry = "${kanban.cli}/bin/herdr-kanban --selftest";
+          files = "^(modules/home/ai/herdr/plugins/kanban/|modules/home/ai/herdr/kanban-package\.nix)";
+          pass_filenames = false;
+        };
+
+        # The board protocol is both documentation and a prompt an agent acts on:
+        # it lives in the Python source and is quoted in docs/kanban.md, and it
+        # has drifted before. This fails when the two disagree, so the docs
+        # cannot promise an agent something the prompt never tells it.
+        check-kanban-protocol-sync = {
+          enable = true;
+          name = "check-kanban-protocol-sync";
+          description = "Verify the protocol in docs/kanban.md matches PROTOCOL_TEMPLATE";
+          entry = "${pkgs.bash}/bin/bash ${../scripts/check-kanban-protocol-sync.sh} ${kanban.python}/bin/python ${kanban.app}/share/herdr-kanban";
+          files = "^(docs/kanban\.md|scripts/check-kanban-protocol-sync\.sh|modules/home/ai/herdr/plugins/kanban/)";
           pass_filenames = false;
         };
 

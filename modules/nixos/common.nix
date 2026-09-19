@@ -80,11 +80,9 @@ in
   services.logrotate.enable = true;
 
   # Configure journald for persistent logging
-  services.journald = {
-    extraConfig = ''
-      Storage=persistent
-      MaxRetentionSec=1month
-    '';
+  services.journald.settings.Journal = {
+    Storage = "persistent";
+    MaxRetentionSec = "1month";
   };
 
   # Tailscale for secure remote access

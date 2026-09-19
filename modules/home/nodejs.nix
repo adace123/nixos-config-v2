@@ -72,9 +72,17 @@
       '';
 
       # npm configuration (for when using Node directly)
+      #
+      # Deliberately no `prefer-offline=true`: npm maps it to HTTP cache mode
+      # `force-cache`, which serves cached registry metadata of any age. The
+      # registry serves the compressed and full packuments for a package
+      # separately (`vary: accept`), so a stale full copy can advertise a
+      # `latest` dist-tag it does not contain — npm then dies with `ETARGET No
+      # matching version found for <pkg>@<version>`, and `npm view` reports old
+      # versions. Default revalidation is cheap: metadata is `max-age=300` and
+      # tarballs stay cached.
       ".npmrc".text = ''
         # Performance
-        prefer-offline=true
         progress=false
 
         # Security

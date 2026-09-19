@@ -23,7 +23,7 @@ in
     settings = {
       hideThinkingBlock = true;
       defaultProvider = "opencode-go";
-      defaultModel = "muse-spark-1.3-contributor";
+      defaultModel = "deepseek-v4.1-flash";
       defaultThinkingLevel = "high";
       quietStartup = true;
       packages = [
@@ -32,16 +32,11 @@ in
         "npm:pi-powerline-footer"
         "npm:pi-mcp-adapter"
         "npm:pi-subagents"
-        # Latest git release (v0.23.0) is 6 releases ahead of npm (0.17.1) —
-        # pin the tag for reproducibility (unpinned git floats on main).
-        "git:github.com/nicobailon/pi-web-access@v0.23.0"
+        "git:github.com/nicobailon/pi-web-access"
         "npm:context-mode"
         "npm:@juicesharp/rpiv-todo"
-        # @juicesharp/rpiv-ask-user-question and rpiv-advisor 2.4.0+ depend on
-        # @juicesharp/rpiv-config@^2.4.0, which was never published (rpiv-config
-        # tops out at 2.3.1) — pin 2.3.1, whose config ^2.3.1 resolves cleanly and
-        # matches rpiv-todo's dependency.
-        "npm:@juicesharp/rpiv-ask-user-question@2.3.1"
+        "npm:@juicesharp/rpiv-ask-user-question"
+        "npm:@juicesharp/rpiv-advisor"
         "npm:@ff-labs/pi-fff"
       ];
     };
@@ -56,6 +51,22 @@ in
   # Skills spec (https://agentskills.io/specification). Common skills come
   # from ./skills.nix; Pi-only skills are declared here.
   home.file = {
+    # pi installs its npm extensions with `npm install --prefix
+    # ~/.pi/agent/npm`, and npm reads the `.npmrc` of that prefix as its
+    # *project* config — so this only affects pi's package installs/updates.
+    #
+    # It overrides prefer-offline=true from ~/.npmrc, which npm maps to HTTP
+    # cache mode `force-cache`: cached registry metadata is reused no matter how
+    # stale it is. The registry serves two packuments per package (compressed
+    # "corgi" and full) and they are cached separately (the response carries
+    # `vary: accept`), so the full copy is only refreshed by a full-metadata
+    # request. Once it lags behind, it advertises a `latest` dist-tag taken from
+    # the fresh corgi copy while missing that version, and `pi update
+    # --extensions` dies with `ETARGET No matching version found for <pkg>@<v>`.
+    # prefer-offline=false restores normal revalidation (metadata is
+    # `max-age=300`) and keeps updates working.
+    ".pi/agent/npm/.npmrc".text = "prefer-offline=false\n";
+
     ".pi/agent/mcp.json".text = builtins.toJSON {
       mcpServers = {
         context7 = {
@@ -70,6 +81,11 @@ in
     ".pi/agent/skills/commit-all" = {
       source = ./skills/commit-all;
       recursive = true;
+    };
+
+    ".config/rpiv-advisor/advisor.json".text = builtins.toJSON {
+      modelKey = "opencode-go/glm-5.3-flash";
+      effort = "high";
     };
   }
   // commonSkills.piFiles;
@@ -92,7 +108,7 @@ in
       tinyfishApiKey = config.sops.placeholder.tinyfish-api-key;
       provider = "tinyfish";
       autoOpenBrowser = false;
-      summaryModel = "opencode-go/deepseek-v4-flash";
+      summaryModel = "opencode-go/deepseek-v4.1-flash";
     };
     path = "${config.home.homeDirectory}/.config/pi/web-search.json";
   };

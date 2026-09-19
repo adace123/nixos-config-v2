@@ -12,9 +12,11 @@ modules/home/ai/
 ├── hermes.nix      # Hermes (a Pi-compatible agent)
 ├── herdr/          # Herdr terminal multiplexer
 │   ├── herdr.nix   #   config.toml + plugin deployment
-│   └── plugins/    #   installed .sh plugins
+│   ├── kanban-package.nix # packaging for the kanban board (Textual TUI)
+│   └── plugins/    #   installed herdr plugins
 │       ├── picker/ #   herdr-picker (generic fuzzy picker)
-│       └── automations/ # herdr-automations (cron-scheduled agent runs)
+│       ├── automations/ # herdr-automations (cron-scheduled agent runs)
+│       └── kanban/ #   herdr-kanban (board: workspace + agent tasks)
 ├── shared.nix      # Shared rules / code-reviewer / commands across agents
 └── skills.nix      # Skills synced from the mattpocock/skills flake input
 ```
@@ -84,6 +86,20 @@ Pi is a Rust-based conversational coding agent.
 - Ships many Pi packages/extensions (subagents, context-mode, todo, web-access,
   powerline footer, fff, etc.) — pins noted in `pi.nix` for reproducibility
   (some git/npm versions intentionally differ).
+- **`~/.pi/agent/npm/.npmrc`** — pins `prefer-offline=false` for pi's own
+  extension installs (`npm install --prefix ~/.pi/agent/npm`, where npm reads it
+  as the project config), so `pi update --extensions` revalidates registry
+  metadata even if `prefer-offline` is re-added user-wide. Why it matters: npm
+  maps `prefer-offline=true` to HTTP cache mode `force-cache`, which serves
+  cached metadata of any age, and the registry caches the full and compressed
+  packuments separately (`vary: accept`) — so a stale full copy can advertise a
+  `latest` version it does not contain and npm aborts with
+  `ETARGET No matching version found for <pkg>@<version>`.
+- **Extension updates** — run `pi-update` (a `pi update --extensions` alias that
+  sets `NPM_CONFIG_PREFER_OFFLINE=false`); env config outranks `.npmrc`, so it
+  stays authoritative even where a stale cache would otherwise win. To diagnose
+  a recurrence, `just npm-cache-check` flags the precondition offline, and
+  `npm cache verify` clears it (details in `scripts/README.md`).
 - **`~/.pi/agent/mcp.json`** — `context7` + `grep-mcp` (read by `pi-mcp-adapter`).
 - **`~/.pi/agent/skills/`** — global auto-discovered skill location; populated
   with the shared skills plus the `commit-all` skill.
@@ -106,7 +122,41 @@ Pi is a Rust-based conversational coding agent.
 
 [Herdr](https://github.com/nikki93/herdr) is a terminal multiplexer that hosts
 agents. `config.toml` is Nix-managed with a Catppuccin theme, pane/workspace
-keybindings, and prefixed popup commands (lazygit, a Pi `commit-all` popup).
+keybindings, prefixed popup commands (lazygit, a Pi `commit-all` popup), and the
+kanban board on **`prefix+k`** plus quick capture on **`ctrl+shift+k`** (see
+[Herdr Kanban plugin](#herdr-kanban-plugin)).
+
+### `config.toml` ownership and plugin-rewritten blocks
+
+`xdg.configFile."herdr/config.toml"` makes `~/.config/herdr/config.toml` a
+**read-only symlink into the Nix store**. Herdr itself is fine with that, but a
+plugin that *rewrites* the file (herdr-radar, herdr-tsk, herdr-picker settings)
+writes a temp file and renames it into place, which **replaces the symlink with
+a real file**. Two consequences:
+
+- The next `just switch` finds a real file where it expects its symlink, backs
+  it up to `config.toml.bak` and restores the symlink — so everything the
+  plugin wrote (including its managed blocks) is silently dropped, and only the
+  keys in `herdr.nix` survive. Put anything you want to keep across a switch
+  into `herdr.nix`, not the live file.
+- Removing such a plugin without unwinding its config leaves **orphaned
+  managed blocks** behind. Fenced `# >>> <plugin> … block` regions written by
+  herdr-radar are the known case: they redefine `[ui.sidebar.agents]` /
+  `[ui.sidebar.spaces]` rows using only plugin-supplied `$`-tokens (e.g.
+  `$title_working`, `$space_label`). Herdr drops tokens whose metadata is never
+  reported, and drops a row when none of its tokens have a value — so once the
+  plugin stops reporting, Spaces and Agents render with **no titles at all**.
+
+  Uninstall in the plugin's documented order (`herdr plugin action invoke
+  hhdebb.herdr-radar.unconfigure` *before* `herdr plugin uninstall …`) so the
+  blocks and tokens are cleared. To recover after the fact, delete the fenced
+  blocks from `~/.config/herdr/config.toml` (or reinstall the plugin) and run
+  `herdr server reload-config`; without those tables Herdr falls back to its
+  built-in rows, which use `state_icon` / `workspace` / `agent` and always
+  render. Herdr-radar also adds a `[ui] tab_bar_right` command that reads
+  `~/.local/state/herdr/plugins/hhdebb.herdr-radar/tabbar.txt` every few
+  seconds — that entry keeps failing in `herdr-server.log` until the block is
+  removed.
 
 ### Herdr Picker plugin
 
@@ -256,6 +306,22 @@ Same wizard via `automations.sh new`.
 First run seeds a disabled
 `example-cron.toml`; automation files are user data and are never overwritten
 by later `just switch` runs.
+
+### Herdr Kanban plugin
+
+A board for agent work: every card carries the workspace it belongs to, the
+agent that should do it, and that agent's live state. Press `s` on a card and
+the board opens a tab in that workspace, starts the agent there, and hands it
+the task; found work becomes a linked card instead of a lost sentence in chat.
+
+**It has its own manual: [docs/kanban.md](kanban.md).** The shortcuts worth
+knowing from here:
+
+- `prefix+k` — the board, as an overlay over the current pane
+- `ctrl+shift+k` — capture a task in a popup; `^n` on that form saves **and**
+  sends it in one keystroke
+- `s` — send the selected card, `!` — show only the cards whose agents are
+  waiting on an answer
 
 ## Adding / changing agents
 

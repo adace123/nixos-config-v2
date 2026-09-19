@@ -13,6 +13,19 @@
     font-size = 13
     font-thicken = true
 
+    # herdr-radar's icon font (installed by that plugin into ~/Library/Fonts)
+    # owns two private-use ranges: vendor logos at U+E1A0-E1B7 and lifecycle
+    # marks at U+E1C0-E1C5. The plugin's own `install-font` action writes these
+    # two lines into a terminal config — but only into one it can own, and this
+    # file belongs to home-manager, so it has never been written and the layout
+    # kept drawing whatever CJK font claims that area (radar's README: "adding it
+    # as a fallback family is not enough"). Same reason herdr-radar's sidebar
+    # icons need it. Ranges are radar's own `lib/font.js` RANGES — U+E1A0-E1B7 is
+    # derived from its glyph table, and a hardcoded shorter range silently drops
+    # the newest vendor.
+    font-codepoint-map = U+E1A0-U+E1B7="Herdr Agent Icons Max"
+    font-codepoint-map = U+E1C0-U+E1C5="Herdr Agent Icons Max"
+
     # Font features (ligatures)
     font-feature = -calt
     font-feature = -liga
