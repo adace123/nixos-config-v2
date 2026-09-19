@@ -266,7 +266,21 @@ These are the repo's living docs — keep them in sync with the code:
   protocol block is checked against `PROTOCOL_TEMPLATE` by a pre-commit hook
   (`scripts/check-kanban-protocol-sync.sh`), so change both or the commit fails.
 - **Backup/restore/retention changes** → update `docs/backups.md`.
+- **Transient plan/design artifacts** → write them to `.pi/plans/`, never `docs/`. See [Plan Artifacts](#plan-artifacts).
 - Keep the doc's table of contents / file trees accurate; prune dead references. Docs are linted by `markdownlint` in pre-commit.
+
+### Plan Artifacts
+
+Transient agent planning artifacts (implementation plans, design scratch notes)
+belong in **`.pi/plans/`**. That directory is globally gitignored, so plan files
+stay out of `git status` in every repo — including this one, where `.pi/mcp.json`
+is the only tracked file under `.pi/`.
+
+Do **not** put plans in `docs/`. Everything under `docs/` is a living doc listed
+in the [Documentation Map](#documentation-map) above; one-off plans are not, and
+creating them there leaves untracked files in the tree and invites stale entries
+in the map. Keep the plan in `.pi/plans/<topic>.md` and reference the tracking
+card (`nixos-*` / `kanban-*`) in the plan itself, not in a doc index.
 
 ### Committing
 

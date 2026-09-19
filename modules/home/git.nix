@@ -157,6 +157,9 @@
       *.swo
       *~
 
+      # AI agent plan artifacts (transient, repo-local, never committed)
+      .pi/plans/
+
       # Logs
       logs/
       *.log
