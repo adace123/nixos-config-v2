@@ -83,6 +83,16 @@ in
       recursive = true;
     };
 
+    # OpenCode Go/Zen reject a request without `x-opencode-session` with
+    # `400 MissingSessionID`. Pi sends it on its own requests, but that merge
+    # lives in the coding agent's stream wrapper, so an extension running a
+    # model itself — `@juicesharp/rpiv-advisor`'s reviewer side-call — never gets
+    # it and the tool fails while the executor works. This extension registers
+    # the session's own id as a provider header on `session_start`, which lands
+    # on both paths and makes extension side-calls work. See the file header and
+    # docs/ai.md.
+    ".pi/agent/extensions/opencode-session.ts".source = ./pi-extensions/opencode-session.ts;
+
     ".config/rpiv-advisor/advisor.json".text = builtins.toJSON {
       modelKey = "opencode-go/glm-5.3-flash";
       effort = "high";

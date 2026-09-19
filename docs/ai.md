@@ -9,6 +9,7 @@ modules/home/ai/
 ├── claude.nix      # Claude Code
 ├── opencode.nix    # OpenCode
 ├── pi.nix          # Pi (pi-coding-agent) + its MCP + skills
+├── pi-extensions/  # Pi-only extensions (OpenCode session headers)
 ├── hermes.nix      # Hermes (a Pi-compatible agent)
 ├── herdr/          # Herdr terminal multiplexer
 │   ├── herdr.nix   #   config.toml + plugin/extension deployment
@@ -104,10 +105,41 @@ Pi is a Rust-based conversational coding agent.
 - **`~/.pi/agent/mcp.json`** — `context7` + `grep-mcp` (read by `pi-mcp-adapter`).
 - **`~/.pi/agent/skills/`** — global auto-discovered skill location; populated
   with the shared skills plus the `commit-all` skill.
+- **`~/.pi/agent/extensions/opencode-session.ts`** — `pi-extensions/opencode-session.ts`
+  via `home.file`; see [OpenCode session headers](#opencode-session-headers-pi-extensions).
 - **`~/.config/pi/web-search.json`** — TinyFish search config rendered at
   activation from the `tinyfish-api-key` SOPS secret. Note the path: because
   this machine sets `XDG_CONFIG_HOME`, the runtime reads `~/.config/pi/`, not
   `~/.pi/`.
+
+### OpenCode session headers (`pi-extensions/`)
+
+OpenCode Go/Zen answer `400 MissingSessionID` to a request that does not carry
+`x-opencode-session` — the id routes the conversation and keeps its prompt cache
+warm ([opencode.ai/docs/go](https://opencode.ai/docs/go/#where-can-i-use-it)).
+Pi sends it on its own requests: the agent loop passes its session id to the
+model runtime, whose `transformHeaders` adds `x-opencode-session` /
+`x-opencode-client`. That merge lives in the coding agent's stream wrapper, so
+it covers only Pi's main request path.
+
+An extension that runs a model **itself** — the shape needed to call a model
+inside a tool call — goes through `ModelRuntime.completeSimple`, which applies
+the provider's configured headers but never Pi's per-session ones. With an
+`opencode-go` reviewer, `@juicesharp/rpiv-advisor` (2.10.1, latest) therefore
+fails with `400 MissingSessionID` while the executor model works fine.
+`modules/home/ai/pi-extensions/opencode-session.ts` closes the gap: on
+`session_start` it registers `x-opencode-session` as a **provider header**
+(`pi.registerProvider()` with headers and no `models` preserves the provider's
+models and auth, and those headers are resolved into every request's auth
+headers on *both* paths). The value is the session's own id — the same
+`sessionManager.getSessionId()` Pi passes to its wrapper — so Pi's own traffic is
+unchanged and extension side-calls start working. Providers outside OpenCode are
+left alone.
+
+Extensions load at Pi startup: restart Pi (or `/reload`) after a switch.
+Verified in print mode — without the extension the advisor returns
+`400 MissingSessionID`; with it, a real GLM-5.3-Flash answer (checked both loaded
+with `-e` and auto-discovered from an `extensions/` directory).
 
 ## Hermes (`hermes.nix`)
 
