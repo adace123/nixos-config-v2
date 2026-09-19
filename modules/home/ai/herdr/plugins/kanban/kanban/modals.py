@@ -443,6 +443,9 @@ class TaskDetailModal(Dialog):
         self.workspace_ok = workspace_ok
         self.icon_mode = icon_mode
         self.agent_title = agent_title
+        # Archived cards are out of play: the detail view still shows one, but
+        # ticking a step would write through a store that no longer holds it.
+        self.archived = bool(task.archived_at)
 
     @property
     def target(self) -> str:
@@ -454,6 +457,11 @@ class TaskDetailModal(Dialog):
         return f"{self.subject.id}  {truncate(self.subject.title, 60)}"
 
     def hint_text(self) -> str:
+        if self.archived:
+            return (
+                "archived card · f agent · o workspace · x stop agent"
+                " · r agent output · d delete · esc close"
+            )
         steps = "1-9 tick a step · " if self.subject.steps else ""
         return (
             f"{steps}s send · e edit · f agent · o workspace · x stop agent"
@@ -466,6 +474,8 @@ class TaskDetailModal(Dialog):
 
     def on_key(self, event: events.Key) -> None:
         """Digits tick the matching checklist entry, without reaching for the CLI."""
+        if self.archived:
+            return
         if len(event.key) != 1 or not event.key.isdigit() or event.key == "0":
             return
         index = int(event.key)
@@ -935,6 +945,8 @@ class HelpModal(Dialog):
                     "  ⏎            detail (with the agent's output)",
                     "  a e d        add / edit / delete a task",
                     "  A            archive a card (kept; unarchive to restore)",
+                    "  v            show / hide the archived column",
+                    "  u            unarchive the selected card",
                     "  s            send the card to its agent",
                     "  f o p        focus the agent / workspace / pane in herdr",
                     "  / w c        filter · workspace filter · clear filters",
@@ -963,7 +975,8 @@ class HelpModal(Dialog):
                     "  x stops a card's agent (its tab) without deleting the card; deleting",
                     "  a card stops its agent too (auto_delete_agent = false keeps it).",
                     "  A archives a card instead: it leaves the board but keeps its record,",
-                    "  and its agent is left running. herdr-kanban unarchive <id> brings it back.",
+                    "  and its agent is left running. Press v to show the Archived column,",
+                    "  then u to restore one (or herdr-kanban unarchive <id>).",
                     "",
                     "[b]Where tasks live[/b]",
                     f"  {self.board_path or 'the plugin state directory'}",

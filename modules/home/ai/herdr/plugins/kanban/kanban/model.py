@@ -11,10 +11,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from . import icons
-from .config import Config
+from .config import Column, Config
 from .herdr import Agent, Workspace
 from .render import BoardView, CardView, ColumnView, format_age
 from .store import Task
+
+# The archive as a board column. It is not a configured column — its cards live
+# in `Store.archived`, not in `tasks` — so it is built here rather than read from
+# `config.columns`, and shown only when `UiState.show_archived` is on. The id is
+# reserved: a configured column called `archived` would collide with it.
+ARCHIVED_COLUMN = Column("archived", "Archived")
 
 
 @dataclass
@@ -100,6 +106,10 @@ class UiState:
     workspace_filter: str = ""
     # The `!` key: only the cards whose agents are blocked, wherever they live.
     only_blocked: bool = False
+    # The `v` key: whether the archive is drawn as a column at the right edge.
+    # Off by default — archived cards are out of play, and the board is for the
+    # work in it.
+    show_archived: bool = False
     notice: str = ""
     frame: int = 0
     scroll: dict[str, int] = field(default_factory=dict)
@@ -154,6 +164,37 @@ def task_matches(task: Task, query: str, workspace_label: str) -> bool:
     return all(term in haystack for term in terms)
 
 
+def task_visible(task: Task, live: LiveState, ui: UiState) -> bool:
+    """Whether a card passes the active filters.
+
+    Shared by the live columns and the archived one, so a filter cannot mean one
+    thing on the board and another in the archive.
+    """
+    if ui.only_blocked and live.for_task(task)[0] != "blocked":
+        return False
+    if ui.workspace_filter:
+        if (
+            task.workspace_id != ui.workspace_filter
+            and live.workspace_label(task) != ui.workspace_filter
+        ):
+            return False
+    return task_matches(task, ui.filter_text, live.workspace_label(task))
+
+
+def _card_view(task: Task, live: LiveState, ui: UiState) -> CardView:
+    """One card's live state, resolved once. Live and archived cards alike."""
+    status, online = live.for_task(task)
+    return CardView(
+        task=task,
+        status=status,
+        agent_online=online,
+        workspace_ok=live.workspace_ok(task),
+        agent_kind=live.kind_hint(task),
+        workspace_number=live.workspace_number(task),
+        frame=ui.frame,
+    )
+
+
 def visible_tasks(
     config: Config,
     tasks: list[Task],
@@ -164,20 +205,7 @@ def visible_tasks(
     known = set(config.column_ids)
     unknown = [task for task in tasks if task.status not in known]
     candidates = [task for task in tasks if task.status in known]
-
-    shown: list[Task] = []
-    for task in candidates:
-        if ui.only_blocked and live.for_task(task)[0] != "blocked":
-            continue
-        if ui.workspace_filter:
-            if (
-                task.workspace_id != ui.workspace_filter
-                and live.workspace_label(task) != ui.workspace_filter
-            ):
-                continue
-        if not task_matches(task, ui.filter_text, live.workspace_label(task)):
-            continue
-        shown.append(task)
+    shown = [task for task in candidates if task_visible(task, live, ui)]
     return shown, len(candidates) - len(shown), len(unknown)
 
 
@@ -190,27 +218,16 @@ def build_view(
     height: int,
     board_path: str = "",
     icon_mode: str = "brand",
+    archived: list[Task] | None = None,
 ) -> BoardView:
+    archived = archived or []
     shown, hidden, orphaned = visible_tasks(config, tasks, live, ui)
 
     columns: list[ColumnView] = []
     for index, column in enumerate(config.columns):
-        cards: list[CardView] = []
-        for task in shown:
-            if task.status != column.id:
-                continue
-            status, online = live.for_task(task)
-            cards.append(
-                CardView(
-                    task=task,
-                    status=status,
-                    agent_online=online,
-                    workspace_ok=live.workspace_ok(task),
-                    agent_kind=live.kind_hint(task),
-                    workspace_number=live.workspace_number(task),
-                    frame=ui.frame,
-                )
-            )
+        cards = [
+            _card_view(task, live, ui) for task in shown if task.status == column.id
+        ]
         columns.append(
             ColumnView(
                 column=column,
@@ -218,6 +235,22 @@ def build_view(
                 accent=icons.column_accent(index),
                 wip_limit=config.wip_limit(column.id),
                 scroll=ui.scroll.get(column.id, 0),
+            )
+        )
+
+    if ui.show_archived:
+        archived_cards: list[CardView] = []
+        for task in archived:
+            if task_visible(task, live, ui):
+                archived_cards.append(_card_view(task, live, ui))
+            else:
+                hidden += 1
+        columns.append(
+            ColumnView(
+                column=ARCHIVED_COLUMN,
+                cards=archived_cards,
+                accent=icons.column_accent(len(columns)),
+                scroll=ui.scroll.get(ARCHIVED_COLUMN.id, 0),
             )
         )
 
@@ -231,11 +264,12 @@ def build_view(
         height=height,
         selected_id=ui.selected_id,
         selected_column=ui.selected_column,
-        tasks_total=len(tasks),
+        tasks_total=len(tasks) + (len(archived) if ui.show_archived else 0),
         hidden_total=hidden + orphaned,
         filter_text=ui.filter_text,
         workspace_filter=ui.workspace_filter,
         only_blocked=ui.only_blocked,
+        show_archived=ui.show_archived,
         icon_mode=icon_mode,
         show_age=config.show_age,
         stale_after_days=config.stale_after_days,
@@ -291,6 +325,7 @@ def selection_after_move(view: BoardView, ui: UiState) -> str:
 
 
 __all__ = [
+    "ARCHIVED_COLUMN",
     "LiveState",
     "UiState",
     "build_view",
@@ -299,5 +334,6 @@ __all__ = [
     "query_terms",
     "selection_after_move",
     "task_matches",
+    "task_visible",
     "visible_tasks",
 ]

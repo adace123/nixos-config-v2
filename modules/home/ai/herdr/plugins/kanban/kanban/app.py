@@ -127,8 +127,20 @@ class KanbanApp(App[None]):
     def tasks(self) -> list[Task]:
         return list(self._demo_tasks) if self.demo_mode else list(self.store.tasks)
 
+    def archived_tasks(self) -> list[Task]:
+        """Cards taken off the board, whether the `v` column is shown or not."""
+        return (
+            list(self._demo_archived) if self.demo_mode else list(self.store.archived)
+        )
+
     def task(self, task_id: str) -> Task | None:
-        return next((task for task in self.tasks() if task.id == task_id), None)
+        """A card by id — live, or archived when that is where it is."""
+        for task in self.tasks():
+            if task.id == task_id:
+                return task
+        return next(
+            (task for task in self.archived_tasks() if task.id == task_id), None
+        )
 
     def workspaces(self) -> list:
         return sorted(self.live.workspaces.values(), key=lambda item: item.number)
@@ -157,6 +169,7 @@ class KanbanApp(App[None]):
             height=max(6, height),
             board_path=str(self.store.path),
             icon_mode=self.icon_mode,
+            archived=self.archived_tasks(),
         )
 
     def refresh_board(self) -> None:
@@ -292,6 +305,21 @@ class KanbanApp(App[None]):
         else:
             self.store.set_status(task.id, status)
 
+    def _refuse_archived(self, task: Task, action: str) -> bool:
+        """True when `task` is archived and `action` cannot apply to it.
+
+        An archived card is off the board: moving, editing or sending it would
+        write through a store that no longer holds it. `u` is the way back, and
+        the notice says so.
+        """
+        if not task.archived_at:
+            return False
+        self.set_notice(
+            f"{task.id} is archived — press u to restore it before you {action}",
+            timeout=4,
+        )
+        return True
+
     def _update(self, task: Task, **fields: object) -> None:
         if self.demo_mode:
             for key, value in fields.items():
@@ -302,7 +330,7 @@ class KanbanApp(App[None]):
     def toggle_step(self, task_id: str, index: int) -> Task | None:
         """Tick or untick step `index` (1-based). Used by the detail view."""
         task = self.task(task_id)
-        if task is None or not 1 <= index <= len(task.steps):
+        if task is None or task.archived_at or not 1 <= index <= len(task.steps):
             return None
         done = not bool(task.steps[index - 1].get("done"))
         if self.demo_mode:
@@ -318,6 +346,8 @@ class KanbanApp(App[None]):
         task = self.selected_task()
         if task is None:
             self.set_notice("select a card first")
+            return
+        if self._refuse_archived(task, "move it"):
             return
         view = self.current_view()
         index = next(
@@ -347,6 +377,8 @@ class KanbanApp(App[None]):
         task = self.selected_task()
         if task is None:
             return
+        if self._refuse_archived(task, "reorder it"):
+            return
         if self.demo_mode:
             siblings = [t for t in self._demo_tasks if t.status == task.status]
             index = siblings.index(task)
@@ -371,7 +403,10 @@ class KanbanApp(App[None]):
         closed = self.close_agent(task) if self.config.auto_delete_agent else ""
         removed = self.remove_worktree(task) if remove_worktree else ""
         if self.demo_mode:
-            self._demo_tasks.remove(task)
+            if task.archived_at:
+                self._demo_archived.remove(task)
+            else:
+                self._demo_tasks.remove(task)
         else:
             self.store.delete(task.id)
         self.ui.selected_id = ""
@@ -392,6 +427,8 @@ class KanbanApp(App[None]):
         continues.
         """
         if self.demo_mode:
+            task.archived_from = task.status
+            task.archived_at = time.time()
             self._demo_tasks.remove(task)
             self._demo_archived.append(task)
         else:
@@ -406,6 +443,20 @@ class KanbanApp(App[None]):
             + (" · its agent is still running" if running else "")
             + f" — {CLI} unarchive {task.id} to restore"
         )
+
+    def unarchive_task(self, task: Task) -> None:
+        """Put an archived card back on the board, in the column it left."""
+        if self.demo_mode:
+            task.status = task.archived_from or task.status
+            task.archived_at = 0.0
+            task.archived_from = ""
+            self._demo_archived.remove(task)
+            self._demo_tasks.append(task)
+        else:
+            self.store.unarchive(task.id)
+        self.ui.selected_id = task.id
+        self._after_change()
+        self.set_notice(f"{task.id} restored to {self.config.label_for(task.status)}")
 
     def may_remove_worktree(self, task: Task) -> bool:
         """Whether deleting `task` could remove its checkout.
@@ -538,6 +589,8 @@ class KanbanApp(App[None]):
         task = self.selected_task()
         if task is None:
             self.set_notice("select a card first")
+            return
+        if self._refuse_archived(task, "edit it"):
             return
         self.push_screen(
             TaskFormModal(
@@ -679,9 +732,33 @@ class KanbanApp(App[None]):
         if task is None:
             self.set_notice("select a card first")
             return
+        if task.archived_at:
+            self.set_notice(f"{task.id} is already archived — press u to restore it")
+            return
         # No confirmation: unlike `d`, archiving keeps the card and the notice
         # names the one command that brings it back.
         self.archive_task(task)
+
+    def action_unarchive_task(self) -> None:
+        task = self.selected_task()
+        if task is None:
+            self.set_notice("select a card first")
+            return
+        if not task.archived_at:
+            self.set_notice(f"{task.id} is not archived")
+            return
+        self.unarchive_task(task)
+
+    def action_toggle_archived(self) -> None:
+        """Show or hide the Archived column (`v`)."""
+        self.ui.show_archived = not self.ui.show_archived
+        self._after_change()
+        self.set_notice(
+            "archived column shown — u restores a card"
+            if self.ui.show_archived
+            else "archived column hidden",
+            timeout=3,
+        )
 
     def _after_delete_confirm(self, confirmed: bool | None, task: Task) -> None:
         """The first confirm said delete; a checkout, if any, is asked about next.
@@ -793,6 +870,8 @@ class KanbanApp(App[None]):
         self.dispatch_task(task)
 
     def dispatch_task(self, task: Task) -> None:
+        if self._refuse_archived(task, "send it"):
+            return
         plan = self.plan_for_task(task)
         if not plan.workspace_id and not plan.reuses_running_agent:
             self.set_notice(f"{task.id} has no workspace — edit it first", timeout=6)
@@ -889,7 +968,9 @@ class KanbanApp(App[None]):
 
     def after_dispatch(self, task_id: str, plan: Plan, outcome: Outcome) -> None:
         task = self.task(task_id)
-        if task is None:
+        # An archived card is off the board: a dispatch that was in flight when it
+        # was archived has nothing left to write onto.
+        if task is None or task.archived_at:
             return
         target = self._dispatch_column(task.status)
         if self.demo_mode:

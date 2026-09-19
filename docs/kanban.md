@@ -78,7 +78,8 @@ in the detail view, in both agent pickers, and in `list`/`show`.
 jump to a column, `H`/`L` move a card between columns, `J`/`K` reorder inside a
 column, `⏎` detail (with the agent's recent output), `a` add, `e` edit, `d`
 delete (which also stops its agent), `A` archive (kept off the board, its agent
-left running), `x` stop the agent but keep the card, `s` send,
+left running), `v` show/hide the **Archived** column, `u` unarchive the selected
+card, `x` stop the agent but keep the card, `s` send,
 `!` show only the cards whose agents are waiting on you, `f` focus the agent,
 `o` focus the workspace, `p` focus the pane, `/` filter, `w` cycle the workspace
 filter, `c` clear every filter, `r` refresh, `?` help, `q` quit, and `1`-`9` in
@@ -269,6 +270,13 @@ of the column it came from, and `herdr-kanban list --archived` shows what is in
 there; an archived card is still `show`-able and still answers to its id or its
 number. `A` asks nothing first — unlike `d`, nothing is lost — and the footer
 names the `unarchive` that undoes it.
+
+Press `v` to draw the archive as a column at the right edge, and `v` again to
+put it away: it is off by default, because the board is for the work in it. In
+that column `u` restores the selected card to the column it left. An archived
+card there is out of play — `H`/`L`, `e` and `s` refuse and say so, `⏎` still
+opens it (read-only), `x` still stops a run that was left going, and `d`
+destroys the record for good, which is the one way to purge the archive.
 
 **Live state** is polled from `agent list` every `sync_seconds` (two by
 default), and `workspace list` on its own slower clock — workspaces are opened
@@ -603,6 +611,8 @@ columns = [ ... ]       # { id, label, role? } in order; ids are what tasks stor
                         # `review`, `done`, …) so renaming an id keeps behaviour;
                         # `done` is the human-only column, `doing` is where a
                         # send lands, and a working agent leaves a queued column
+                        # the id `archived` is reserved for the board's own
+                        # archive column (`v`); do not configure it
 default_agent = "pi"
 default_column = "backlog"
 # wip_limits = { doing = 5 }

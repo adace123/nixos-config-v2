@@ -602,11 +602,21 @@ class Store:
             return task
 
     def delete(self, task_id: str) -> Task | None:
+        """Destroy a card for good, live or archived.
+
+        The board's `d` reaches both: deleting an archived card is how a record
+        you no longer want is purged, and the caller stops its agent first just
+        as it does for a live one.
+        """
         with self._locked():
             task = self.by_id(task_id)
+            if task is not None:
+                self.board.tasks.remove(task)
+                return task
+            task = self.archived_by_id(task_id)
             if task is None:
                 return None
-            self.board.tasks.remove(task)
+            self.board.archived.remove(task)
             return task
 
     def archive(self, task_id: str) -> tuple[Task | None, str]:

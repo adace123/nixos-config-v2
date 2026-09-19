@@ -309,6 +309,15 @@ def check_archive(check: Checker, tmp: str) -> None:
         code, out = cli("archive", keep.id)
         check.check("archiving twice says so", "already archived" in out, out)
 
+        # `delete` reaches a card in the archive: `d` is how a record is purged.
+        doomed = Store.open(board).add(title="purge me", status="backlog")
+        Store.open(board).archive(doomed.id)
+        removed = Store.open(board).delete(doomed.id)
+        check.check(
+            "delete reaches a card in the archive",
+            removed is not None and Store.open(board).archived_by_id(doomed.id) is None,
+        )
+
         # Taking a card off the board is the human's call, like closing one.
         os.environ["HERDR_PANE_ID"] = "w1:pA"
         Store.open(board).add(title="an agent's card", status="doing", pane_id="w1:pA")
@@ -4363,6 +4372,57 @@ async def _run(check: Checker) -> None:
                 "archiving names the command that brings the card back",
                 "unarchive" in app.ui.notice,
                 app.ui.notice,
+            )
+
+            # the archived column (`v`) -----------------------------------
+            check.check(
+                "the archived column is hidden by default",
+                all(c.column.id != "archived" for c in app.current_view().columns),
+            )
+            await pilot.press("v")
+            await pilot.pause()
+            shown = [
+                c for c in app.current_view().columns if c.column.id == "archived"
+            ]
+            check.check(
+                "v shows the archived column with the archived card in it",
+                len(shown) == 1
+                and [c.task.id for c in shown[0].cards] == [target.id],
+                app.ui.notice,
+            )
+            app.select_card(target.id)
+            await pilot.pause()
+            check.check(
+                "an archived card can be selected in its column",
+                app.selected_task() is not None
+                and app.selected_task().id == target.id,
+            )
+            status_before = target.status
+            await pilot.press("L")
+            await pilot.pause()
+            check.check(
+                "moving an archived card is refused",
+                target.status == status_before and "archived" in app.ui.notice,
+                app.ui.notice,
+            )
+            await pilot.press("u")
+            await pilot.pause()
+            check.check(
+                "u unarchives the selected card",
+                target.id not in [t.id for t in app._demo_archived]
+                and target.id in [t.id for t in app.tasks()],
+                app.ui.notice,
+            )
+            check.check(
+                "unarchiving says which column it went back to",
+                "restored to" in app.ui.notice,
+                app.ui.notice,
+            )
+            await pilot.press("v")
+            await pilot.pause()
+            check.check(
+                "v hides the archived column again",
+                all(c.column.id != "archived" for c in app.current_view().columns),
             )
 
             # a card with notes AND updates mounts two detail Statics — they

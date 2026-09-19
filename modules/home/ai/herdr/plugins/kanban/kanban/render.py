@@ -101,6 +101,8 @@ class BoardView:
     filter_text: str = ""
     workspace_filter: str = ""
     only_blocked: bool = False
+    # Whether the archive is drawn as a column at the right edge (`v`).
+    show_archived: bool = False
     icon_mode: str = "unicode"
     show_age: bool = True
     stale_after_days: float = 3.0
@@ -706,15 +708,28 @@ def header_line(view: BoardView) -> Text:
 def footer_line(view: BoardView) -> Text:
     left = Text()
     selected = view.card(view.selected_id)
+    archived = selected is not None and bool(selected.task.archived_at)
     hints: tuple[tuple[str, str], ...]
     if selected is None:
         hints = (
             ("a", "add"),
             ("/", "filter"),
             ("w", "workspace"),
+            ("v", "archive"),
             ("r", "refresh"),
             ("?", "help"),
             ("q", "quit"),
+        )
+    elif archived:
+        # An archived card is out of play: the only move it has is back (`u`),
+        # plus stopping a run that was left going and deleting the record.
+        hints = (
+            ("⏎", "detail"),
+            ("u", "unarchive"),
+            ("x", "stop agent"),
+            ("d", "delete"),
+            ("v", "archive"),
+            ("?", "help"),
         )
     elif view.width < 116:
         hints = (
@@ -724,6 +739,7 @@ def footer_line(view: BoardView) -> Text:
             ("!", "needs you"),
             ("e", "edit"),
             ("d", "delete"),
+            ("v", "archive"),
             ("?", "help"),
         )
     else:
@@ -739,6 +755,7 @@ def footer_line(view: BoardView) -> Text:
             ("f", "agent"),
             ("e", "edit"),
             ("d", "delete"),
+            ("v", "archive"),
             ("/", "filter"),
             ("?", "help"),
         )
