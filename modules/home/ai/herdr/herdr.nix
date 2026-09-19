@@ -82,6 +82,18 @@ in
     width = "80%"
     height = "80%"
 
+    # herdr-picker plugin — fuzzy-launch spaces / sessions / tabs / worktrees /
+    # files / commands / agents / automations.
+    #
+    # Bound to ctrl+C (prefix-free). Herdr intercepts the chord, so it no longer
+    # interrupts whatever runs in the focused pane — that was the picker's
+    # original binding, kept deliberately (see docs/ai.md).
+    [[keys.command]]
+    key = "ctrl+C"
+    type = "plugin_action"
+    command = "herdr-picker.launch"
+    description = "fuzzy-launch (spaces / tabs / worktrees / files / commands / agents)"
+
     # herdr-kanban plugin — the board overlay (plugins/kanban).
     [[keys.command]]
     key = "prefix+k"
@@ -102,29 +114,33 @@ in
     description = "kanban: capture a task"
   '';
 
-  # Copy the plugins into stable, writable directories and register them with
-  # herdr, idempotently (only links when not already present).
-  # home.activation.herdrPickerPlugin = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-  #   pluginDir="$HOME/.config/herdr/plugins-managed/picker"
-  #   mkdir -p "$pluginDir"
-  #   cp -f "${./plugins/picker/herdr-plugin.toml}" "$pluginDir/herdr-plugin.toml"
-  #   cp -f "${./plugins/picker/launcher.sh}" "$pluginDir/launcher.sh"
-  #   chmod +x "$pluginDir/launcher.sh"
-  #
-  #   # Repo-managed picker settings -> plugin config dir (real, editable file;
-  #   # a store symlink would be read-only). herdr seeds nothing if this exists.
-  #   pickerCfg="$HOME/.config/herdr/plugins/config/herdr-picker"
-  #   mkdir -p "$pickerCfg"
-  #   cp -f "${./plugins/picker/config.toml}" "$pickerCfg/config.toml"
-  #
-  #   herdrBin="$(command -v herdr 2>/dev/null || true)"
-  #   [ -x "$herdrBin" ] || herdrBin="$HOME/.local/bin/herdr"
-  #   if [ -x "$herdrBin" ]; then
-  #     if ! "$herdrBin" plugin list 2>/dev/null | grep -q "herdr-picker"; then
-  #       "$herdrBin" plugin link "$pluginDir" >/dev/null 2>&1 || true
-  #     fi
-  #   fi
-  # '';
+  # herdr-picker — a .sh herdr plugin over eight categories (spaces, sessions,
+  # tabs, worktrees, files, commands, agents, automations). Copies the plugin
+  # files into a stable, writable directory and registers it with herdr,
+  # idempotently (only links when not already present). Same stable-dir +
+  # `herdr plugin link` pattern as the plugins below: herdr canonicalises the
+  # linked path, so a store symlink would go stale on every rebuild.
+  home.activation.herdrPickerPlugin = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    pluginDir="$HOME/.config/herdr/plugins-managed/picker"
+    mkdir -p "$pluginDir"
+    cp -f "${./plugins/picker/herdr-plugin.toml}" "$pluginDir/herdr-plugin.toml"
+    cp -f "${./plugins/picker/launcher.sh}" "$pluginDir/launcher.sh"
+    chmod +x "$pluginDir/launcher.sh"
+
+    # Repo-managed picker settings -> plugin config dir (real, editable file;
+    # a store symlink would be read-only). herdr seeds nothing if this exists.
+    pickerCfg="$HOME/.config/herdr/plugins/config/herdr-picker"
+    mkdir -p "$pickerCfg"
+    cp -f "${./plugins/picker/config.toml}" "$pickerCfg/config.toml"
+
+    herdrBin="$(command -v herdr 2>/dev/null || true)"
+    [ -x "$herdrBin" ] || herdrBin="$HOME/.local/bin/herdr"
+    if [ -x "$herdrBin" ]; then
+      if ! "$herdrBin" plugin list 2>/dev/null | grep -q "herdr-picker"; then
+        "$herdrBin" plugin link "$pluginDir" >/dev/null 2>&1 || true
+      fi
+    fi
+  '';
 
   # herdr-automations — a .sh herdr plugin: cron-scheduled automations.
   # Each automation names a cron schedule, workspace, agent, and command;
@@ -135,27 +151,27 @@ in
   # Automation TOML files are user data, not repo-managed: activation seeds
   # the example file only when automations/ does not exist yet, and never
   # overwrites afterwards. The daemon picks up edits within a minute.
-  # home.activation.herdrAutomationsPlugin = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-  #   autoDir="$HOME/.config/herdr/plugins-managed/automations"
-  #   mkdir -p "$autoDir"
-  #   cp -f "${./plugins/automations/herdr-plugin.toml}" "$autoDir/herdr-plugin.toml"
-  #   cp -f "${./plugins/automations/automations.sh}" "$autoDir/automations.sh"
-  #   chmod +x "$autoDir/automations.sh"
-  #
-  #   autoCfg="$HOME/.config/herdr/plugins/config/herdr-automations/automations"
-  #   if [ ! -d "$autoCfg" ] || [ -z "$(ls -A "$autoCfg" 2>/dev/null)" ]; then
-  #     mkdir -p "$autoCfg"
-  #     cp -f "${./plugins/automations/example-cron.toml}" "$autoCfg/example-cron.toml"
-  #   fi
-  #
-  #   herdrBin="$(command -v herdr 2>/dev/null || true)"
-  #   [ -x "$herdrBin" ] || herdrBin="$HOME/.local/bin/herdr"
-  #   if [ -x "$herdrBin" ]; then
-  #     if ! "$herdrBin" plugin list 2>/dev/null | grep -q "herdr-automations"; then
-  #       "$herdrBin" plugin link "$autoDir" >/dev/null 2>&1 || true
-  #     fi
-  #   fi
-  # '';
+  home.activation.herdrAutomationsPlugin = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    autoDir="$HOME/.config/herdr/plugins-managed/automations"
+    mkdir -p "$autoDir"
+    cp -f "${./plugins/automations/herdr-plugin.toml}" "$autoDir/herdr-plugin.toml"
+    cp -f "${./plugins/automations/automations.sh}" "$autoDir/automations.sh"
+    chmod +x "$autoDir/automations.sh"
+
+    autoCfg="$HOME/.config/herdr/plugins/config/herdr-automations/automations"
+    if [ ! -d "$autoCfg" ] || [ -z "$(ls -A "$autoCfg" 2>/dev/null)" ]; then
+      mkdir -p "$autoCfg"
+      cp -f "${./plugins/automations/example-cron.toml}" "$autoCfg/example-cron.toml"
+    fi
+
+    herdrBin="$(command -v herdr 2>/dev/null || true)"
+    [ -x "$herdrBin" ] || herdrBin="$HOME/.local/bin/herdr"
+    if [ -x "$herdrBin" ]; then
+      if ! "$herdrBin" plugin list 2>/dev/null | grep -q "herdr-automations"; then
+        "$herdrBin" plugin link "$autoDir" >/dev/null 2>&1 || true
+      fi
+    fi
+  '';
 
   # herdr-kanban — a kanban board plugin (plugins/kanban/): tasks carry the
   # workspace they belong to and the agent that should do them; dispatching a
