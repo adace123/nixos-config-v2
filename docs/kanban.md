@@ -316,10 +316,24 @@ herdr kanban: this card is cfg-3. Keep it current as you work:
   name this card:  herdr-kanban title "<concise title, once you know the real work>"
   found more work? herdr-kanban add "<title>" --notes "why it is separate"
 Run those from this pane — no task id needed, the board finds the card by its
-pane. Move it to review when the work is ready for me; only I close cards.
-If you find unrelated work, add a card for it instead of doing it here. If the
-board says a card already covers it, note that one instead of filing a second.
+pane; only I close cards. If you find unrelated work, add a card for it instead
+of doing it here; if the board says a card already covers it, note that one
+instead of filing a second.
+
+Your turn is not over until the card is moved — `note` records progress, it does
+not move the card, and a turn that only notes leaves the card saying you are
+still working. Move it before your final message:
+  task done, even if you offer to do more -> herdr-kanban status review
+  stopped, cannot continue without me     -> herdr-kanban block "what you need"
+  still working                           -> leave it; the card stays In Progress
 ```
+
+The closing block is the one part that is a requirement rather than a verb
+table. `note` records progress and never moves a card, so an agent that notes its
+findings and stops leaves the card claiming to be in progress — the failure that
+put a finished card in In Progress behind a green `✓ done` border. The *closing
+offer* case is spelled out because an agent ending its turn with "want me to do
+more?" is finished, not blocked, and would otherwise reach for neither verb.
 
 Those commands resolve the card from `HERDR_PANE_ID` (herdr injects it into
 every pane, and the board records it on dispatch), so an agent is never told an

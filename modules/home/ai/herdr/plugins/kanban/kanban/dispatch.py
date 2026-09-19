@@ -106,9 +106,16 @@ herdr kanban: this card is {task_id}. Keep it current as you work:
   name this card:  {cli} title "<concise title, once you know the real work>"
   found more work? {cli} add "<title>" --notes "why it is separate"
 Run those from this pane — no task id needed, the board finds the card by its
-pane. Move it to {review} when the work is ready for me; only I close cards.
-If you find unrelated work, add a card for it instead of doing it here. If the
-board says a card already covers it, note that one instead of filing a second."""
+pane; only I close cards. If you find unrelated work, add a card for it instead
+of doing it here; if the board says a card already covers it, note that one
+instead of filing a second.
+
+Your turn is not over until the card is moved — `note` records progress, it does
+not move the card, and a turn that only notes leaves the card saying you are
+still working. Move it before your final message:
+  task done, even if you offer to do more -> {cli} status {review}
+  stopped, cannot continue without me     -> {cli} block "what you need"
+  still working                           -> leave it; the card stays In Progress"""
 
 
 def protocol_block(task_id: str, cli: str = CLI, review: str = "review") -> str:

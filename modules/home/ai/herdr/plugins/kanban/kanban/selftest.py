@@ -445,6 +445,12 @@ def check_agent_protocol(check: Checker, tmp: str) -> None:
             and "herdr-kanban status review" in prompt
             and "only I close cards" in prompt,
         )
+        check.check(
+            "the protocol ends by requiring the card move",
+            "Your turn is not over until the card is moved" in prompt
+            and "`note` records progress" in prompt
+            and "even if you offer to do more" in prompt,
+        )
         prompt_off = build_prompt(card(), replace(config, announce_protocol=False))
         check.check(
             "announce_protocol = false drops the protocol",
