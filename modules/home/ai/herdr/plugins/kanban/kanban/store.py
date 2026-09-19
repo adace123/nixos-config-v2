@@ -197,6 +197,12 @@ class Task:
     created_at: float = 0.0
     updated_at: float = 0.0
     dispatched_at: float | None = None
+    # Set when the card is archived: when it left the board and the column it
+    # left. A live card has `archived_at == 0.0`; the board file keeps archived
+    # cards in their own list, so these two are what tell one apart (and what
+    # `unarchive` restores to) when a `Task` is handled outside the store.
+    archived_at: float = 0.0
+    archived_from: str = ""
     pane_id: str = ""
     tab_id: str = ""
     # The label the board last wrote to that tab. Kept so the board can still
@@ -274,6 +280,7 @@ class Task:
         clean["created_at"] = _as_time(clean.get("created_at")) or 0.0
         clean["updated_at"] = _as_time(clean.get("updated_at")) or 0.0
         clean["dispatched_at"] = _as_time(clean.get("dispatched_at"))
+        clean["archived_at"] = _as_time(clean.get("archived_at")) or 0.0
         if clean.get("title_source") not in TITLE_SOURCES:
             clean["title_source"] = "user"
         if clean.get("created_by") not in CREATED_BY:
@@ -295,6 +302,7 @@ class Task:
             "agent_kind",
             "agent_name",
             "agent_model",
+            "archived_from",
             "pane_id",
             "tab_id",
             "tab_label",
@@ -330,6 +338,9 @@ class Board:
     version: int = SCHEMA_VERSION
     seq: int = 0
     tasks: list[Task] = field(default_factory=list)
+    # Cards taken off the board with `archive` (`A`). Same shape as a live card
+    # — the record is kept whole — plus `archived_at`/`archived_from`.
+    archived: list[Task] = field(default_factory=list)
 
 
 def state_dir() -> Path:
@@ -392,6 +403,7 @@ class Store:
             self.loaded_at = time.time()
             return
         tasks = raw.get("tasks") if isinstance(raw, dict) else None
+        archived = raw.get("archived") if isinstance(raw, dict) else None
         board = Board(
             version=int(raw.get("version") or SCHEMA_VERSION),
             seq=int(raw.get("seq") or 0),
@@ -400,6 +412,10 @@ class Store:
             board.tasks = [
                 Task.from_dict(item) for item in tasks if isinstance(item, dict)
             ]
+        if isinstance(archived, list):
+            board.archived = [
+                Task.from_dict(item) for item in archived if isinstance(item, dict)
+            ]
         if not board.seq:
             # A file that lost `seq` — hand-edited, or written by something else
             # — has to carry on past the highest id on the board. `len(tasks)`
@@ -407,7 +423,11 @@ class Store:
             # left after four deletions, four adds would re-issue `K7` and the
             # board would have two cards with one name. Codes do not affect
             # this: the counter after the last dash is the same board-wide one.
-            board.seq = max((task_seq(task.id) for task in board.tasks), default=0)
+            # Archived cards count too — archiving `K7` must not free its number.
+            board.seq = max(
+                (task_seq(task.id) for task in board.tasks + board.archived),
+                default=0,
+            )
         self.board = board
         self._mtime = stat.st_mtime
         self.loaded_at = time.time()
@@ -435,6 +455,7 @@ class Store:
             "version": SCHEMA_VERSION,
             "seq": self.board.seq,
             "tasks": [task.to_dict() for task in self.board.tasks],
+            "archived": [task.to_dict() for task in self.board.archived],
         }
 
     def _write(self, payload: dict[str, Any]) -> None:
@@ -492,8 +513,15 @@ class Store:
     def tasks(self) -> list[Task]:
         return self.board.tasks
 
+    @property
+    def archived(self) -> list[Task]:
+        return self.board.archived
+
     def by_id(self, task_id: str) -> Task | None:
         return next((task for task in self.board.tasks if task.id == task_id), None)
+
+    def archived_by_id(self, task_id: str) -> Task | None:
+        return next((task for task in self.board.archived if task.id == task_id), None)
 
     def in_column(self, status: str) -> list[Task]:
         return [task for task in self.board.tasks if task.status == status]
@@ -580,6 +608,58 @@ class Store:
                 return None
             self.board.tasks.remove(task)
             return task
+
+    def archive(self, task_id: str) -> tuple[Task | None, str]:
+        """Take a card off the board, keeping its record.
+
+        The card leaves `tasks` and joins `archived` with the time and column it
+        left, which is what `unarchive` restores. Nothing else about it changes:
+        archiving is about the board, not the run, so a live agent is left
+        running — unlike `delete`, which stops it. The record of a run should
+        outlive its place on the board.
+        """
+        with self._locked():
+            task = self.by_id(task_id)
+            if task is None:
+                already = self.archived_by_id(task_id)
+                if already is not None:
+                    return already, f"{task_id} is already archived"
+                return None, f"no task {task_id} on the board"
+            self.board.tasks.remove(task)
+            task.archived_from = task.status
+            task.archived_at = time.time()
+            task.updated_at = task.archived_at
+            task.note(f"archived from {task.archived_from}")
+            self.board.archived.append(task)
+            return task, f"{task.id} archived from {task.archived_from}"
+
+    def unarchive(self, task_id: str) -> tuple[Task | None, str]:
+        """Put an archived card back on the board, in the column it left.
+
+        It lands at the end of that column. A card whose column no longer
+        exists keeps its stored status and shows up as an orphan, the same as
+        any other card the config moved out from under.
+        """
+        with self._locked():
+            task = self.archived_by_id(task_id)
+            if task is None:
+                live = self.by_id(task_id)
+                if live is not None:
+                    return live, f"{task_id} is not archived"
+                return None, f"no task {task_id} on the board or in the archive"
+            self.board.archived.remove(task)
+            restore = task.archived_from or task.status
+            insert_at = len(self.board.tasks)
+            for index, other in enumerate(self.board.tasks):
+                if other.status == restore:
+                    insert_at = index + 1
+            self.board.tasks.insert(insert_at, task)
+            task.status = restore
+            task.archived_at = 0.0
+            task.archived_from = ""
+            task.updated_at = time.time()
+            task.note(f"restored to {restore}")
+            return task, f"{task.id} restored to {restore}"
 
     def _move_to_column(self, task: Task, status: str) -> bool:
         """Put `task` at the end of `status`, recording the transition.
@@ -688,6 +768,36 @@ class Store:
                 if task.pane_id and task.pane_id == pane_id:
                     return task
         return None
+
+    def resolve_archived(self, reference: str) -> Task | None:
+        """Find an archived card from `cfg-8`, `K3`, `3`, or its title.
+
+        The live board's `resolve` deliberately does not look here: an agent
+        that calls `status`/`note` must act on a card that is still on the
+        board. `show`, `archive` and `unarchive` opt in, so an archived card
+        can still be named by id from a shell.
+        """
+        reference = (reference or "").strip()
+        if not reference:
+            return None
+        wanted = reference.lower()
+        for task in self.board.archived:
+            if task.id.lower() == wanted:
+                return task
+        number = int(reference) if reference.isdigit() else 0
+        if number > 0:
+            for task in self.board.archived:
+                if task_seq(task.id) == number:
+                    return task
+        title = " ".join(reference.split()).lower()
+        return next(
+            (
+                task
+                for task in self.board.archived
+                if " ".join(task.title.split()).lower() == title
+            ),
+            None,
+        )
 
     def set_status_from_agent(
         self,

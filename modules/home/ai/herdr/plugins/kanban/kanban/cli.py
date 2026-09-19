@@ -50,7 +50,9 @@ USAGE_COMMANDS = """  {cli} status [<task>] <column>   move a card
                        [--from <task>] [--model <name>] [--force]
   {cli} send   [<task>] [--agent <kind>] [--workspace <id>] [--model <name>]
                        [--worktree|--no-worktree] [--dry-run]
-  {cli} list   [--mine] [--json]   list cards
+  {cli} archive   [<task>]         archive a card, keeping its record
+  {cli} unarchive [<task>]         restore an archived card to the board
+  {cli} list   [--mine] [--json]   list cards (--archived: the archive)
   {cli} show   [<task>] [--json]   one card in full
   {cli} help                       this text
 
@@ -75,6 +77,8 @@ AGENT_COMMANDS = (
     "step",
     "add",
     "send",
+    "archive",
+    "unarchive",
     "list",
     "show",
     "help",
@@ -118,10 +122,18 @@ def _column_of(config: Config, wanted: str) -> tuple[str, str]:
     )
 
 
-def _find(store: Store, reference: str) -> tuple[Task | None, str]:
+def _find(
+    store: Store, reference: str, include_archived: bool = False
+) -> tuple[Task | None, str]:
     task = store.resolve(reference, _pane_id())
     if task is not None:
         return task, ""
+    # `show`, `archive` and `unarchive` may name a card that is off the board;
+    # every other verb must not, or an agent could move a card nobody sees.
+    if include_archived and reference:
+        task = store.resolve_archived(reference)
+        if task is not None:
+            return task, ""
     if reference:
         return None, f"no task {reference!r} on the board — try: {CLI} list"
     pane = _pane_id()
@@ -149,6 +161,15 @@ def _describe(task: Task, config: Config) -> str:
         f"{task.id}  [{config.label_for(task.status)}]  {truncate(task.title, 70)}",
         f"     {meta}",
     ]
+    if task.archived_at:
+        lines.append(
+            f"     archived {format_age(task.archived_at)} ago"
+            + (
+                f" from {config.label_for(task.archived_from)}"
+                if task.archived_from
+                else ""
+            )
+        )
     if task.worktree_path:
         lines.append(
             f"     worktree {task.worktree_path}"
@@ -199,6 +220,9 @@ def _task_json(task: Task, config: Config) -> dict[str, Any]:
         "created_at": task.created_at,
         "updated_at": task.updated_at,
         "dispatched_at": task.dispatched_at,
+        "archived": bool(task.archived_at),
+        "archived_at": task.archived_at,
+        "archived_from": task.archived_from,
         "columns": config.column_ids,
         "agent_may_set": config.agent_statuses,
     }
@@ -353,13 +377,18 @@ def _title(args: list[str], store: Store, config: Config) -> int:
 
 def _list(args: list[str], store: Store, config: Config) -> int:
     as_json = "--json" in args
+    archived = "--archived" in args
     pane = _pane_id()
-    # Default to the caller's card only when the caller is actually in a card's
-    # pane: a human running this in an ordinary herdr shell wants the board, not
-    # "no cards for this pane".
-    in_task_pane = bool(pane) and store.resolve("", pane) is not None
-    mine = "--mine" in args or (in_task_pane and not args)
-    tasks = list(store.tasks)
+    if archived:
+        tasks = list(store.archived)
+        mine = "--mine" in args
+    else:
+        # Default to the caller's card only when the caller is actually in a
+        # card's pane: a human running this in an ordinary herdr shell wants the
+        # board, not "no cards for this pane".
+        in_task_pane = bool(pane) and store.resolve("", pane) is not None
+        mine = "--mine" in args or (in_task_pane and not args)
+        tasks = list(store.tasks)
     if mine:
         tasks = [
             task
@@ -370,7 +399,18 @@ def _list(args: list[str], store: Store, config: Config) -> int:
         print(json.dumps([_task_json(task, config) for task in tasks], indent=2))
         return 0
     if not tasks:
-        print("no cards" + (" for this pane" if mine and pane else ""))
+        if archived:
+            print("no archived cards")
+        else:
+            print("no cards" + (" for this pane" if mine and pane else ""))
+        return 0
+    if archived:
+        # Archived cards keep their column, but grouping them by it would put a
+        # live-looking board under a heading nobody expects to see columns in.
+        print(f"Archived ({len(tasks)})")
+        for task in tasks:
+            marker = "*" if pane and task.pane_id == pane else " "
+            print(f" {marker} {_describe(task, config)}")
         return 0
     for column in config.columns:
         column_tasks = [task for task in tasks if task.status == column.id]
@@ -386,7 +426,7 @@ def _list(args: list[str], store: Store, config: Config) -> int:
 def _show(args: list[str], store: Store, config: Config) -> int:
     as_json = "--json" in args
     reference = next((arg for arg in args if not arg.startswith("--")), "")
-    task, error = _find(store, reference)
+    task, error = _find(store, reference, include_archived=True)
     if task is None:
         print(error, file=sys.stderr)
         return 1
@@ -853,6 +893,53 @@ def _send(args: list[str], store: Store, config: Config) -> int:
     return 0
 
 
+def _archive(args: list[str], store: Store, _config: Config) -> int:
+    """Take a card off the board, keeping its record (`unarchive` puts it back)."""
+    force = "--force" in args
+    args = [arg for arg in args if arg != "--force"]
+    reference, rest = _split_task(args)
+    if rest:
+        print(f"unexpected argument {rest[0]!r}", file=sys.stderr)
+        return 2
+    task, error = _find(store, reference, include_archived=True)
+    if task is None:
+        print(error, file=sys.stderr)
+        return 1
+    if task.archived_at:
+        print(f"{task.id} is already archived — {CLI} unarchive {task.id} puts it back")
+        return 0
+    # Taking a card off the board is the human's call, like closing one
+    # (`status <done>`); an agent that means it says so with `--force`.
+    if _from_agent() and not force:
+        print(
+            f"refusing to archive {task.id} — taking a card off the board is"
+            " yours to decide, not the agent's; pass --force if you mean it",
+            file=sys.stderr,
+        )
+        return 1
+    _, message = store.archive(task.id)
+    print(message)
+    return 0
+
+
+def _unarchive(args: list[str], store: Store, _config: Config) -> int:
+    """Put an archived card back on the board, in the column it left."""
+    reference, rest = _split_task(args)
+    if rest:
+        print(f"unexpected argument {rest[0]!r}", file=sys.stderr)
+        return 2
+    task, error = _find(store, reference, include_archived=True)
+    if task is None:
+        print(error, file=sys.stderr)
+        return 1
+    if not task.archived_at:
+        print(f"{task.id} is not archived")
+        return 0
+    _, message = store.unarchive(task.id)
+    print(message)
+    return 0
+
+
 def _help(_args: list[str], _store: Store, _config: Config) -> int:
     print(usage())
     return 0
@@ -869,6 +956,8 @@ def run_agent_command(argv: list[str]) -> int:
         "step": _step,
         "add": _add,
         "send": _send,
+        "archive": _archive,
+        "unarchive": _unarchive,
         "list": _list,
         "show": _show,
         "help": _help,

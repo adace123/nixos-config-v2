@@ -204,6 +204,153 @@ def check_store(check: Checker, tmp: str) -> None:
     )
 
 
+def check_archive(check: Checker, tmp: str) -> None:
+    """Archive keeps a card: off the board, still on disk, restorable.
+
+    `d` deletes (the record goes with the card); `A` archives. That distinction
+    is the feature, so what is pinned here is that the card leaves `tasks`, lands
+    in `archived` with where it came from, survives a reload, comes back to its
+    own column, stays addressable by id and number, and cannot be taken off the
+    board by an agent without `--force`.
+    """
+    import contextlib
+    import io
+    import json
+    import os
+
+    from .cli import run_agent_command
+    from .store import task_seq
+
+    board = Path(tmp) / "archive-board.json"
+    saved = {k: os.environ.get(k) for k in ("KANBAN_BOARD_FILE", "HERDR_PANE_ID")}
+    os.environ["KANBAN_BOARD_FILE"] = str(board)
+    os.environ.pop("HERDR_PANE_ID", None)
+
+    def cli(*argv: str) -> tuple[int, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = run_agent_command(list(argv))
+        # Refusals are written to stderr; the checks care about the message
+        # either way, so hand back both streams joined.
+        return code, (out.getvalue() + err.getvalue()).strip()
+
+    try:
+        store = Store.open(board)
+        keep = store.add(title="keep me", status="review", workspace_id="w1")
+        live = store.add(title="still live", status="backlog")
+
+        code, out = cli("archive", keep.id)
+        check.check(
+            "archive takes a card off the board",
+            code == 0 and out == f"{keep.id} archived from review",
+            out,
+        )
+        reloaded = Store.open(board)
+        check.check(
+            "the archived card is off the live board and in the archive",
+            reloaded.by_id(keep.id) is None
+            and reloaded.archived_by_id(keep.id) is not None,
+            str([task.id for task in reloaded.tasks]),
+        )
+        archived = reloaded.archived_by_id(keep.id)
+        check.check(
+            "the archive remembers the column it came from",
+            archived is not None
+            and archived.archived_from == "review"
+            and archived.archived_at > 0,
+            archived.archived_from if archived else "-",
+        )
+        check.check(
+            "the archive is written to the board file",
+            json.loads(board.read_text(encoding="utf-8"))["archived"][0]["id"]
+            == keep.id,
+        )
+
+        code, out = cli("show", keep.id)
+        check.check(
+            "show finds an archived card and says where it was",
+            code == 0 and "archived" in out and "from Review" in out,
+            out,
+        )
+        code, out = cli("list", "--archived")
+        check.check(
+            "list --archived lists it",
+            keep.id in out and "Archived" in out and live.id not in out,
+            out,
+        )
+        code, out = cli("list")
+        check.check("the live list leaves it out", keep.id not in out, out)
+
+        code, out = cli("unarchive", keep.id)
+        check.check(
+            "unarchive restores it to the column it left",
+            code == 0 and out == f"{keep.id} restored to review",
+            out,
+        )
+        back = Store.open(board).by_id(keep.id)
+        check.check(
+            "the restored card is live again, exactly once",
+            back is not None
+            and back.status == "review"
+            and not back.archived_at
+            and Store.open(board).archived_by_id(keep.id) is None,
+            back.status if back else "-",
+        )
+
+        code, out = cli("archive", "K999")
+        check.check("archiving a card that is not there fails", code == 1, out)
+        code, out = cli("unarchive", live.id)
+        check.check(
+            "unarchiving a live card is a no-op",
+            code == 0 and "not archived" in out,
+            out,
+        )
+        cli("archive", keep.id)
+        code, out = cli("archive", keep.id)
+        check.check("archiving twice says so", "already archived" in out, out)
+
+        # Taking a card off the board is the human's call, like closing one.
+        os.environ["HERDR_PANE_ID"] = "w1:pA"
+        Store.open(board).add(title="an agent's card", status="doing", pane_id="w1:pA")
+        code, out = cli("archive")
+        check.check(
+            "an agent cannot archive its own card without --force",
+            code == 1 and "refusing" in out,
+            out,
+        )
+        code, out = cli("archive", "--force")
+        check.check("--force archives it", code == 0, out)
+        os.environ.pop("HERDR_PANE_ID", None)
+
+        # A board file that lost `seq` must carry on past an archived id too, or
+        # the next card would reuse a number the archive still holds.
+        stripped = Path(tmp) / "archive-noseq.json"
+        stripped.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "tasks": [],
+                    "archived": [
+                        {"id": "K7", "title": "archived", "archived_at": 1.0}
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        bumped = Store.open(stripped).add(title="after")
+        check.check(
+            "an archived card's number is not reissued",
+            task_seq(bumped.id) == 8,
+            bumped.id,
+        )
+    finally:
+        for key, value in saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
 def check_ids(check: Checker, tmp: str) -> None:
     """Card ids: `<workspace-code>-<counter>`, and every way back in.
 
@@ -3980,6 +4127,7 @@ async def _run(check: Checker) -> None:
         try:
             check_store(check, tmp)
             check_ids(check, tmp)
+            check_archive(check, tmp)
             check_agent_protocol(check, tmp)
             check_add_notification(check, tmp)
             check_status_rights(check, tmp)
@@ -4195,6 +4343,26 @@ async def _run(check: Checker) -> None:
             await pilot.pause()
             check.check(
                 "cancelling delete keeps the task", len(app.tasks()) == count_before
+            )
+
+            # archive -----------------------------------------------------
+            target = app.selected_task()
+            tasks_before = len(app.tasks())
+            archived_before = len(app._demo_archived)
+            await pilot.press("A")
+            await pilot.pause()
+            check.check(
+                "A archives the selected card instead of deleting it",
+                target is not None
+                and len(app.tasks()) == tasks_before - 1
+                and len(app._demo_archived) == archived_before + 1
+                and app._demo_archived[-1].id == target.id,
+                app.ui.notice,
+            )
+            check.check(
+                "archiving names the command that brings the card back",
+                "unarchive" in app.ui.notice,
+                app.ui.notice,
             )
 
             # a card with notes AND updates mounts two detail Statics — they

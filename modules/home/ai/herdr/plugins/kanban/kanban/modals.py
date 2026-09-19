@@ -412,6 +412,7 @@ class TaskDetailModal(Dialog):
         Binding("o", "focus_workspace", "workspace", show=False),
         Binding("r", "toggle_tail", "agent output", show=False),
         Binding("d", "delete", "delete", show=False),
+        Binding("A", "archive", "archive", show=False),
     ]
 
     def __init__(
@@ -456,7 +457,7 @@ class TaskDetailModal(Dialog):
         steps = "1-9 tick a step · " if self.subject.steps else ""
         return (
             f"{steps}s send · e edit · f agent · o workspace · x stop agent"
-            " · r agent output · d delete · esc close"
+            " · r agent output · d delete · A archive · esc close"
         )
 
     @property
@@ -683,6 +684,9 @@ class TaskDetailModal(Dialog):
 
     def action_delete(self) -> None:
         self.dismiss("delete")
+
+    def action_archive(self) -> None:
+        self.dismiss("archive")
 
 
 # -- dispatch ----------------------------------------------------------------
@@ -930,6 +934,7 @@ class HelpModal(Dialog):
                     "  H L          move card between columns     J K  reorder inside a column",
                     "  ⏎            detail (with the agent's output)",
                     "  a e d        add / edit / delete a task",
+                    "  A            archive a card (kept; unarchive to restore)",
                     "  s            send the card to its agent",
                     "  f o p        focus the agent / workspace / pane in herdr",
                     "  / w c        filter · workspace filter · clear filters",
@@ -957,6 +962,8 @@ class HelpModal(Dialog):
                     "  Agents may set doing / blocked / review; only you close a card.",
                     "  x stops a card's agent (its tab) without deleting the card; deleting",
                     "  a card stops its agent too (auto_delete_agent = false keeps it).",
+                    "  A archives a card instead: it leaves the board but keeps its record,",
+                    "  and its agent is left running. herdr-kanban unarchive <id> brings it back.",
                     "",
                     "[b]Where tasks live[/b]",
                     f"  {self.board_path or 'the plugin state directory'}",

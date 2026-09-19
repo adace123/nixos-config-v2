@@ -40,6 +40,7 @@ class BoardWidget(Widget):
         Binding("a", "add_task", "add", show=False),
         Binding("e", "edit_task", "edit", show=False),
         Binding("d", "delete_task", "delete", show=False),
+        Binding("A", "archive_task", "archive", show=False),
         Binding("s", "dispatch", "send", show=False),
         Binding("f", "focus_agent", "agent", show=False),
         Binding("o", "focus_workspace", "workspace", show=False),
@@ -152,6 +153,9 @@ class BoardWidget(Widget):
 
     def action_delete_task(self) -> None:
         self.kanban.action_delete_task()
+
+    def action_archive_task(self) -> None:
+        self.kanban.action_archive_task()
 
     def action_dispatch(self) -> None:
         self.kanban.action_dispatch()

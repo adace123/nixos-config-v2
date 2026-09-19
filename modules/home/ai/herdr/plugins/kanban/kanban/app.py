@@ -20,6 +20,7 @@ from . import dispatch, icons, notify
 from .config import Config
 from .demo import demo_live, demo_tasks
 from .dispatch import (
+    CLI,
     Executor,
     Outcome,
     Plan,
@@ -95,6 +96,7 @@ class KanbanApp(App[None]):
         # announcements in `_announce_transitions`.
         self._live_status: dict[str, str] = {}
         self._demo_tasks: list[Task] = []
+        self._demo_archived: list[Task] = []
 
     # -- lifecycle -------------------------------------------------------
 
@@ -381,6 +383,30 @@ class KanbanApp(App[None]):
             title="kanban",
         )
 
+    def archive_task(self, task: Task) -> None:
+        """Take a card off the board, keeping its record (`unarchive` restores).
+
+        Archive is about the board, not the run: unlike `delete`, it does not
+        stop the card's agent. A card whose agent is still going is called out
+        in the notice, because its card is now off the board while the work
+        continues.
+        """
+        if self.demo_mode:
+            self._demo_tasks.remove(task)
+            self._demo_archived.append(task)
+        else:
+            self.store.archive(task.id)
+        running = self.agent_tab(task)[0]
+        self.ui.selected_id = ""
+        self._after_change()
+        # A footer notice, not a toast: the one command that undoes this belongs
+        # where the board's other "here is what just happened" messages go.
+        self.set_notice(
+            f"{task.id} archived"
+            + (" · its agent is still running" if running else "")
+            + f" — {CLI} unarchive {task.id} to restore"
+        )
+
     def may_remove_worktree(self, task: Task) -> bool:
         """Whether deleting `task` could remove its checkout.
 
@@ -605,6 +631,9 @@ class KanbanApp(App[None]):
             self.action_focus_workspace()
         elif action == "delete":
             self.action_delete_task()
+        elif action == "archive":
+            self.ui.selected_id = task.id
+            self.action_archive_task()
         elif action == "close_agent":
             self.ui.selected_id = task.id
             self.action_close_agent()
@@ -644,6 +673,15 @@ class KanbanApp(App[None]):
             ),
             lambda confirmed, task=task: self._after_delete_confirm(confirmed, task),
         )
+
+    def action_archive_task(self) -> None:
+        task = self.selected_task()
+        if task is None:
+            self.set_notice("select a card first")
+            return
+        # No confirmation: unlike `d`, archiving keeps the card and the notice
+        # names the one command that brings it back.
+        self.archive_task(task)
 
     def _after_delete_confirm(self, confirmed: bool | None, task: Task) -> None:
         """The first confirm said delete; a checkout, if any, is asked about next.

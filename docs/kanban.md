@@ -77,7 +77,8 @@ in the detail view, in both agent pickers, and in `list`/`show`.
 **Keys** — `h`/`l`/`tab` columns, `j`/`k` cards, `g`/`G` first/last, `1`-`9`
 jump to a column, `H`/`L` move a card between columns, `J`/`K` reorder inside a
 column, `⏎` detail (with the agent's recent output), `a` add, `e` edit, `d`
-delete (which also stops its agent), `x` stop the agent but keep the card, `s` send,
+delete (which also stops its agent), `A` archive (kept off the board, its agent
+left running), `x` stop the agent but keep the card, `s` send,
 `!` show only the cards whose agents are waiting on you, `f` focus the agent,
 `o` focus the workspace, `p` focus the pane, `/` filter, `w` cycle the workspace
 filter, `c` clear every filter, `r` refresh, `?` help, `q` quit, and `1`-`9` in
@@ -258,6 +259,17 @@ without deleting the card, which is what you want for a runaway run. Both
 confirm first, and both leave a tab alone if its label is no longer the one the
 board last wrote to it — that pane is yours now, not the card's.
 
+**Delete vs archive.** `d` deletes: the card and its record go. `A` archives:
+the card leaves the board and joins an `archived` list in `board.json`, keeping
+everything it had plus the time and the column it left. Archiving deliberately
+does **not** touch the run — a card whose agent is still going keeps its agent
+and its tab, and the notice says so, because the record of a run should outlive
+its place on the board. `herdr-kanban unarchive cfg-8` puts it back at the end
+of the column it came from, and `herdr-kanban list --archived` shows what is in
+there; an archived card is still `show`-able and still answers to its id or its
+number. `A` asks nothing first — unlike `d`, nothing is lost — and the footer
+names the `unarchive` that undoes it.
+
 **Live state** is polled from `agent list` every `sync_seconds` (two by
 default), and `workspace list` on its own slower clock — workspaces are opened
 and closed by hand a few times an hour, and every read is a herdr subprocess, so
@@ -353,8 +365,10 @@ full `cfg-8`, or just the number `8`, which is unique board-wide:
 | `herdr-kanban step [<task>] add <text> \| done <n> \| undo <n> \| rm <n>` | change it |
 | `herdr-kanban add <title> [--workspace <id>] [--agent <kind>] [--column <col>] [--notes <text…>] [--from <task>] [--model <name>] [--force]` | file a **new** card, linked to the one that found it |
 | `herdr-kanban send [<task>] [--agent <kind>] [--workspace <id>] [--model <name>] [--worktree\|--no-worktree] [--dry-run]` | start an agent for a card, without the board |
-| `herdr-kanban list [--mine] [--json]` | the board (or just this pane's card) |
-| `herdr-kanban show [<task>] [--json]` | one card in full, history included |
+| `herdr-kanban list [--mine] [--archived] [--json]` | the board (or just this pane's card), or the archive |
+| `herdr-kanban show [<task>] [--json]` | one card in full, history included (an archived card too) |
+| `herdr-kanban archive [<task>]` | take a card off the board, keeping its record |
+| `herdr-kanban unarchive [<task>]` | put an archived card back in the column it left |
 
 `add` exists so an agent that finds *more* work has somewhere to put it, rather
 than doing it out of scope or mentioning it in chat and losing it. It defaults
@@ -434,6 +448,12 @@ out of **Queued** (and out of **Blocked**) into In Progress, and a card whose
 agent has asked you something is moved into **Blocked** wherever it was — so
 Blocked always means the agent is waiting, never just that someone once put the
 card there.
+
+**Archiving is yours too.** Taking a card off the board is a decision, not a
+step in the work, so `herdr-kanban archive` is refused from inside a herdr pane
+unless you pass `--force` — the same rule and the same escape hatch as closing a
+card. `unarchive` is unrestricted: putting a card back is always safe. `d` stays
+the only way to destroy a card, and it stays a board key; there is no CLI delete.
 
 **Title policy.** The agent's title applies only while the card still carries
 its capture title. The moment you rename a card by hand (in the form, or with
@@ -547,7 +567,9 @@ colour on the row. A card whose workspace is closed is the one exception: a red
 (`$HERDR_PLUGIN_STATE_DIR/board.json` when herdr launches the board): one JSON
 document the plugin owns, rewritten atomically under a lock, so a second board
 (or a `just switch`) can never clobber it. The standalone `herdr-kanban` CLI
-resolves to the same path, so both open the same board. It is plain JSON —
+resolves to the same path, so both open the same board. Live cards are the
+`tasks` list; a card you archived (`A`) is in the `archived` list beside it,
+same shape plus the time and the column it left. It is plain JSON —
 hand-editable and diffable, and every write keeps the previous generation beside
 it as `board.json.bak` (copied, never renamed, so a reader can never catch the
 file mid-swap). If a hand-edit goes wrong, that is the way back. Mutations that
