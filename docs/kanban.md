@@ -661,7 +661,16 @@ args = ["--permission-mode=auto"]
 # verbatim. A kind with no list offers only `default`.
 [models]
 claude = ["sonnet", "opus", "haiku"]
-# pi = ["deepseek-v4-flash", "glm-5.3-flash"]
+pi = [
+  "opencode-go/deepseek-v4.1-flash",
+  "opencode-go/deepseek-v4-flash",
+  "opencode-go/glm-5.3-flash",
+  "opencode-go/glm-5.3",
+  "opencode-go/kimi-k2.7-code",
+  "opencode-go/minimax-m3",
+  "opencode-go/grok-4.6",
+  "opencode-go/qwen3.7-max",
+]
 ```
 
 **Deployment** follows the picker's pattern: `home.activation.herdrKanbanPlugin`
