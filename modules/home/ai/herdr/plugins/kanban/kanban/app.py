@@ -299,11 +299,12 @@ class KanbanApp(App[None]):
         self.ui.selected_id = selection_after_move(view, self.ui)
         self.refresh_board()
 
-    def _set_status(self, task: Task, status: str) -> None:
+    def _set_status(self, task: Task, status: str, hold: bool = False) -> None:
         if self.demo_mode:
             task.status = status
+            task.blocked_hold = hold
         else:
-            self.store.set_status(task.id, status)
+            self.store.set_status(task.id, status, hold=hold)
 
     def _refuse_archived(self, task: Task, action: str) -> bool:
         """True when `task` is archived and `action` cannot apply to it.
@@ -363,7 +364,11 @@ class KanbanApp(App[None]):
             return
         new_status = self.config.columns[target].id
         origin = self.config.label_for(task.status)
-        self._set_status(task, new_status)
+        # Moving a card into Blocked by hand is an explicit park: a working agent
+        # must not carry it back out (see `_settle_columns`).
+        self._set_status(
+            task, new_status, hold=new_status == self.config.blocked_column
+        )
         self.ui.selected_column = target
         # Both ends of the move: the card was on screen a moment ago, but the
         # keys under the finger move it again, and "→ In Progress" alone cannot
@@ -1220,6 +1225,21 @@ class KanbanApp(App[None]):
                         notify.system(f"{task.id} needs you", task.title)
         self._live_status = current
 
+    def _holding_block(self, task: Task, status: str) -> bool:
+        """Whether an explicit park outranks the agent's live status.
+
+        A card parked in Blocked by hand — `herdr-kanban block`, or the human
+        moving it — stays there for the rest of the working phase it was parked
+        in. `_settle_columns` and `_auto_move` both ask this, so the two doors
+        the live agent has into a card's column cannot disagree about which card
+        it may carry.
+        """
+        return bool(
+            task.blocked_hold
+            and status == "working"
+            and task.status == self.config.blocked_column
+        )
+
     def _settle_columns(self) -> None:
         """Keep each card's column honest about what its agent is doing.
 
@@ -1231,8 +1251,14 @@ class KanbanApp(App[None]):
             Blocked, wherever it was — that is what "the agent asked a
             question" looks like from outside;
           - a card whose agent is working belongs in In Progress, so a card
-            parked in a queued column (or answered out of Blocked) is carried
-            on rather than left with a label that says the opposite.
+            parked in a queued column is carried on rather than left with a
+            label that says the opposite. A card in Blocked is carried on too,
+            once its agent starts working again — *unless* it was parked there
+            by an explicit act while the agent was still working: `herdr-kanban
+            block`, or the human moving it. That is `blocked_hold`, and it wins
+            for the rest of that working phase. It is spent the moment the agent
+            leaves working (its turn ended, or the block was answered), so a
+            later turn lifts the card the way any answered block does.
 
         A card the human has closed (the `role = "done"` column) is never
         reopened by a live agent, and a board with no Blocked column leaves a
@@ -1244,6 +1270,16 @@ class KanbanApp(App[None]):
         queued = set(self.config.columns_with_role("queued"))
         for task in self.tasks():
             status, _ = self.live.for_task(task)
+            # An explicit park outranks the agent only while the agent is still
+            # in the phase it was parked in. Computed before anything below can
+            # release the hold, so a same-tick release cannot enable the lift it
+            # exists to prevent.
+            holding = self._holding_block(task, status)
+            if task.blocked_hold and not holding:
+                # The hold is spent — release it, quietly (the card is not
+                # moving). A card answered out of Blocked follows its agent
+                # again on the next tick.
+                self._set_status(task, task.status, hold=False)
             if status == "blocked":
                 if (
                     blocked_column
@@ -1253,11 +1289,21 @@ class KanbanApp(App[None]):
                     self._set_status(task, blocked_column)
                 continue
             if status == "working" and doing:
-                if task.status in queued or task.status == blocked_column:
+                if task.status in queued:
+                    self._set_status(task, doing)
+                elif task.status == blocked_column and not holding:
                     self._set_status(task, doing)
 
     def _auto_move(self) -> None:
-        """Opt-in: follow the agent's own progress through the columns."""
+        """Opt-in: follow the agent's own progress through the columns.
+
+        The second half of the lifecycle, after `_settle_columns`: a card the
+        agent has picked up shows as In Progress, and one it has finished shows
+        as Review. An explicit park still wins — `_auto_move` must not be a
+        second door back out of Blocked, or turning it on would undo
+        `herdr-kanban block` exactly as the unconditional reconciliation once
+        did.
+        """
         # "" rather than the card's column: this is not a send, so it always
         # means In Progress — a running agent is never queued in Todo.
         doing = self._dispatch_column("")
@@ -1267,6 +1313,8 @@ class KanbanApp(App[None]):
                 continue
             status, _ = self.live.for_task(task)
             if status == "working" and doing and task.status != doing:
+                if self._holding_block(task, status):
+                    continue
                 self._set_status(task, doing)
             elif status in ("idle", "done") and review_column and task.status == doing:
                 self._set_status(task, review_column)

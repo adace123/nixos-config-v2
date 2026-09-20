@@ -119,7 +119,8 @@ notify_on_add = true
 # delivery there is.
 notify_system = true
 # When true, a card moves to "doing" as soon as its dispatched agent starts
-# working, and to "review" when the agent finishes without an error. Off by
+# working (a card parked in Blocked by hand stays there until that working phase
+# ends), and to "review" when the agent finishes without an error. Off by
 # default: the board is yours to move, and agents that follow the protocol
 # below move their own cards explicitly instead.
 auto_move = false

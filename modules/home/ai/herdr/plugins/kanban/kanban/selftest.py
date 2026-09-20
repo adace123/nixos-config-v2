@@ -3358,12 +3358,17 @@ def check_settle_columns(check: Checker, tmp: str) -> None:
 
     A card whose agent has stopped to ask you something belongs in Blocked; a
     card whose agent is working belongs in In Progress, so one parked in a
-    queued column — or answered out of Blocked — is carried on. A card you have
-    closed stays closed.
+    queued column — or answered out of Blocked — is carried on. A card blocked
+    by hand, though, stays Blocked for as long as that working phase lasts, and
+    `auto_move` must not be a second door back out. A card you have closed stays
+    closed.
     """
+    import contextlib
+    import io
     import os
     from dataclasses import replace
 
+    from .cli import run_agent_command
     from .config import load_config
     from .herdr import Agent
     from .model import LiveState
@@ -3385,6 +3390,7 @@ def check_settle_columns(check: Checker, tmp: str) -> None:
             return task
 
         working = card("an agent is on it", "queued", "w1:p1")
+        parked = card("an agent parked it", "doing", "w1:p2")
         waiting = card("waiting its turn", "queued")
         asking = card("asking you something", "doing", "w1:p3")
         answered = card("you answered it", "blocked", "w1:p4")
@@ -3403,34 +3409,52 @@ def check_settle_columns(check: Checker, tmp: str) -> None:
                 logo="",
             )
 
-        by_pane = {
-            "w1:p1": agent("working", "w1:p1"),
-            "w1:p3": agent("blocked", "w1:p3"),
-            "w1:p4": agent("working", "w1:p4"),
-            "w1:p5": agent("blocked", "w1:p5"),
-        }
-        live = LiveState(
-            workspaces={},
-            agents={item.name: item for item in by_pane.values()},
-            agents_by_pane=by_pane,
-        )
+        def live_with(p2: str) -> LiveState:
+            """The same world, with the parked card's agent in `p2`."""
+            by_pane = {
+                "w1:p1": agent("working", "w1:p1"),
+                "w1:p3": agent("blocked", "w1:p3"),
+                "w1:p4": agent("working", "w1:p4"),
+                "w1:p5": agent("blocked", "w1:p5"),
+                "w1:p6": agent("working", "w1:p6"),
+            }
+            if p2:
+                by_pane["w1:p2"] = agent(p2, "w1:p2")
+            return LiveState(
+                workspaces={},
+                agents={item.name: item for item in by_pane.values()},
+                agents_by_pane=by_pane,
+            )
+
         app = KanbanApp(
             config=replace(load_config(_pin_config(tmp)), notify_on_block=False),
             store=Store.open(board),
             herdr=Herdr(binary="/nonexistent-herdr"),
         )
-        app.apply_live(live)
+        app.apply_live(live_with("working"))
 
-        after = Store.open(board)
+        # The agent's `block` is a separate process writing the board file, and
+        # the app only sees it on its next tick: that cross-process path is
+        # exactly where the block used to be reverted.
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            run_agent_command(["block", parked.id, "need the DSN"])
+        app.apply_live(live_with("working"))
 
         def status_of(task: Task) -> str:
-            found = after.by_id(task.id)
+            # A fresh read every time: the CLI and the app both write the file.
+            found = Store.open(board).by_id(task.id)
             return found.status if found else "-"
 
         check.check(
             "a queued card whose agent is working moves to In Progress",
             status_of(working) == "doing",
             status_of(working),
+        )
+        check.check(
+            "an explicitly blocked card stays Blocked while its agent works",
+            status_of(parked) == "blocked",
+            status_of(parked),
         )
         check.check(
             "and a queued card with no agent is left where it is",
@@ -3451,6 +3475,35 @@ def check_settle_columns(check: Checker, tmp: str) -> None:
             "but a card the human closed is not reopened by a live agent",
             status_of(closed) == "done",
             status_of(closed),
+        )
+
+        # The hold is spent the moment the agent leaves working, and the card
+        # then follows it the way any answered block does.
+        app.apply_live(live_with("idle"))
+        check.check(
+            "an idle agent does not lift a card that was blocked by hand",
+            status_of(parked) == "blocked",
+            status_of(parked),
+        )
+        app.apply_live(live_with("working"))
+        check.check(
+            "and a later working phase carries it to In Progress",
+            status_of(parked) == "doing",
+            status_of(parked),
+        )
+
+        # `auto_move` is a second door the live agent has into a card's column,
+        # so it must honour the same hold: turning it on must not undo a block.
+        auto = card("blocked with auto_move on", "doing", "w1:p6")
+        app.config.auto_move = True
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            run_agent_command(["block", auto.id, "need a decision"])
+        app.apply_live(live_with("working"))
+        check.check(
+            "auto_move does not undo a card blocked by hand",
+            status_of(auto) == "blocked",
+            status_of(auto),
         )
     finally:
         if saved is None:

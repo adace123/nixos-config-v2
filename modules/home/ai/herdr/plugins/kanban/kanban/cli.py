@@ -297,7 +297,13 @@ def _status(args: list[str], store: Store, config: Config) -> int:
         return 2
 
     _, outcome = store.set_status_from_agent(
-        task.id, column, config.human_only_columns, force=force
+        task.id,
+        column,
+        config.human_only_columns,
+        force=force,
+        # `status blocked` is the shorthand for an explicit park, so it gets the
+        # same hold as `block` below.
+        hold=column == config.blocked_column,
     )
     if message:
         store.add_progress(task.id, message)
@@ -315,7 +321,10 @@ def _block(args: list[str], store: Store, config: Config) -> int:
 
     if config.blocked_column:
         _, outcome = store.set_status_from_agent(
-            task.id, config.blocked_column, config.human_only_columns
+            task.id,
+            config.blocked_column,
+            config.human_only_columns,
+            hold=True,
         )
         print(outcome)
     else:

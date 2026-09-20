@@ -225,6 +225,12 @@ class Task:
     # Set once the human edits the title by hand: from then on an agent's title
     # becomes a suggestion instead of an overwrite.
     title_edited: bool = False
+    # True while the card sits in Blocked because someone parked it there on
+    # purpose (`herdr-kanban block`, or the human moving it) rather than because
+    # the board reconciled a blocked agent into it. `KanbanApp._settle_columns`
+    # must not carry such a card back to In Progress while its agent is still in
+    # the same working phase; the hold is spent the moment that phase ends.
+    blocked_hold: bool = False
     # The title as it stood before the first replacement, so a rename is
     # always reversible.
     original_title: str = ""
@@ -287,7 +293,7 @@ class Task:
             # Missing, hand-mangled, or from a board file written before this
             # field existed: the card is as good as one you typed.
             clean["created_by"] = "user"
-        for key in ("title_edited",):
+        for key in ("title_edited", "blocked_hold"):
             if not isinstance(clean.get(key), bool):
                 clean[key] = False
         if clean.get("priority") not in PRIORITIES:
@@ -691,16 +697,34 @@ class Store:
                 insert_at = index + 1
         self.board.tasks.insert(insert_at, task)
         task.status = status
+        # Leaving a column releases any explicit park: the hold belongs to the
+        # Blocked column, and a move is the human (or the agent) deciding the
+        # card is done waiting.
+        task.blocked_hold = False
         task.note(f"{previous} -> {status}")
         return True
 
-    def set_status(self, task_id: str, status: str) -> Task | None:
-        """Move a card to another column, landing at the end of it."""
+    def set_status(
+        self, task_id: str, status: str, hold: bool = False
+    ) -> Task | None:
+        """Move a card to another column, landing at the end of it.
+
+        `hold` marks the move as an explicit park rather than the board's own
+        reconciliation, and is only meaningful for a card landing in Blocked:
+        `KanbanApp._settle_columns` reads it so a working agent cannot carry the
+        card straight back out of the column someone deliberately put it in. A
+        `hold=False` on a card that already sits in its column is the release
+        path (the working phase that justified the hold is over); it rewrites
+        the flag but is not a move and leaves no `->` in the history.
+        """
         with self._locked():
             task = self.by_id(task_id)
             if task is None:
                 return task
             if self._move_to_column(task, status):
+                task.updated_at = time.time()
+            if task.blocked_hold != hold:
+                task.blocked_hold = hold
                 task.updated_at = time.time()
             return task
 
@@ -818,6 +842,7 @@ class Store:
         status: str,
         human_only: Collection[str],
         force: bool = False,
+        hold: bool = False,
     ) -> tuple[Task | None, str]:
         """Move a card on an agent's behalf. Returns (task, message).
 
@@ -834,7 +859,7 @@ class Store:
                 " close, not the agent's; pass --force if you mean it (the board's"
                 " own keys are unrestricted)",
             )
-        task = self.set_status(task_id, status)
+        task = self.set_status(task_id, status, hold=hold)
         if task is None:
             return None, f"no task {task_id} on the board"
         return task, f"{task.id} -> {status}"

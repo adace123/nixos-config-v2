@@ -636,7 +636,8 @@ stale_after_days = 3    # age is tinted yellow past this, red at 2x; with
 sync_seconds = 2.0             # agent state
 workspace_sync_seconds = 10.0  # workspaces, which change far less often
 auto_move = false              # true: working -> In Progress, idle/done -> Review
-                               # Blocked <-> In Progress follows the agent always
+                               # Blocked <-> In Progress follows the agent, except
+                               # a hand park (`block`) holds for that phase
 auto_delete_agent = true       # d stops the card's agent too; false keeps it
 notify_on_block = true         # a notification the first time an agent blocks on you
 notify_on_add = true           # ...and a desktop banner when an agent files a card
