@@ -143,6 +143,10 @@ in
     skills = {
       code-quality = shared.rules.code-quality;
       best-practices = shared.rules.best-practices;
+      # The board's judgement layer for agents the board did not dispatch.
+      # Same file Pi gets (see pi.nix); a claude kind is dispatchable from the
+      # board too, so both harnesses carry it.
+      herdr-kanban = ./skills/herdr-kanban;
     }
     // commonSkills.claudeSkills;
 

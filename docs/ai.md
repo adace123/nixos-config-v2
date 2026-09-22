@@ -58,6 +58,11 @@ Add a skill by appending its `skills/<path>` to `commonSkills` in `skills.nix`.
 
 - Pi-only skill: `commit-all` (a Nix-declared skill, not from upstream) is
   installed via `home.file` in `pi.nix`.
+- Local skill for both: `herdr-kanban`
+  (`modules/home/ai/skills/herdr-kanban/`) is the board's judgement layer for
+  agents the board did not dispatch. Pi gets it via `home.file` in `pi.nix`,
+  Claude Code via `programs.claude-code.skills` in `claude.nix` — see
+  [kanban.md](kanban.md#how-cards-get-updated).
 
 ## Claude Code (`claude.nix`)
 
@@ -104,7 +109,7 @@ Pi is a Rust-based conversational coding agent.
   `npm cache verify` clears it (details in `scripts/README.md`).
 - **`~/.pi/agent/mcp.json`** — `context7` + `grep-mcp` (read by `pi-mcp-adapter`).
 - **`~/.pi/agent/skills/`** — global auto-discovered skill location; populated
-  with the shared skills plus the `commit-all` skill.
+  with the shared skills plus the `commit-all` and `herdr-kanban` skills.
 - **`~/.pi/agent/extensions/opencode-session.ts`** — `pi-extensions/opencode-session.ts`
   via `home.file`; see [OpenCode session headers](#opencode-session-headers-pi-extensions).
 - **`~/.config/pi/web-search.json`** — TinyFish search config rendered at

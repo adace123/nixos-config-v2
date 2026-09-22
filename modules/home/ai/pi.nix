@@ -83,6 +83,18 @@ in
       recursive = true;
     };
 
+    # The board's judgement layer: when to note vs move vs block vs file a card,
+    # which is the part the dispatch protocol (a prompt, so every line costs)
+    # does not carry. The verbs stay in `herdr-kanban help`, which the skill
+    # points at rather than quoting — a third copy of the protocol block would
+    # be a third thing to drift. Global scope is deliberate: the board is
+    # machine-wide across workspaces, so a dispatched agent is not the only one
+    # that needs to find it. See docs/kanban.md.
+    ".pi/agent/skills/herdr-kanban" = {
+      source = ./skills/herdr-kanban;
+      recursive = true;
+    };
+
     # OpenCode Go/Zen reject a request without `x-opencode-session` with
     # `400 MissingSessionID`. Pi sends it on its own requests, but that merge
     # lives in the coding agent's stream wrapper, so an extension running a

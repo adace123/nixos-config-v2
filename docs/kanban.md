@@ -356,6 +356,22 @@ put a finished card in In Progress behind a green `✓ done` border. The *closin
 offer* case is spelled out because an agent ending its turn with "want me to do
 more?" is finished, not blocked, and would otherwise reach for neither verb.
 
+**Agents the board did not dispatch get the verbs from a skill.** The protocol
+above is a prompt, so it only reaches a card the board started — an agent
+started by hand in a workspace with a board finds nothing, and neither does one
+asked to file work it found. `modules/home/ai/skills/herdr-kanban/SKILL.md` is
+that missing surface: a Nix-declared skill installed for Pi
+(`~/.pi/agent/skills/herdr-kanban/`, `pi.nix`) and Claude Code (`claude.nix`),
+whose *description* sits in the agent's context every session while the body
+loads only when a card is mentioned. It carries the judgement the protocol has
+no room for — `note` versus moving versus `block` versus filing, that Done is
+yours and `agent_may_set` (below) is what enforces it, that work out of scope is
+a new card whose dedupe refusal names the one to note instead, `--json` for
+reading the board you are not supposed to change, and the `HERDR_PANE_ID` /
+`list --mine` check that says whether a card is even yours. It does **not**
+restate the verb table or this protocol block — it points at `herdr-kanban
+help`, so there is nothing new to drift.
+
 Those commands resolve the card from `HERDR_PANE_ID` (herdr injects it into
 every pane, and the board records it on dispatch), so a *dispatched* agent is
 never told an id it has to carry around. The link is exactly the pane the
