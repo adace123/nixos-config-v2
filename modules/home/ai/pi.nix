@@ -38,6 +38,13 @@ in
         "npm:@juicesharp/rpiv-ask-user-question"
         "npm:@juicesharp/rpiv-advisor"
         "npm:@ff-labs/pi-fff"
+        # Background shell jobs (`bg_run`), inspect-only child Pi agents
+        # (`bg_delegate`), and the multi-model Fusion workflows — the pieces
+        # pi-subagents does not cover (it orchestrates children, not shell
+        # jobs). Unpinned npm like the rest of the list, so `pi-update` moves
+        # it. Note the package also applies Claude Code OAuth attribution and
+        # exact-match prompt sanitization to Anthropic routes by default.
+        "npm:pi-background-tasks"
       ];
     };
   };

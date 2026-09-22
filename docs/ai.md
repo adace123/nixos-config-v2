@@ -91,8 +91,15 @@ Pi is a Rust-based conversational coding agent.
 
 - Default provider `opencode-go` / model `deepseek-v4-flash`, thinking `high`.
 - Ships many Pi packages/extensions (subagents, context-mode, todo, web-access,
-  powerline footer, fff, etc.) — pins noted in `pi.nix` for reproducibility
-  (some git/npm versions intentionally differ).
+  powerline footer, fff, background-tasks, etc.). Where a version is pinned, the
+  reason is a comment in `pi.nix`; git and npm sources are mixed on purpose
+  (`pi-web-access` follows the repo, the npm extensions follow `latest`).
+- **`pi-background-tasks`** adds background shell jobs (`bg_run` / `/bg`), an
+  inspect-only child Pi agent (`bg_delegate`), the fixed-purpose Fusion
+  workflows, and a footer dock (default **Shift↓**). It also applies Claude Code
+  OAuth attribution, cache policy and exact-match prompt sanitization to
+  Anthropic routes by default — worth knowing here, since Anthropic subscription
+  traffic goes through those same routes.
 - **`~/.pi/agent/npm/.npmrc`** — pins `prefer-offline=false` for pi's own
   extension installs (`npm install --prefix ~/.pi/agent/npm`, where npm reads it
   as the project config), so `pi update --extensions` revalidates registry
