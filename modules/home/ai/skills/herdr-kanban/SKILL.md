@@ -107,8 +107,8 @@ herdr-kanban add "<title>" --notes "why it is separate from this one"
   automations; the dispatch protocol never mentions it, and one agent should not
   start another.
 - There is no CLI delete. Destroying a card is a board key, and it stays one.
-- `archive` and the Done column are refused from a pane for the same reason as
-  each other: they are the human's call. `--force` exists for the human who
+- `archive`, `rename` and the Done column are refused from a pane for the same
+  reason as each other: they are the human's call. `--force` exists for the human who
   means it, not for an agent working around a guard.
 
 The full board — keys, columns, config, dispatch behaviour — is written up in
