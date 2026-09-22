@@ -712,8 +712,8 @@ copies the manifest and launcher into
 `~/.config/herdr/plugins-managed/kanban` and runs `herdr plugin link` there when
 the plugin is not registered yet, then reloads the server config to pick up the
 `prefix+k` / `ctrl+shift+k` bindings, and restarts the background reconciler
-(SIGTERM to the pid in `.board.json.sync.pid`, then `launcher.sh sync`) when
-herdr is running. The board's Python code stays in the
+(`launcher.sh sync-stop`, which only signals a pid while the sync lock proves
+it is the daemon, then `launcher.sh sync`) when herdr is running. The board's Python code stays in the
 store; `kanban-package.nix` packages it with
 `python3.withPackages [ textual ]` and bakes those store paths into the copied
 launcher.
@@ -741,6 +741,7 @@ herdr-kanban                             # run the board from a plain shell
 herdr-kanban --help                      # the task verbs, then these flags
 herdr-kanban --sync-status               # is the background reconciler up?
 herdr-kanban --sync                      # run it in the foreground (--detach forks)
+herdr-kanban --sync-stop                 # stop it
 ```
 
 `--snapshot` and `--screen` render sample tasks, workspaces, and agents

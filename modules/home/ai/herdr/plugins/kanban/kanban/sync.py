@@ -37,6 +37,8 @@ from .store import Store, Task
 # so exiting is the way to come back with a fresh process rather than poll a
 # socket nobody is going to answer.
 DOWN_GRACE_SECONDS = 60.0
+# How often a starting daemon re-tries a lock an open board is holding.
+LOCK_RETRY_SECONDS = 0.05
 
 
 def lock_path(board: Path) -> Path:
@@ -88,6 +90,23 @@ class SyncLock:
             fcntl.flock(self._fd, fcntl.LOCK_UN)
         os.close(self._fd)
         self._fd = None
+
+
+def stop_daemon(board: Path, wait: float = 2.0) -> int:
+    """SIGTERM the running daemon and wait for it to go. Its pid, or 0.
+
+    The pid is only trusted while the lock is held: a pid file a crashed daemon
+    left behind names whatever process has that number now.
+    """
+    pid = daemon_pid(board)
+    if pid <= 0:
+        return 0
+    with contextlib.suppress(ProcessLookupError):
+        os.kill(pid, signal.SIGTERM)
+    deadline = time.monotonic() + wait
+    while time.monotonic() < deadline and daemon_pid(board) == pid:
+        time.sleep(0.05)
+    return pid
 
 
 def daemon_pid(board: Path) -> int:
@@ -322,9 +341,18 @@ def run_daemon(
     unbounded.
     """
     lock = SyncLock(store.path)
-    if not lock.acquire():
-        print(f"herdr-kanban sync: already running (pid {daemon_pid(store.path)})")
-        return 0
+    # An open board takes the lock for a few milliseconds every tick, so a
+    # refusal with no daemon pid behind it is a board mid-tick, not a daemon:
+    # wait it out rather than leave the board unwatched until herdr restarts.
+    attempts = max(1, int(2 * config.sync_seconds / LOCK_RETRY_SECONDS))
+    while not lock.acquire():
+        holder = daemon_pid(store.path)
+        attempts -= 1
+        if holder > 0 or attempts <= 0:
+            owner = f"pid {holder}" if holder > 0 else "an open board, still"
+            print(f"herdr-kanban sync: already running ({owner})")
+            return 0
+        sleep(LOCK_RETRY_SECONDS)
     pid_file = pid_path(store.path)
     pid_file.write_text(f"{os.getpid()}\n")
     # SIGTERM (activation restarting it, herdr shutting down) should run the

@@ -3443,6 +3443,29 @@ def check_sync_daemon(check: Checker, tmp: str) -> None:
         )
     finally:
         held.release()
+
+    # A board mid-tick holds the lock with no daemon pid behind it; a daemon
+    # starting then waits the tick out instead of leaving nothing watching.
+    busy = SyncLock(board)
+    busy.acquire()
+    reads = StubHerdr()
+    reads.status = "working"
+    naps_taken: list[float] = []
+
+    def board_tick_ends(seconds: float) -> None:
+        naps_taken.append(seconds)
+        if len(naps_taken) == 3:
+            busy.release()
+
+    run_daemon(config, Store.open(board), reads, max_ticks=1, sleep=board_tick_ends)
+    busy.release()
+    check.check(
+        "a daemon started while an open board holds the lock for a tick waits for it",
+        len(naps_taken) >= 3 and daemon_pid(board) == 0
+        and Store.open(board).by_id(card.id).status == "doing",
+        f"{len(naps_taken)} naps",
+    )
+    herdr.status = "blocked"
     app.apply_live(app.read_live())
     check.check(
         "and with it gone the board reconciles again",

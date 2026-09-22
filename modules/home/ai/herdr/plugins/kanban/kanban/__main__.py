@@ -87,6 +87,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="with --sync: fork into the background, logging to sync.log",
     )
     parser.add_argument(
+        "--sync-stop",
+        action="store_true",
+        help="stop the background reconciler, if one is running, and exit",
+    )
+    parser.add_argument(
         "--sync-status",
         action="store_true",
         help="say whether the background reconciler is running, and exit",
@@ -257,9 +262,11 @@ def run_sync(store: Store, detach: bool) -> int:
 
     if detach:
         # Checked before forking so the startup hook's output says which it
-        # was; the daemon re-checks under the lock, which is what counts.
+        # was; the daemon re-checks under the lock, which is what counts. A
+        # lock held with no pid (-1) is an open board mid-tick: fork anyway,
+        # and the daemon waits that tick out.
         pid = daemon_pid(store.path)
-        if pid:
+        if pid > 0:
             print(f"herdr-kanban sync: already running (pid {pid})")
             return 0
         if not fork_away(store.path):
@@ -318,6 +325,12 @@ def main(argv: list[str] | None = None) -> int:
                 f"board is open; see {log_path(store.path)}"
             )
         return 0 if pid else 1
+    if args.sync_stop:
+        from .sync import stop_daemon
+
+        pid = stop_daemon(store.path)
+        print(f"sync: stopped pid {pid}" if pid else "sync: not running")
+        return 0
     if args.sync:
         return run_sync(store, args.detach)
 

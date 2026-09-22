@@ -210,16 +210,9 @@ in
       # it when herdr starts) so it runs the code and config just deployed.
       # Only while herdr is up: with no server there is nothing to follow, and
       # the next server start brings it up anyway.
-      syncPid="''${XDG_STATE_HOME:-$HOME/.local/state}/herdr/plugins/herdr-kanban/.board.json.sync.pid"
-      if [ -f "$syncPid" ]; then
-        pid="$(cat "$syncPid" 2>/dev/null || true)"
-        if [ -n "$pid" ] && kill "$pid" 2>/dev/null; then
-          for _ in 1 2 3 4 5 6 7 8 9 10; do
-            kill -0 "$pid" 2>/dev/null || break
-            sleep 0.2
-          done
-        fi
-      fi
+      # The stop goes through the daemon's own lock, not a raw pid file: a pid
+      # a crashed daemon left behind names whatever process has it now.
+      HERDR_BIN_PATH="$herdrBin" bash "$kanbanDir/launcher.sh" sync-stop >/dev/null 2>&1 || true
       if "$herdrBin" workspace list >/dev/null 2>&1; then
         HERDR_BIN_PATH="$herdrBin" bash "$kanbanDir/launcher.sh" sync >/dev/null 2>&1 || true
       fi
