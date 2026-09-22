@@ -53,6 +53,8 @@ USAGE_COMMANDS = """  {cli} status [<task>] <column>   move a card
   {cli} archive   [<task>]         archive a card, keeping its record
   {cli} unarchive [<task>]         restore an archived card to the board
   {cli} rename <task> <code|id>    change a card's id code (cfg-8 -> infra-8)
+  {cli} assign <task> <kind> [--model <name>]
+                                   change the agent (and model) a card sends to
   {cli} list   [--mine] [--json]   list cards (--archived: the archive)
   {cli} show   [<task>] [--json]   one card in full
   {cli} help                       this text
@@ -81,6 +83,7 @@ AGENT_COMMANDS = (
     "archive",
     "unarchive",
     "rename",
+    "assign",
     "list",
     "show",
     "help",
@@ -1009,6 +1012,89 @@ def _rename(args: list[str], store: Store, _config: Config) -> int:
     return 0
 
 
+def _assign(args: list[str], store: Store, config: Config) -> int:
+    """Change which agent kind (and model) a card is sent to.
+
+    The assignment is what the *next* dispatch uses; an agent already running
+    on the card is left alone, and the message says so rather than implying it
+    was swapped. `--model default` clears the model back to "whatever the kind's
+    `[agents.<kind>] args` say". Without `--model`, a model the new kind has no
+    `[models]` entry for is dropped rather than carried over to a CLI that will
+    not understand it — the same rule the add/edit form follows. A model the
+    list does not name is still accepted when asked for by name, as `add
+    --model` accepts it: the list is what the form offers, not a registry.
+    """
+    from . import icons
+
+    model: str | None = None
+    rest: list[str] = []
+    index = 0
+    while index < len(args):
+        arg = args[index]
+        if arg in ("--model", "-m"):
+            if index + 1 >= len(args):
+                print(f"{arg} needs a model name", file=sys.stderr)
+                return 2
+            model = args[index + 1]
+            index += 2
+            continue
+        if arg.startswith("--model="):
+            model = arg.split("=", 1)[1]
+        elif arg.startswith("-"):
+            print(f"unknown option {arg!r}", file=sys.stderr)
+            return 2
+        else:
+            rest.append(arg)
+        index += 1
+    if len(rest) != 2:
+        print(f"usage: {CLI} assign <task> <kind> [--model <name>]", file=sys.stderr)
+        return 2
+    reference, kind = rest[0], rest[1].strip().lower()
+    kinds = [known for known, _ in icons.AGENT_KINDS]
+    if kind not in kinds:
+        print(f"unknown agent kind {kind!r}; one of: {', '.join(kinds)}", file=sys.stderr)
+        return 2
+    task, error = _find(store, reference)
+    if task is None:
+        print(error, file=sys.stderr)
+        return 1
+
+    offered = config.models_for(kind)
+    notes: list[str] = []
+    if model is None:
+        model = task.agent_model
+        if model and model not in offered:
+            notes.append(f"model {model} dropped — {kind} has no such model listed")
+            model = ""
+    elif model == "default":
+        model = ""
+    elif offered and model not in offered:
+        notes.append(f"{model} is not in [models] {kind}; passed to the CLI as-is")
+
+    # Read before the update: `store.update` edits this same object in place.
+    before = (task.agent_kind, task.agent_model)
+    dispatched = bool(task.pane_id)
+    updated = store.update(task.id, agent_kind=kind, agent_model=model)
+    if updated is None:
+        print(f"no task {task.id} on the board", file=sys.stderr)
+        return 1
+    what = kind + (f" · model {model}" if model else "")
+    if (updated.agent_kind, updated.agent_model) == before:
+        print(f"{task.id} already assigned to {what}")
+        return 0
+    print(f"{task.id} -> {what}")
+    for note in notes:
+        print(f"  {note}")
+    if dispatched:
+        # A send to a card whose agent is still up re-prompts that agent
+        # (`Plan.reuses_running_agent`), so the new kind waits for it to exit.
+        print(
+            f"  {task.id} was dispatched: while that agent runs, a send"
+            f" re-prompts it; {kind} starts on the first send after it exits"
+        )
+    return 0
+
+
 def _help(_args: list[str], _store: Store, _config: Config) -> int:
     print(usage())
     return 0
@@ -1028,6 +1114,7 @@ def run_agent_command(argv: list[str]) -> int:
         "archive": _archive,
         "unarchive": _unarchive,
         "rename": _rename,
+        "assign": _assign,
         "list": _list,
         "show": _show,
         "help": _help,

@@ -399,6 +399,7 @@ full `cfg-8`, or just the number `8`, which is unique board-wide:
 | `herdr-kanban archive [<task>]` | take a card off the board, keeping its record |
 | `herdr-kanban unarchive [<task>]` | put an archived card back in the column it left |
 | `herdr-kanban rename <task> <code\|id>` | change a card's id code, keeping its number (`cfg-8` → `infra-8`) |
+| `herdr-kanban assign <task> <kind> [--model <name>]` | change the agent kind (and model) a card is sent to |
 
 `add` exists so an agent that finds *more* work has somewhere to put it, rather
 than doing it out of scope or mentioning it in chat and losing it. It defaults
@@ -484,6 +485,15 @@ step in the work, so `herdr-kanban archive` is refused from inside a herdr pane
 unless you pass `--force` — the same rule and the same escape hatch as closing a
 card. `unarchive` is unrestricted: putting a card back is always safe. `d` stays
 the only way to destroy a card, and it stays a board key; there is no CLI delete.
+
+**`assign`** is the edit form's Agent and Model fields, for a script:
+`herdr-kanban assign cfg-8 pi --model opencode-go/glm-5.3` sets what the next
+send starts. Without `--model` the card keeps its model when the new kind lists
+it and drops it otherwise, as the form does, and `--model default` clears it; a
+name `[models]` does not list is still passed through, with a note, because the
+list is what the form offers rather than a registry. It does not swap a running
+agent — a send to a card whose agent is still up re-prompts that agent — and
+says so when the card has been dispatched.
 
 **Renaming an id is yours too.** A code is frozen when a card is filed, and
 `herdr-kanban rename cfg-8 infra` (or the full `infra-8`) is the one way to
