@@ -66,6 +66,9 @@ ALIAS_LIMIT = 12
 # (`K8`, `8`) so a bare `v2` in an argument is still a word and not a card.
 _CODED_ID = re.compile(r"^[A-Za-z][A-Za-z0-9_-]*?-(\d+)$")
 _PLAIN_ID = re.compile(r"^[Kk]?(\d+)$")
+# What `rename` accepts: an id that is also a valid herdr agent name
+# (`[a-z][a-z0-9_-]{0,31}`), since a dispatch names the agent after its card.
+_VALID_ID = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")
 
 
 def slug_code(text: str, limit: int = CODE_LIMIT) -> str:
@@ -122,6 +125,11 @@ def workspace_code(
         if alias:
             return slug_code(str(alias), ALIAS_LIMIT)
     return slug_code(label) or slug_code(workspace_id)
+
+
+def task_id_for(code: str, seq: int) -> str:
+    """`task_id` under a name `Store` methods can use beside a `task_id` arg."""
+    return task_id(code, seq)
 
 
 def task_id(code: str, seq: int) -> str:
@@ -648,6 +656,58 @@ class Store:
             task.note(f"archived from {task.archived_from}")
             self.board.archived.append(task)
             return task, f"{task.id} archived from {task.archived_from}"
+
+    def rename(self, task_id: str, wanted: str) -> tuple[Task | None, str]:
+        """Give a card a new id, live or archived. Returns (task, message).
+
+        `wanted` is a full id (`herdr-kanban-66`) or just the code
+        (`herdr-kanban`), which keeps the card's counter. Only the code may
+        change: the counter is what makes a bare number name exactly one card
+        board-wide, so a rename that moved it could hand one card another's
+        number. The code is held to the shape an id must have anyway — a
+        lowercase letter first, then letters, digits, `-` and `_`, 32 at most —
+        because the id doubles as a dispatched agent's name, and herdr only
+        accepts names of that shape.
+
+        Every card that says it was found during this one (`parent_id`) follows
+        the rename, so the link reads the same both ways afterwards.
+        """
+        wanted = (wanted or "").strip().lower()
+        with self._locked():
+            task = self.by_id(task_id) or self.archived_by_id(task_id)
+            if task is None:
+                return None, f"no task {task_id} on the board or in the archive"
+            seq = task_seq(task.id)
+            if wanted == task.id.lower():
+                # Its own id, in any case — including a plain `K3`, which is
+                # not a code and must not be read as one (`k3-3`).
+                return task, f"{task.id} unchanged"
+            if not _CODED_ID.match(wanted):
+                wanted = task_id_for(wanted, seq)
+            elif task_seq(wanted) != seq:
+                return task, (
+                    f"refusing to renumber {task.id} as {wanted} — the number is"
+                    f" board-wide and stays {seq}; rename the code only"
+                    f" (e.g. {task_id_for(wanted.rsplit('-', 1)[0], seq)})"
+                )
+            if not _VALID_ID.match(wanted):
+                return task, (
+                    f"{wanted!r} is not a usable id: a lowercase letter first,"
+                    " then letters, digits, - or _, at most 32 characters"
+                )
+            if wanted == task.id:
+                return task, f"{task.id} unchanged"
+            clash = self.by_id(wanted) or self.archived_by_id(wanted)
+            if clash is not None:
+                return task, f"{wanted} is already a card: {clash.title!r}"
+            old = task.id
+            task.id = wanted
+            task.note(f"renamed from {old}")
+            task.updated_at = time.time()
+            for other in self.board.tasks + self.board.archived:
+                if other.parent_id == old:
+                    other.parent_id = wanted
+            return task, f"{old} -> {wanted}"
 
     def unarchive(self, task_id: str) -> tuple[Task | None, str]:
         """Put an archived card back on the board, in the column it left.

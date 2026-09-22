@@ -204,6 +204,101 @@ def check_store(check: Checker, tmp: str) -> None:
     )
 
 
+def check_rename(check: Checker, tmp: str) -> None:
+    """`rename` changes a card's code and nothing that makes its id an id.
+
+    The counter stays (a bare number must keep naming one card), links from
+    follow-ups follow, the new id must be usable as a herdr agent name, and an
+    agent cannot rename a card without `--force`.
+    """
+    import contextlib
+    import io
+    import os
+
+    from .cli import run_agent_command
+
+    board = Path(tmp) / "rename-board.json"
+    saved = {k: os.environ.get(k) for k in ("KANBAN_BOARD_FILE", "HERDR_PANE_ID")}
+    os.environ["KANBAN_BOARD_FILE"] = str(board)
+    os.environ.pop("HERDR_PANE_ID", None)
+
+    def cli(*argv: str) -> tuple[int, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = run_agent_command(list(argv))
+        return code, (out.getvalue() + err.getvalue()).strip()
+
+    try:
+        store = Store.open(board)
+        parent = store.add(title="the parent", status="doing", workspace_id="w1")
+        child = store.add(title="found in it", status="backlog", parent_id=parent.id)
+        other = store.add(title="someone else", status="backlog")
+        seq = int(parent.id.rsplit("-", 1)[-1].lstrip("K"))
+
+        code, out = cli("rename", parent.id, "herdr-kanban")
+        after = Store.open(board)
+        renamed = f"herdr-kanban-{seq}"
+        check.check(
+            "rename with a code keeps the card's number",
+            code == 0 and out == f"{parent.id} -> {renamed}"
+            and after.by_id(renamed) is not None,
+            out,
+        )
+        check.check(
+            "and the cards found during it follow the new id",
+            after.by_id(child.id).parent_id == renamed,
+            after.by_id(child.id).parent_id,
+        )
+        check.check(
+            "and its history says what it was",
+            f"renamed from {parent.id}" in after.by_id(renamed).history[-1]["what"],
+        )
+        check.check(
+            "and the number alone still finds it",
+            after.resolve(str(seq)) is not None
+            and after.resolve(str(seq)).id == renamed,
+        )
+        code, out = cli("rename", str(seq), "Infra-" + str(seq))
+        check.check(
+            "a full id is accepted, case-insensitively",
+            code == 0 and Store.open(board).by_id(f"infra-{seq}") is not None,
+            out,
+        )
+        code, out = cli("rename", f"infra-{seq}", "infra-999")
+        check.check(
+            "but not one that changes the number",
+            code == 1 and "renumber" in out
+            and Store.open(board).by_id(f"infra-{seq}") is not None,
+            out,
+        )
+        code, out = cli("rename", f"infra-{seq}", "9lives")
+        check.check(
+            "nor one herdr would not take as an agent name",
+            code == 1 and "not a usable id" in out,
+            out,
+        )
+        code2, out2 = cli("rename", other.id, other.id)
+        check.check(
+            "renaming to the id a card already has is a no-op, not an error",
+            code2 == 0 and out2.endswith("unchanged"),
+            out2,
+        )
+        os.environ["HERDR_PANE_ID"] = "w1:p9"
+        code, out = cli("rename", f"infra-{seq}", "agent")
+        forced, _ = cli("rename", f"infra-{seq}", "agent", "--force")
+        check.check(
+            "an agent is refused without --force",
+            code == 1 and "yours to change" in out and forced == 0,
+            out,
+        )
+    finally:
+        for key, value in saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
 def check_archive(check: Checker, tmp: str) -> None:
     """Archive keeps a card: off the board, still on disk, restorable.
 
@@ -4229,6 +4324,7 @@ async def _run(check: Checker) -> None:
             check_store(check, tmp)
             check_ids(check, tmp)
             check_archive(check, tmp)
+            check_rename(check, tmp)
             check_agent_protocol(check, tmp)
             check_add_notification(check, tmp)
             check_status_rights(check, tmp)

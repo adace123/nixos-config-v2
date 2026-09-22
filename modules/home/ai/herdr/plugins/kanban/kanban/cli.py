@@ -52,6 +52,7 @@ USAGE_COMMANDS = """  {cli} status [<task>] <column>   move a card
                        [--worktree|--no-worktree] [--dry-run]
   {cli} archive   [<task>]         archive a card, keeping its record
   {cli} unarchive [<task>]         restore an archived card to the board
+  {cli} rename <task> <code|id>    change a card's id code (cfg-8 -> infra-8)
   {cli} list   [--mine] [--json]   list cards (--archived: the archive)
   {cli} show   [<task>] [--json]   one card in full
   {cli} help                       this text
@@ -79,6 +80,7 @@ AGENT_COMMANDS = (
     "send",
     "archive",
     "unarchive",
+    "rename",
     "list",
     "show",
     "help",
@@ -966,6 +968,47 @@ def _unarchive(args: list[str], store: Store, _config: Config) -> int:
     return 0
 
 
+def _rename(args: list[str], store: Store, _config: Config) -> int:
+    """Change a card's id code, keeping its number (`Store.rename`).
+
+    Both halves are required: an id is the name other cards, prompts and panes
+    already hold, so which card is being renamed is never left to the pane. An
+    agent is refused without `--force`, like `archive` — the prompt it was
+    handed names the old id. A dispatched card's tab is relabelled with it,
+    because the board recognises its own tab by the label it last wrote.
+    """
+    force = "--force" in args
+    args = [arg for arg in args if arg != "--force"]
+    if len(args) != 2:
+        print(f"usage: {CLI} rename <task> <new code or id>", file=sys.stderr)
+        return 2
+    task, error = _find(store, args[0], include_archived=True)
+    if task is None:
+        print(error, file=sys.stderr)
+        return 1
+    if _from_agent() and not force:
+        print(
+            f"refusing to rename {task.id} — a card's id is yours to change,"
+            " not the agent's; pass --force if you mean it",
+            file=sys.stderr,
+        )
+        return 1
+    old = task.id
+    renamed, message = store.rename(task.id, args[1])
+    if renamed is None or renamed.id == old:
+        # Nothing moved: either the id was already that (fine) or it was
+        # refused, and the message says why.
+        unchanged = message.endswith("unchanged")
+        print(message, file=sys.stdout if unchanged else sys.stderr)
+        return 0 if unchanged else 1
+    print(message)
+    if not renamed.archived_at:
+        failed = retitle_tab(store, renamed)
+        if failed:
+            print(f"(tab not relabelled: {failed})", file=sys.stderr)
+    return 0
+
+
 def _help(_args: list[str], _store: Store, _config: Config) -> int:
     print(usage())
     return 0
@@ -984,6 +1027,7 @@ def run_agent_command(argv: list[str]) -> int:
         "send": _send,
         "archive": _archive,
         "unarchive": _unarchive,
+        "rename": _rename,
         "list": _list,
         "show": _show,
         "help": _help,
