@@ -23,8 +23,8 @@ in
 
     settings = {
       theme = "dark";
-      model = "claude-opus-5";
-      advisorModel = "fable";
+      model = "claude-opus-5-5";
+      advisorModel = "opus";
       defaultMode = "auto";
       outputStyle = "concise";
       skipAutoPermissionPrompt = true;
