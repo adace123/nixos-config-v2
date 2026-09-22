@@ -28,6 +28,17 @@ min_herdr_version = "0.9.0"
 description = "Kanban board for agent work: plan tasks per workspace and agent, dispatch them into live panes, and watch their state."
 platforms = ["linux", "macos"]
 
+# The background reconciler: with no board open, a card whose agent blocks is
+# still moved to Blocked and announced, and an answered one carried back to In
+# Progress. One-shot — `sync` forks the daemon and returns, so the hook
+# completes; a second start finds the running one and exits. It inherits
+# herdr's environment from this hook (the socket and the plugin state dir), and
+# exits on its own a minute after herdr stops answering, so the next server
+# start brings up a fresh one.
+[[startup]]
+platforms = ["linux", "macos"]
+command = ["bash", "launcher.sh", "sync"]
+
 # The board itself. `overlay` opens a temporary zoomed overlay over the active
 # pane and restores focus and zoom when it closes; set `ui.placement = "popup"`
 # in the plugin config to open it as a centred modal instead.

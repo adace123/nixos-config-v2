@@ -39,6 +39,7 @@ let
     "render"
     "selftest"
     "store"
+    "sync"
     "widgets"
   ];
 

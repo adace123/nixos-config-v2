@@ -72,6 +72,25 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="open the board with the add-task form already up",
     )
+    parser.add_argument(
+        "--sync",
+        action="store_true",
+        help=(
+            "run the background reconciler: follow agents into Blocked / In "
+            "Progress and announce blocks with no board open (the plugin's "
+            "startup hook runs this with --detach)"
+        ),
+    )
+    parser.add_argument(
+        "--detach",
+        action="store_true",
+        help="with --sync: fork into the background, logging to sync.log",
+    )
+    parser.add_argument(
+        "--sync-status",
+        action="store_true",
+        help="say whether the background reconciler is running, and exit",
+    )
     return parser
 
 
@@ -227,6 +246,29 @@ def help_text() -> str:
     )
 
 
+def run_sync(store: Store, detach: bool) -> int:
+    """The background reconciler (`sync.run_daemon`), optionally detached.
+
+    Config is read once, at start: a `just switch` that changes it restarts the
+    daemon from the activation script, the same moment the code under it
+    changes.
+    """
+    from .sync import daemon_pid, detach as fork_away, run_daemon
+
+    if detach:
+        # Checked before forking so the startup hook's output says which it
+        # was; the daemon re-checks under the lock, which is what counts.
+        pid = daemon_pid(store.path)
+        if pid:
+            print(f"herdr-kanban sync: already running (pid {pid})")
+            return 0
+        if not fork_away(store.path):
+            print("herdr-kanban sync: started")
+            return 0
+    store.load()
+    return run_daemon(load_config(), store, Herdr())
+
+
 def main(argv: list[str] | None = None) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
 
@@ -263,9 +305,24 @@ def main(argv: list[str] | None = None) -> int:
 
         return run_selftest(args)
 
+    store = Store(Path(args.board_file) if args.board_file else board_path())
+    if args.sync_status:
+        from .sync import daemon_pid, log_path
+
+        pid = daemon_pid(store.path)
+        if pid:
+            print(f"sync: running (pid {pid if pid > 0 else '?'})")
+        else:
+            print(
+                "sync: not running — cards follow their agents only while the "
+                f"board is open; see {log_path(store.path)}"
+            )
+        return 0 if pid else 1
+    if args.sync:
+        return run_sync(store, args.detach)
+
     from .app import KanbanApp
 
-    store = Store(Path(args.board_file) if args.board_file else board_path())
     app = KanbanApp(
         config=load_config(),
         store=store,

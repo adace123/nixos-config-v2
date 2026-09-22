@@ -227,7 +227,7 @@ class Task:
     title_edited: bool = False
     # True while the card sits in Blocked because someone parked it there on
     # purpose (`herdr-kanban block`, or the human moving it) rather than because
-    # the board reconciled a blocked agent into it. `KanbanApp._settle_columns`
+    # the board reconciled a blocked agent into it. `Syncer.settle_columns`
     # must not carry such a card back to In Progress while its agent is still in
     # the same working phase; the hold is spent the moment that phase ends.
     blocked_hold: bool = False
@@ -711,7 +711,7 @@ class Store:
 
         `hold` marks the move as an explicit park rather than the board's own
         reconciliation, and is only meaningful for a card landing in Blocked:
-        `KanbanApp._settle_columns` reads it so a working agent cannot carry the
+        `Syncer.settle_columns` reads it so a working agent cannot carry the
         card straight back out of the column someone deliberately put it in. A
         `hold=False` on a card that already sits in its column is the release
         path (the working phase that justified the hold is over); it rewrites

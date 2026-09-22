@@ -4,6 +4,8 @@
 #
 #   launcher.sh open [--quick-add]  action: open the board pane
 #   launcher.sh board [args...]     pane entrypoint: draw the board
+#   launcher.sh sync                startup hook: start the background
+#                                   reconciler (`herdr-kanban --sync --detach`)
 #
 # The board is a Textual app. Its Python package lives in the Nix store
 # (@APPDIR@) and is run with the interpreter from
@@ -79,8 +81,13 @@ board)
 	shift || true
 	run_board "$@"
 	;;
+sync)
+	# Same interpreter and package as the board; the daemon forks away and this
+	# returns at once, so herdr's startup hook completes.
+	run_board --sync --detach
+	;;
 *)
-	printf 'usage: launcher.sh [open [--quick-add] | board [args...]]\n' >&2
+	printf 'usage: launcher.sh [open [--quick-add] | board [args...] | sync]\n' >&2
 	exit 2
 	;;
 esac

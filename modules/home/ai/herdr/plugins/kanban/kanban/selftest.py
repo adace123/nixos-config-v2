@@ -3259,7 +3259,7 @@ async def check_live_loop(check: Checker, tmp: str) -> None:
                 str(calls),
             )
             # The slow clock comes round: workspaces are re-read on their turn.
-            app._workspaces_read_at -= config.workspace_sync_seconds + 1
+            app.syncer._workspaces_read_at -= config.workspace_sync_seconds + 1
             app.read_live()
             calls = log.read_text(encoding="utf-8").splitlines()
             check.check(
@@ -3351,6 +3351,123 @@ async def check_live_loop(check: Checker, tmp: str) -> None:
                 os.environ.pop(key, None)
             else:
                 os.environ[key] = value
+
+
+def check_sync_daemon(check: Checker, tmp: str) -> None:
+    """The column rules and block announcements run with no board open.
+
+    The daemon (`herdr-kanban --sync`) is the reconciler the startup hook
+    starts; it must do on its own what the board's tick did, and while it holds
+    the sync lock an open board must only draw — two reconcilers would announce
+    every block twice.
+    """
+    from dataclasses import replace
+
+    from .config import load_config
+    from .herdr import Agent, Result, Workspace
+    from .sync import SyncLock, daemon_pid, run_daemon
+
+    board = Path(tmp) / "sync-board.json"
+    store = Store.open(board)
+    card = store.add(title="blocks with the board shut", status="doing",
+                     workspace_id="w1", agent_kind="pi")
+    store.hand_over(card.id, "doing", pane_id="w1:p1", tab_id="w1:t1",
+                    dispatched_at=time.time())
+
+    class StubHerdr(Herdr):
+        def __init__(self) -> None:
+            super().__init__(binary="/nonexistent-herdr")
+            self.status = "working"
+            self.down = False
+            self.toasts: list[str] = []
+
+        def workspaces(self):  # type: ignore[override]
+            if self.down:
+                return [], Result(ok=False, message="gone")
+            return [Workspace(id="w1", label="probe", number=1, active_tab_id="w1:t1", agent_status="idle")], Result(ok=True)
+
+        def agents(self):  # type: ignore[override]
+            if self.down:
+                return [], Result(ok=False, message="gone")
+            agent = Agent(name="k1", status=self.status, workspace_id="w1",
+                          pane_id="w1:p1", tab_id="w1:t1", cwd="",
+                          focused=False, title="", logo="")
+            return [agent], Result(ok=True)
+
+        def notify(self, title: str, body: str = "") -> Result:
+            self.toasts.append(title)
+            return Result(ok=True)
+
+    herdr = StubHerdr()
+    config = replace(load_config(_pin_config(tmp, "sync-config.toml")),
+                     notify_system=False)
+    statuses = iter(["blocked", "blocked", "working"])
+
+    def tick(_seconds: float) -> None:
+        herdr.status = next(statuses, "working")
+
+    run_daemon(config, Store.open(board), herdr, max_ticks=4, sleep=tick)
+    after = Store.open(board)
+    history = [entry["what"] for entry in after.by_id(card.id).history]
+    check.check(
+        "the daemon moves a card to Blocked with no board open, and back",
+        "doing -> blocked" in history and after.by_id(card.id).status == "doing",
+        str(history[-3:]),
+    )
+    check.check(
+        "and announces the block once",
+        herdr.toasts == [f"{card.id} needs you"],
+        str(herdr.toasts),
+    )
+    check.check(
+        "and leaves no lock or pid behind when it stops",
+        daemon_pid(board) == 0,
+    )
+
+    held = SyncLock(board)
+    held.acquire()
+    try:
+        check.check(
+            "a second daemon finds the first and stops",
+            run_daemon(config, Store.open(board), StubHerdr(), max_ticks=1,
+                       sleep=lambda _s: None) == 0 and daemon_pid(board) != 0,
+        )
+        herdr.status = "blocked"
+        app = KanbanApp(config=config, store=Store.open(board), herdr=herdr)
+        herdr.toasts.clear()
+        app.apply_live(app.read_live(force=True))
+        check.check(
+            "while it runs, an open board only draws",
+            Store.open(board).by_id(card.id).status == "doing"
+            and herdr.toasts == [],
+        )
+    finally:
+        held.release()
+    app.apply_live(app.read_live())
+    check.check(
+        "and with it gone the board reconciles again",
+        Store.open(board).by_id(card.id).status == "blocked",
+    )
+
+    herdr.down = True
+    naps: list[float] = []
+    clock = [0.0]
+    real = time.monotonic
+    time.monotonic = lambda: clock[0]  # type: ignore[assignment]
+
+    def nap(seconds: float) -> None:
+        naps.append(seconds)
+        clock[0] += 30.0
+
+    try:
+        code = run_daemon(config, Store.open(board), herdr, max_ticks=10, sleep=nap)
+    finally:
+        time.monotonic = real  # type: ignore[assignment]
+    check.check(
+        "a daemon whose herdr has gone away exits instead of polling forever",
+        code == 0 and len(naps) == 2,
+        f"{len(naps)} naps",
+    )
 
 
 def check_settle_columns(check: Checker, tmp: str) -> None:
@@ -4241,6 +4358,7 @@ async def _run(check: Checker) -> None:
             await check_edit_title(check, tmp)
             await check_live_loop(check, tmp)
             check_settle_columns(check, tmp)
+            check_sync_daemon(check, tmp)
             check_prompt_delivery(check, tmp)
             check_dispatch_env(check, tmp)
             await check_delete_stops_agent(check, tmp)

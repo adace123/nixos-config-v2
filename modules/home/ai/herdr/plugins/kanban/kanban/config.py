@@ -35,7 +35,7 @@ DOING_COLUMNS: tuple[str, ...] = ("doing", "in-progress", "progress", "started")
 # Columns that mean "committed, waiting for an agent". Nothing the board
 # dispatches rests in one — a send starts the card's agent, so it lands in In
 # Progress — but the board still reads them as a set, because a card whose agent
-# is already working must not be left sitting in one (`KanbanApp._settle_columns`).
+# is already working must not be left sitting in one (`Syncer.settle_columns`).
 # `todo` is kept in the list because this board's own column used to have that id,
 # and a card stored before the rename is still a queued card.
 QUEUED_COLUMNS: tuple[str, ...] = ("queued", "todo", "next", "ready")

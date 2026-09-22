@@ -307,6 +307,23 @@ because nothing has changed since you last looked. `notify_on_block = false`
 turns the whole thing off, and `notify_system = false` keeps the herdr toast but
 drops the desktop banner.
 
+**None of this needs the board open.** The column rules (Blocked, back to In
+Progress, out of Queued, `auto_move`) and the block announcement run in a
+background reconciler, `herdr-kanban --sync` (`kanban/sync.py`), which the
+plugin's `[[startup]]` hook starts with every herdr server (`launcher.sh sync`,
+which forks it away so the hook returns). The board is an overlay you open and
+close, so a rule that only ran on its tick noticed a blocked agent exactly when
+you were already looking. Exactly one process reconciles at a time: the daemon
+holds an `flock` beside the board file (`.board.json.sync.lock`) for as long as
+it runs, and an open board takes the same lock for one tick at a time — so with
+the daemon up the board only draws what it wrote, and two reconcilers never
+announce one block twice; with it down, the board reconciles on its own tick as
+it always did. The daemon reads its config once, exits a minute after herdr
+stops answering (the next server start brings a new one), and is restarted by
+`just switch`'s activation so it runs the code just deployed.
+`herdr-kanban --sync-status` says whether it is running; its output is in
+`sync.log` beside the board.
+
 **When an agent files a card, the desktop says so.** Filing a new card is how an
 agent reports work it found while doing something else (see below), and it is the
 one way a card arrives without you having asked for it. So `herdr-kanban add`
@@ -694,7 +711,9 @@ pi = [
 copies the manifest and launcher into
 `~/.config/herdr/plugins-managed/kanban` and runs `herdr plugin link` there when
 the plugin is not registered yet, then reloads the server config to pick up the
-`prefix+k` / `ctrl+shift+k` bindings. The board's Python code stays in the
+`prefix+k` / `ctrl+shift+k` bindings, and restarts the background reconciler
+(SIGTERM to the pid in `.board.json.sync.pid`, then `launcher.sh sync`) when
+herdr is running. The board's Python code stays in the
 store; `kanban-package.nix` packages it with
 `python3.withPackages [ textual ]` and bakes those store paths into the copied
 launcher.
@@ -720,6 +739,8 @@ herdr-kanban --screen board --keys l,enter          # ...after pressing keys
 herdr-kanban --selftest                  # headless checks (store, protocol, UI)
 herdr-kanban                             # run the board from a plain shell
 herdr-kanban --help                      # the task verbs, then these flags
+herdr-kanban --sync-status               # is the background reconciler up?
+herdr-kanban --sync                      # run it in the foreground (--detach forks)
 ```
 
 `--snapshot` and `--screen` render sample tasks, workspaces, and agents

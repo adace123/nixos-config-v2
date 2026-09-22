@@ -48,6 +48,7 @@ from .model import (
 )
 from .render import BoardView
 from .store import Store, Task, task_id, workspace_code
+from .sync import Syncer, SyncLock
 from .widgets import BoardWidget
 
 
@@ -85,16 +86,16 @@ class KanbanApp(App[None]):
         self.icon_mode = icons.icon_mode(config.icon_mode)
         self.executor = Executor(herdr)
         self._notice_timer: object | None = None
-        # The last read of each half of herdr's world, so the slow half can be
-        # re-read on its own clock (`workspace_sync_seconds`) and the fast half
-        # (`sync_seconds`) never waits for it.
-        self._workspaces: dict = {}
-        self._workspaces_ok = False
-        self._workspaces_error = ""
-        self._workspaces_read_at = 0.0
-        # task id -> the live status it had last tick, for the transition
-        # announcements in `_announce_transitions`.
-        self._live_status: dict[str, str] = {}
+        # The column rules and block announcements, shared with the background
+        # daemon (`sync.py`); the lock decides which of the two runs them.
+        self.syncer = Syncer(
+            config,
+            herdr,
+            tasks=self.tasks,
+            set_status=self._set_status,
+            toast=self.herdr_notify,
+        )
+        self._sync_lock = SyncLock(store.path)
         self._demo_tasks: list[Task] = []
         self._demo_archived: list[Task] = []
 
@@ -365,7 +366,7 @@ class KanbanApp(App[None]):
         new_status = self.config.columns[target].id
         origin = self.config.label_for(task.status)
         # Moving a card into Blocked by hand is an explicit park: a working agent
-        # must not carry it back out (see `_settle_columns`).
+        # must not carry it back out (see `Syncer.settle_columns`).
         self._set_status(
             task, new_status, hold=new_status == self.config.blocked_column
         )
@@ -1153,33 +1154,9 @@ class KanbanApp(App[None]):
         self.post(self.apply_live, self.read_live(force))
 
     def read_live(self, force: bool = False) -> LiveState:
-        """Read herdr, on two clocks, and return it as a `LiveState`.
-
-        Two clocks because they are two different costs: agent state is what
-        changes and what the board is for, while workspaces are opened and closed
-        by hand a few times an hour. Reading both every tick meant a
-        `herdr workspace list` nobody needed on every tick — which is exactly
-        what `workspace_sync_seconds` was documented to prevent. Blocking: the
-        sync worker calls this, and so can a test.
-        """
-        now = time.monotonic()
-        due = now - self._workspaces_read_at >= self.config.workspace_sync_seconds
-        if force or due or not self._workspaces_ok:
-            workspaces, workspace_result = self.herdr.workspaces()
-            self._workspaces = {workspace.id: workspace for workspace in workspaces}
-            self._workspaces_ok = workspace_result.ok
-            self._workspaces_error = (
-                "" if workspace_result.ok else workspace_result.error_text()
-            )
-            self._workspaces_read_at = now
-        agents, agent_result = self.herdr.agents()
-        return LiveState(
-            workspaces=self._workspaces,
-            agents={agent.name: agent for agent in agents},
-            agents_by_pane={agent.pane_id: agent for agent in agents},
-            down=not (self._workspaces_ok or agent_result.ok),
-            error=self._workspaces_error,
-        )
+        """Read herdr (`Syncer.read_live`). Blocking: the sync worker calls
+        this, and so can a test."""
+        return self.syncer.read_live(force)
 
     def apply_live(self, live: LiveState) -> None:
         self.live = live
@@ -1190,134 +1167,42 @@ class KanbanApp(App[None]):
                 f"herdr unreachable: {live.error}"[:120],
                 timeout=self.config.workspace_sync_seconds,
             )
-        self._announce_transitions()
-        self._settle_columns()
-        if self.config.auto_move:
-            self._auto_move()
+        self.reconcile(live)
         self.refresh_board()
 
-    def _announce_transitions(self) -> None:
-        """Say so when an agent newly starts waiting on you.
+    def reconcile(self, live: LiveState) -> None:
+        """Settle columns and announce blocks — unless the sync daemon does.
 
-        Blocked is the one state that costs something to ignore — the agent is
-        stopped until you answer — and both places that show it (the card's rule
-        and the header's count) require looking at the board. So the first time a
-        card arrives in it, the board raises a herdr notification and — unless
-        `notify_system` is off — a desktop one.
-
-        Only *transitions*: the first tick of a board just records where
-        everything stands, or opening the board onto a blocked card would ping
-        every single time you looked at it, having learned nothing new.
+        The daemon (`herdr-kanban --sync`) holds the sync lock for as long as it
+        runs, so while it is up the board only draws what it wrote: two
+        reconcilers would announce every block twice. Without it the board takes
+        the lock for this one tick and does the work itself, which is how the
+        board behaved before the daemon existed. A tick the board sits out
+        forgets what it last saw, so taking over later starts from a baseline
+        rather than announcing blocks the daemon already announced.
         """
-        if self.demo_mode or not self.config.notify_on_block:
+        if self.demo_mode:
+            # Sample data: follow the columns, but nothing is news.
+            self.syncer.live = live
+            self.syncer.settle_columns()
+            if self.config.auto_move:
+                self.syncer.auto_move()
             return
-        current = {task.id: self.live.for_task(task)[0] for task in self.tasks()}
-        if self._live_status:
-            for task_id, status in current.items():
-                if status != "blocked" or self._live_status.get(task_id) == "blocked":
-                    continue
-                task = self.task(task_id)
-                if task is not None:
-                    self.herdr_notify(f"{task.id} needs you", task.title)
-                    if self.config.notify_system:
-                        # The toast only reaches someone already looking at
-                        # herdr; the desktop banner reaches them anywhere.
-                        notify.system(f"{task.id} needs you", task.title)
-        self._live_status = current
+        if not self._sync_lock.acquire():
+            self.syncer.last_status = {}
+            return
+        try:
+            self.syncer.reconcile(live)
+        finally:
+            self._sync_lock.release()
 
-    def _holding_block(self, task: Task, status: str) -> bool:
-        """Whether an explicit park outranks the agent's live status.
+    @property
+    def _live_status(self) -> dict[str, str]:
+        return self.syncer.last_status
 
-        A card parked in Blocked by hand — `herdr-kanban block`, or the human
-        moving it — stays there for the rest of the working phase it was parked
-        in. `_settle_columns` and `_auto_move` both ask this, so the two doors
-        the live agent has into a card's column cannot disagree about which card
-        it may carry.
-        """
-        return bool(
-            task.blocked_hold
-            and status == "working"
-            and task.status == self.config.blocked_column
-        )
-
-    def _settle_columns(self) -> None:
-        """Keep each card's column honest about what its agent is doing.
-
-        These two rules are unconditional, unlike `auto_move`, which is the
-        opt-in tail of the lifecycle (idle/done -> Review). Each is a card
-        saying the opposite of what is true:
-
-          - a card whose agent has stopped to ask you something belongs in
-            Blocked, wherever it was — that is what "the agent asked a
-            question" looks like from outside;
-          - a card whose agent is working belongs in In Progress, so a card
-            parked in a queued column is carried on rather than left with a
-            label that says the opposite. A card in Blocked is carried on too,
-            once its agent starts working again — *unless* it was parked there
-            by an explicit act while the agent was still working: `herdr-kanban
-            block`, or the human moving it. That is `blocked_hold`, and it wins
-            for the rest of that working phase. It is spent the moment the agent
-            leaves working (its turn ended, or the block was answered), so a
-            later turn lifts the card the way any answered block does.
-
-        A card the human has closed (the `role = "done"` column) is never
-        reopened by a live agent, and a board with no Blocked column leaves a
-        blocked card where it is — the same bargain `herdr-kanban block` makes.
-        """
-        doing = self._dispatch_column("")
-        blocked_column = self.config.blocked_column
-        human_only = set(self.config.human_only_columns)
-        queued = set(self.config.columns_with_role("queued"))
-        for task in self.tasks():
-            status, _ = self.live.for_task(task)
-            # An explicit park outranks the agent only while the agent is still
-            # in the phase it was parked in. Computed before anything below can
-            # release the hold, so a same-tick release cannot enable the lift it
-            # exists to prevent.
-            holding = self._holding_block(task, status)
-            if task.blocked_hold and not holding:
-                # The hold is spent — release it, quietly (the card is not
-                # moving). A card answered out of Blocked follows its agent
-                # again on the next tick.
-                self._set_status(task, task.status, hold=False)
-            if status == "blocked":
-                if (
-                    blocked_column
-                    and task.status != blocked_column
-                    and task.status not in human_only
-                ):
-                    self._set_status(task, blocked_column)
-                continue
-            if status == "working" and doing:
-                if task.status in queued:
-                    self._set_status(task, doing)
-                elif task.status == blocked_column and not holding:
-                    self._set_status(task, doing)
-
-    def _auto_move(self) -> None:
-        """Opt-in: follow the agent's own progress through the columns.
-
-        The second half of the lifecycle, after `_settle_columns`: a card the
-        agent has picked up shows as In Progress, and one it has finished shows
-        as Review. An explicit park still wins — `_auto_move` must not be a
-        second door back out of Blocked, or turning it on would undo
-        `herdr-kanban block` exactly as the unconditional reconciliation once
-        did.
-        """
-        # "" rather than the card's column: this is not a send, so it always
-        # means In Progress — a running agent is never queued in Todo.
-        doing = self._dispatch_column("")
-        review_column = self.config.review_column
-        for task in self.tasks():
-            if not task.dispatched_at:
-                continue
-            status, _ = self.live.for_task(task)
-            if status == "working" and doing and task.status != doing:
-                if self._holding_block(task, status):
-                    continue
-                self._set_status(task, doing)
-            elif status in ("idle", "done") and review_column and task.status == doing:
-                self._set_status(task, review_column)
+    @_live_status.setter
+    def _live_status(self, value: dict[str, str]) -> None:
+        self.syncer.last_status = value
 
 
 def run() -> None:  # pragma: no cover - convenience for `python -m kanban.app`

@@ -98,8 +98,8 @@ herdr-kanban add "<title>" --notes "why it is separate from this one"
   card was *filed* in. Matching ignores case and the number alone is unique
   board-wide, so `8` names the same card as `cfg-8`.
 - **Nothing to publish.** Each verb writes the board file directly, so a board
-  open in a pane picks the change up on its next tick. There is no daemon to
-  poke and no notification to send.
+  open in a pane (and the board's background reconciler) picks the change up
+  on its next tick. There is nothing to poke and no notification to send.
 
 ## Not yours to run
 
