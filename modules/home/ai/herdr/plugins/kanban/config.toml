@@ -73,6 +73,14 @@ columns = [
 # Agent kind pre-selected in the add form, and the column new tasks land in.
 default_agent = "pi"
 default_column = "backlog"
+# How each column is ordered. "updated" (the default) puts the card that was
+# touched most recently first — the work that is moving is what you see, without
+# reading ages — and "manual" keeps the board file's list order, the one `J`/`K`
+# edit. Order is a view, not a write: the file keeps its list order either way,
+# so switching back to "manual" restores the arrangement you had. While a column
+# is sorted, `J`/`K` refuses and says so rather than moving a card you would not
+# see move.
+sort = "updated"
 # Optional per-column card limits, shown as "3/5" and highlighted when full.
 # wip_limits = { doing = 5 }
 # Cards untouched for this many days are tinted yellow, and red at 2x.
@@ -129,6 +137,12 @@ auto_move = false
 # leave an agent nobody is tracking. Set to false to delete the card and leave
 # the agent running — the confirmation says which it will do.
 auto_delete_agent = true
+# Archiving a card (`A`, or `herdr-kanban archive`) also stops its agent by
+# closing the tab its dispatch opened, exactly as deleting one does. Off in the
+# app's own defaults (archiving is about the board, not the run); on here,
+# because a card taken off the board is a run we have stopped, and the notice
+# says which of the two just happened.
+auto_archive_agent = true
 # Append the board protocol to every dispatch prompt: the task id, the
 # `herdr-kanban status|block|note|title` commands, and the rule that only you
 # close a card. Set to false for a prompt that is only the task text.

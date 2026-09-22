@@ -15,8 +15,11 @@ and panes already refer to. A card filed with no workspace keeps the plain
 `K<seq>`. See `workspace_code` for how a code is chosen, and
 `Config.workspace_aliases` for the `[workspaces]` overrides.
 
-Order inside a column is list order, which is what `j`/`k` reorder and what
-`H`/`L` preserve when a card changes column.
+Order inside a column is either `updated` — the default, which shows the card
+touched most recently first — or `manual`, the list order itself, which is what
+`J`/`K` reorder and what `H`/`L` preserve when a card changes column. Sorting is
+a view: `model.sorted_cards` orders a column for display and never rewrites this
+list, so `manual` always restores the arrangement the file holds.
 
 Writes are atomic (temp file + rename) and serialised with an `flock`, and every
 mutation re-reads the file first — two boards open at once (an overlay and a
@@ -592,28 +595,48 @@ class Store:
             task = self.by_id(task_id)
             if task is None:
                 return None
-            changed = [
-                key
-                for key, value in fields.items()
-                if key in Task.__dataclass_fields__ and getattr(task, key) != value
-            ]
-            if not changed:
-                return task
-            for key in changed:
-                # A status among the edits is a column move, not a field like
-                # the others: route it through the same placement every other
-                # move uses. `on_edit` (the board's `e` form) reaches the store
-                # this way, and setting `status` in place would sort the card
-                # into the new column wherever it sat in the old one.
-                if key == "status":
-                    self._move_to_column(task, fields[key])
-                    continue
-                setattr(task, key, fields[key])
-            task.updated_at = time.time()
-            edits = sorted(key for key in changed if key != "status")
-            if edits:
-                task.note("edited " + ", ".join(edits))
+            return self._amend(task, **fields)
+
+    def update_any(self, task_id: str, **fields: Any) -> Task | None:
+        """Edit a card wherever it is, live board or archive.
+
+        `update` is the live board's, and most edits are of a card somebody is
+        working on. This one also reaches the archive, because a card that has
+        just left the board can still have fields worth clearing — the pane and
+        tab a stopped agent was using — and `archive` keeps the record rather
+        than freezing it. Same as `delete`, which has always taken a card from
+        either side of the board.
+        """
+        with self._locked():
+            task = self.by_id(task_id) or self.archived_by_id(task_id)
+            if task is None:
+                return None
+            return self._amend(task, **fields)
+
+    def _amend(self, task: Task, **fields: Any) -> Task:
+        """Apply `fields` to `task` (already found, lock already held)."""
+        changed = [
+            key
+            for key, value in fields.items()
+            if key in Task.__dataclass_fields__ and getattr(task, key) != value
+        ]
+        if not changed:
             return task
+        for key in changed:
+            # A status among the edits is a column move, not a field like
+            # the others: route it through the same placement every other
+            # move uses. `on_edit` (the board's `e` form) reaches the store
+            # this way, and setting `status` in place would sort the card
+            # into the new column wherever it sat in the old one.
+            if key == "status":
+                self._move_to_column(task, fields[key])
+                continue
+            setattr(task, key, fields[key])
+        task.updated_at = time.time()
+        edits = sorted(key for key in changed if key != "status")
+        if edits:
+            task.note("edited " + ", ".join(edits))
+        return task
 
     def delete(self, task_id: str) -> Task | None:
         """Destroy a card for good, live or archived.
@@ -637,10 +660,12 @@ class Store:
         """Take a card off the board, keeping its record.
 
         The card leaves `tasks` and joins `archived` with the time and column it
-        left, which is what `unarchive` restores. Nothing else about it changes:
-        archiving is about the board, not the run, so a live agent is left
-        running — unlike `delete`, which stops it. The record of a run should
-        outlive its place on the board.
+        left, which is what `unarchive` restores. The store touches nothing else
+        about it: whether the run continues is the caller's business, so the
+        pane, tab and agent name the card carries are left exactly as they were
+        (`KanbanApp.archive_task` and `cli._archive` clear them only when
+        `auto_archive_agent` tells them to stop that agent). The record of a run
+        should outlive its place on the board.
         """
         with self._locked():
             task = self.by_id(task_id)
@@ -764,9 +789,7 @@ class Store:
         task.note(f"{previous} -> {status}")
         return True
 
-    def set_status(
-        self, task_id: str, status: str, hold: bool = False
-    ) -> Task | None:
+    def set_status(self, task_id: str, status: str, hold: bool = False) -> Task | None:
         """Move a card to another column, landing at the end of it.
 
         `hold` marks the move as an explicit park rather than the board's own

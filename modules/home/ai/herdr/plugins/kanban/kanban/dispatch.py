@@ -161,6 +161,43 @@ def retitle_tab(store: Store, task: Task, herdr: Herdr | None = None) -> str:
     return ""
 
 
+def close_agent_tab(store: Store, task: Task, herdr: Herdr | None = None) -> str:
+    """Stop a card's agent by closing the tab its dispatch opened; "" on success.
+
+    The board's own housekeeping for a caller with no board behind it: the CLI's
+    `archive`, which honours `auto_archive_agent` the same way the `A` key does,
+    so "the agent stopped" means the same thing whichever door was used. It
+    mirrors `KanbanApp.close_agent`, including the rule that only a tab whose
+    label is still the one the board last wrote is ours to close — the same pane
+    may have been closed and reused for something else since, and a card leaving
+    the board must not take that with it. Returns the phrase for the caller's
+    notice ("closed w1:t9", or the error that left the tab open), or "" when
+    there was no tab of ours, in which case the card's pane fields are cleared
+    and nothing else happens.
+    """
+    if not task.tab_id:
+        store.update_any(task.id, pane_id="", tab_id="", tab_label="", agent_name="")
+        return ""
+    # Held in a local because the card's own `tab_id` is cleared below, and the
+    # phrase this returns is built from the tab it closed.
+    tab_id = task.tab_id
+    label = task.tab_label or tab_label_for(task)
+    client = herdr or Herdr()
+    # `tab_label` reports "" for a tab herdr no longer has, so a tab closed by
+    # hand reads the same as one that was repurposed: not ours. Either way the
+    # card's pointer at it is worthless, so it is cleared exactly as
+    # `KanbanApp.close_agent` clears it — the caller's notice then has nothing to
+    # say about an agent that was never stopped.
+    if client.tab_label(tab_id) != label:
+        store.update_any(task.id, pane_id="", tab_id="", tab_label="", agent_name="")
+        return ""
+    result = client.close_tab(tab_id)
+    if not result.ok:
+        return f"could not close {tab_id}: {result.error_text()}"
+    store.update_any(task.id, pane_id="", tab_id="", tab_label="", agent_name="")
+    return f"closed {tab_id}"
+
+
 def build_prompt(task: Task, config: Config | None = None) -> str:
     """The text handed to the agent: the task, then the board protocol."""
     parts = [task.title]
@@ -580,6 +617,7 @@ __all__ = [
     "Plan",
     "Step",
     "build_prompt",
+    "close_agent_tab",
     "plan_for",
     "protocol_block",
     "result_summary",

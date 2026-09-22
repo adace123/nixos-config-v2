@@ -322,6 +322,25 @@ class KanbanApp(App[None]):
         )
         return True
 
+    def _refuse_sorted(self, task: Task) -> bool:
+        """True when the board is sorted, so a manual reorder could not show.
+
+        `J`/`K` edit the board file's list order, and a sorted column ignores
+        that order — so the reorder would be a write nobody could see: the card
+        would stay where it is while the file said otherwise. Refusing, with
+        the one config line that hands the keys back, is the honest half of
+        that trade; silently accepting it would make the key look broken and
+        quietly diverge the file from the board.
+        """
+        if self.config.sort == "manual":
+            return False
+        self.set_notice(
+            f'{task.id} · columns are sorted by {self.config.sort} — set '
+            'sort = "manual" in config.toml to reorder by hand',
+            timeout=4,
+        )
+        return True
+
     def _update(self, task: Task, **fields: object) -> None:
         if self.demo_mode:
             for key, value in fields.items():
@@ -385,6 +404,8 @@ class KanbanApp(App[None]):
             return
         if self._refuse_archived(task, "reorder it"):
             return
+        if self._refuse_sorted(task):
+            return
         if self.demo_mode:
             siblings = [t for t in self._demo_tasks if t.status == task.status]
             index = siblings.index(task)
@@ -428,10 +449,14 @@ class KanbanApp(App[None]):
         """Take a card off the board, keeping its record (`unarchive` restores).
 
         Archive is about the board, not the run: unlike `delete`, it does not
-        stop the card's agent. A card whose agent is still going is called out
-        in the notice, because its card is now off the board while the work
-        continues.
+        stop the card's agent unless `auto_archive_agent` says it should. With
+        the flag off, a card whose agent is still going is called out in the
+        notice, because its card is now off the board while the work continues;
+        with it on, the notice names the tab that was closed instead — or the
+        error that left it open, since a card leaving the board must not report
+        a stop that did not happen.
         """
+        closed = self.close_agent(task) if self.config.auto_archive_agent else ""
         if self.demo_mode:
             task.archived_from = task.status
             task.archived_at = time.time()
@@ -439,15 +464,21 @@ class KanbanApp(App[None]):
             self._demo_archived.append(task)
         else:
             self.store.archive(task.id)
-        running = self.agent_tab(task)[0]
+        # Asked only when nothing was closed: after a successful close the card
+        # has no tab left to report, and a close that failed has said so.
+        running = self.agent_tab(task)[0] if not closed else ""
         self.ui.selected_id = ""
         self._after_change()
         # A footer notice, not a toast: the one command that undoes this belongs
         # where the board's other "here is what just happened" messages go.
+        if closed:
+            stopped = f" · {closed}"
+        elif running:
+            stopped = " · its agent is still running"
+        else:
+            stopped = ""
         self.set_notice(
-            f"{task.id} archived"
-            + (" · its agent is still running" if running else "")
-            + f" — {CLI} unarchive {task.id} to restore"
+            f"{task.id} archived{stopped} — {CLI} unarchive {task.id} to restore"
         )
 
     def unarchive_task(self, task: Task) -> None:

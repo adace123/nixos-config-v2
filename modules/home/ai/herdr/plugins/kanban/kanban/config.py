@@ -51,6 +51,14 @@ BLOCKED_COLUMNS: tuple[str, ...] = ("blocked", "waiting", "on-hold", "hold")
 REVIEW_COLUMNS: tuple[str, ...] = ("review", "reviewing", "verify", "validation")
 DONE_COLUMNS: tuple[str, ...] = ("done", "closed", "complete", "completed")
 
+# How a column is ordered. `updated` is the default: the card an agent (or you)
+# last touched sits at the top, which is where the work that is moving is. The
+# order lives in the view, not in the board file — `Store` keeps list order
+# whatever this says — so `manual` is always there to switch back to, and the
+# one key that edits that order (`J`/`K`) says so rather than moving a card
+# nobody would see move.
+SORT_MODES: tuple[str, ...] = ("updated", "manual")
+
 # A column's `role` says what it *means*, so behaviour follows the meaning rather
 # than the id: a board that renames `done` to `closed` but keeps `role = "done"`
 # still refuses to let an agent close a card. The candidate lists above are the
@@ -86,6 +94,9 @@ class Config:
     )
     default_agent: str = "pi"
     default_column: str = "backlog"
+    # Column order on screen: `updated` (most recently touched first) or
+    # `manual` (the board file's list order, the one `J`/`K` edits).
+    sort: str = "updated"
     wip_limits: dict[str, int] = field(default_factory=dict)
     placement: str = "overlay"
     width: str = "95%"
@@ -103,6 +114,13 @@ class Config:
     # leave an agent nobody is tracking. Set to false to delete the card and
     # keep the agent — the delete confirmation says which one it will do.
     auto_delete_agent: bool = True
+    # Archiving a card (`A`) also stops its agent and closes the tab its
+    # dispatch opened, the way deleting one does: a card you take off the board
+    # is a run you have stopped. Off by default, because archiving is about the
+    # board rather than the run — with it off, a card whose agent is still going
+    # keeps it and the notice says so. On, the notice names the closed tab
+    # instead, and a close that fails is reported rather than left silent.
+    auto_archive_agent: bool = False
     # Raise a herdr notification when a card's agent newly blocks on you. Only
     # transitions are announced — a board that opens onto a blocked card stays
     # quiet, because nothing has changed since you last looked.
@@ -322,6 +340,11 @@ def load_config(path: Path | None = None) -> Config:
         config.default_column = board["default_column"]
     if config.default_column not in column_ids:
         config.default_column = config.columns[0].id
+    # An unknown value keeps the default rather than being honoured: a typo in
+    # `sort` must not leave every column in the one order the board cannot
+    # explain to the key that edits it.
+    if board.get("sort") in SORT_MODES:
+        config.sort = board["sort"]
 
     limits = board.get("wip_limits")
     if isinstance(limits, dict):
@@ -395,6 +418,8 @@ def load_config(path: Path | None = None) -> Config:
         config.auto_move = behavior["auto_move"]
     if isinstance(behavior.get("auto_delete_agent"), bool):
         config.auto_delete_agent = behavior["auto_delete_agent"]
+    if isinstance(behavior.get("auto_archive_agent"), bool):
+        config.auto_archive_agent = behavior["auto_archive_agent"]
     if isinstance(behavior.get("notify_on_block"), bool):
         config.notify_on_block = behavior["notify_on_block"]
     if isinstance(behavior.get("notify_on_add"), bool):

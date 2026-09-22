@@ -64,6 +64,14 @@ bottom is where the live state goes because it is the one line with room at ever
 column width — in the meta row a status word only survived on a 210-column
 terminal.
 
+**Order** — each column is sorted by what was touched last, so a card an agent
+just picked up, noted or moved sits at the top and the board reads as the work
+that is moving. That is `[board] sort = "updated"`, the default, and it is a view:
+the board file is not rewritten to record it. `sort = "manual"` gives back the
+file's own list order instead, which is the order `J`/`K` edit — while a column is
+sorted those keys refuse and the notice names the config line, because a reorder
+you cannot see move is a write that lies about the board.
+
 The **agent mark** (`π`) comes from `task.agent_kind` when the board did the
 dispatching; for an agent started by hand the live agent's own mark
 (`harness_logo`) and title are asked instead, and only then the card's title —
@@ -76,9 +84,12 @@ in the detail view, in both agent pickers, and in `list`/`show`.
 
 **Keys** — `h`/`l`/`tab` columns, `j`/`k` cards, `g`/`G` first/last, `1`-`9`
 jump to a column, `H`/`L` move a card between columns, `J`/`K` reorder inside a
-column, `⏎` detail (with the agent's recent output), `a` add, `e` edit, `d`
-delete (which also stops its agent), `A` archive (kept off the board, its agent
-left running), `v` show/hide the **Archived** column, `u` unarchive the selected
+column (with `sort = "manual"` — sorted columns ignore the manual order, and the
+key says so rather than moving a card you would not see move), `⏎` detail (with
+the agent's recent output), `a` add, `e` edit, `d`
+delete (which also stops its agent), `A` archive (kept off the board; its agent
+is left running unless `auto_archive_agent` is on), `v` show/hide the
+**Archived** column, `u` unarchive the selected
 card, `x` stop the agent but keep the card, `s` send,
 `!` show only the cards whose agents are waiting on you, `f` focus the agent,
 `o` focus the workspace, `p` focus the pane, `/` filter, `w` cycle the workspace
@@ -258,14 +269,23 @@ agent and closes the tab its dispatch opened, as part of deleting. Set
 names which it will do in the confirmation either way. `x` does the same
 without deleting the card, which is what you want for a runaway run. Both
 confirm first, and both leave a tab alone if its label is no longer the one the
-board last wrote to it — that pane is yours now, not the card's.
+board last wrote to it — that pane is yours now, not the card's. `A` (archive)
+can stop the agent too, under its own switch: `auto_archive_agent`, off by
+default. It asks nothing either way; the notice names the tab it closed, or says
+the run is still going.
 
 **Delete vs archive.** `d` deletes: the card and its record go. `A` archives:
 the card leaves the board and joins an `archived` list in `board.json`, keeping
-everything it had plus the time and the column it left. Archiving deliberately
-does **not** touch the run — a card whose agent is still going keeps its agent
-and its tab, and the notice says so, because the record of a run should outlive
-its place on the board. `herdr-kanban unarchive cfg-8` puts it back at the end
+everything it had plus the time and the column it left. Archiving leaves the run
+alone by default — a card whose agent is still going keeps its agent and its
+tab, and the notice says so, because the record of a run should outlive its
+place on the board. With `auto_archive_agent` on the tab is closed with the
+card, exactly as `d` closes it (the same label check, so a tab you have since
+taken for something else is left where it is); the notice then names the tab
+that went, and the card forgets the pane and tab it was dispatched to. A
+worktree stays either way: a checkout is only ever offered for removal when the
+card is deleted.
+`herdr-kanban unarchive cfg-8` puts it back at the end
 of the column it came from, and `herdr-kanban list --archived` shows what is in
 there; an archived card is still `show`-able and still answers to its id or its
 number. `A` asks nothing first — unlike `d`, nothing is lost — and the footer
@@ -413,7 +433,7 @@ full `cfg-8`, or just the number `8`, which is unique board-wide:
 | `herdr-kanban send [<task>] [--agent <kind>] [--workspace <id>] [--model <name>] [--worktree\|--no-worktree] [--dry-run]` | start an agent for a card, without the board |
 | `herdr-kanban list [--mine] [--archived] [--json]` | the board (or just this pane's card), or the archive |
 | `herdr-kanban show [<task>] [--json]` | one card in full, history included (an archived card too) |
-| `herdr-kanban archive [<task>]` | take a card off the board, keeping its record |
+| `herdr-kanban archive [<task>]` | take a card off the board, keeping its record (stopping its agent when `auto_archive_agent` is on) |
 | `herdr-kanban unarchive [<task>]` | put an archived card back in the column it left |
 | `herdr-kanban rename <task> <code\|id>` | change a card's id code, keeping its number (`cfg-8` → `infra-8`) |
 | `herdr-kanban assign <task> <kind> [--model <name>]` | change the agent kind (and model) a card is sent to |
@@ -492,16 +512,24 @@ agent to run `status <review column>` using `role = "review"`.
 The guard is on the CLI only: in the board itself `H`/`L` move a card to any
 column, so you are never fighting it. The live reconciliation owns the two
 states that are never a judgement call: a card whose agent is working is carried
-out of **Queued** (and out of **Blocked**) into In Progress, and a card whose
-agent has asked you something is moved into **Blocked** wherever it was — so
-Blocked always means the agent is waiting, never just that someone once put the
-card there.
+out of **Queued** (and out of **Blocked**, once the agent is working again) into
+In Progress, and a card whose agent has asked you something is moved into
+**Blocked** wherever it was. The one thing that outranks it is a park made by
+hand — `herdr-kanban block`, or `H`/`L` into Blocked — while the agent is still
+working: that card stays Blocked for the rest of that working phase, so a
+running agent cannot silently reopen it. The moment the agent leaves working the
+park is spent, and answering the block carries the card back to In Progress on
+the next tick. `auto_move` honours the same park; it is a second door into a
+card's column, not a second opinion about it.
 
 **Archiving is yours too.** Taking a card off the board is a decision, not a
 step in the work, so `herdr-kanban archive` is refused from inside a herdr pane
 unless you pass `--force` — the same rule and the same escape hatch as closing a
 card. `unarchive` is unrestricted: putting a card back is always safe. `d` stays
 the only way to destroy a card, and it stays a board key; there is no CLI delete.
+An agent that force-archives its own card is closing the pane it runs in whenever
+`auto_archive_agent` is on: the record is written and the message printed before
+the tab goes, which is why that order is what it is.
 
 **`assign`** is the edit form's Agent and Model fields, for a script:
 `herdr-kanban assign cfg-8 pi --model opencode-go/glm-5.3` sets what the next
@@ -677,6 +705,11 @@ columns = [ ... ]       # { id, label, role? } in order; ids are what tasks stor
                         # archive column (`v`); do not configure it
 default_agent = "pi"
 default_column = "backlog"
+sort = "updated"        # column order: "updated" = the card touched most
+                        # recently first, "manual" = the board file's list order,
+                        # the one J/K edit. Sorting is a view, not a write: the
+                        # file keeps list order either way, so switching back to
+                        # "manual" restores the arrangement you had
 # wip_limits = { doing = 5 }
 stale_after_days = 3    # age is tinted yellow past this, red at 2x; with
                         # show_age = false the id badge carries it instead
@@ -696,6 +729,10 @@ auto_move = false              # true: working -> In Progress, idle/done -> Revi
                                # Blocked <-> In Progress follows the agent, except
                                # a hand park (`block`) holds for that phase
 auto_delete_agent = true       # d stops the card's agent too; false keeps it
+auto_archive_agent = true      # A stops the card's agent too, as d does. The
+                               # app's own default is false: archiving is about
+                               # the board, not the run, so a card whose agent is
+                               # still going keeps it and the notice says so
 notify_on_block = true         # a notification the first time an agent blocks on you
 notify_on_add = true           # ...and a desktop banner when an agent files a card
 notify_system = true           # the desktop half of both; false keeps only the toast

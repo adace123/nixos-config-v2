@@ -28,7 +28,7 @@ from typing import Any
 from . import notify
 from .config import Config, load_config
 from .dispatch import CLI, protocol_block, retitle_tab
-from .model import LiveState
+from .model import LiveState, sorted_cards
 from .render import format_age, truncate
 from .store import (
     Store,
@@ -412,6 +412,10 @@ def _list(args: list[str], store: Store, config: Config) -> int:
         in_task_pane = bool(pane) and store.resolve("", pane) is not None
         mine = "--mine" in args or (in_task_pane and not args)
         tasks = list(store.tasks)
+    # The board's column order, so an agent reading `list` sees what you see.
+    # Sorting the flat list before the per-column grouping below is the same
+    # thing as sorting each column: the group keeps the order it was given.
+    tasks = sorted_cards(tasks, config.sort)
     if mine:
         tasks = [
             task
@@ -924,8 +928,15 @@ def _send(args: list[str], store: Store, config: Config) -> int:
     return 0
 
 
-def _archive(args: list[str], store: Store, _config: Config) -> int:
-    """Take a card off the board, keeping its record (`unarchive` puts it back)."""
+def _archive(args: list[str], store: Store, config: Config) -> int:
+    """Take a card off the board, keeping its record (`unarchive` puts it back).
+
+    With `auto_archive_agent` on, the card's agent goes with it — the `A` key's
+    behaviour, so a script and a keypress mean the same thing. The tab is closed
+    *after* the record is written and the messages are printed, because the
+    caller may be that agent's own pane (`--force`) and closing it first would
+    kill the process before it could say what it did.
+    """
     force = "--force" in args
     args = [arg for arg in args if arg != "--force"]
     reference, rest = _split_task(args)
@@ -950,6 +961,14 @@ def _archive(args: list[str], store: Store, _config: Config) -> int:
         return 1
     _, message = store.archive(task.id)
     print(message)
+    if config.auto_archive_agent:
+        # A card with no tab of ours has nothing to close, and `store.update`
+        # inside the helper still clears fields that point at nothing.
+        from .dispatch import close_agent_tab
+
+        stopped = close_agent_tab(store, task)
+        if stopped:
+            print(stopped)
     return 0
 
 

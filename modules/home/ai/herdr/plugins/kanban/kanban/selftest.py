@@ -203,6 +203,55 @@ def check_store(check: Checker, tmp: str) -> None:
         view.card("cfg-1") is not None and view.card("cfg-1").workspace_ok,
     )
 
+    # Column order. `updated` is the default, `manual` is the board file's own
+    # list order — and the file is the *only* place either one lives: sorting is
+    # a view, so nothing here may rewrite the order `J`/`K` edits.
+    from .config import Config
+
+    older = store.add(title="Older", status="review")
+    newer = store.add(title="Newer", status="review")
+    untimed = store.add(title="Hand-written, no timestamp", status="review")
+    # Fixed stamps rather than a sleep, so the check cannot go green by luck of
+    # the clock (or red on a machine whose timer is coarse). `untimed` keeps the
+    # 0.0 a hand-edited card has: "never touched" must not read as "newest".
+    older.updated_at = 100.0
+    newer.updated_at = 200.0
+    untimed.updated_at = 0.0
+    listed = [task.id for task in store.in_column("review")]
+    check.check(
+        "the store keeps list order, whatever the board is told to show",
+        listed == [older.id, newer.id, untimed.id],
+        str(listed),
+    )
+    for mode, expected, what in (
+        (
+            "updated",
+            [newer.id, older.id, untimed.id],
+            'sort = "updated" draws the card touched most recently first',
+        ),
+        (
+            "manual",
+            [older.id, newer.id, untimed.id],
+            'sort = "manual" keeps the board file\'s order',
+        ),
+    ):
+        rendered = build_view(
+            Config(sort=mode), store.tasks, live, UiState(), width=120, height=30
+        )
+        column = next(
+            entry for entry in rendered.columns if entry.column.id == "review"
+        )
+        check.check(
+            what,
+            [card.task.id for card in column.cards] == expected,
+            f"{mode}: {[card.task.id for card in column.cards]}",
+        )
+    check.check(
+        "sorting is a view, not a write: the file order survives both",
+        [task.id for task in store.in_column("review")] == listed,
+        str([task.id for task in store.in_column("review")]),
+    )
+
 
 def check_assign(check: Checker, tmp: str) -> None:
     """`assign` changes the agent a card is sent to, and says what it did."""
@@ -514,9 +563,7 @@ def check_archive(check: Checker, tmp: str) -> None:
                 {
                     "version": 1,
                     "tasks": [],
-                    "archived": [
-                        {"id": "K7", "title": "archived", "archived_at": 1.0}
-                    ],
+                    "archived": [{"id": "K7", "title": "archived", "archived_at": 1.0}],
                 }
             ),
             encoding="utf-8",
@@ -615,8 +662,7 @@ def check_ids(check: Checker, tmp: str) -> None:
         encoding="utf-8",
     )
     saved = {
-        key: os.environ.get(key)
-        for key in ("KANBAN_BOARD_FILE", "KANBAN_CONFIG_FILE")
+        key: os.environ.get(key) for key in ("KANBAN_BOARD_FILE", "KANBAN_CONFIG_FILE")
     }
     os.environ["KANBAN_BOARD_FILE"] = str(board)
     os.environ["KANBAN_CONFIG_FILE"] = str(config_file)
@@ -832,9 +878,7 @@ def check_agent_protocol(check: Checker, tmp: str) -> None:
         code, out = cli("list", "--mine")
         check.check(
             "list --mine from that pane offers the board instead of nothing",
-            code == 0
-            and "no cards for this pane" in out
-            and f"{CLI} list" in out,
+            code == 0 and "no cards for this pane" in out and f"{CLI} list" in out,
             out,
         )
         os.environ["HERDR_PANE_ID"] = "w1:pTEST"
@@ -1373,7 +1417,11 @@ def check_status_rights(check: Checker, tmp: str) -> None:
 
 
 def _pin_config(
-    tmp: str, name: str = "pinned-config.toml", *, agent_title_overrides: bool = False
+    tmp: str,
+    name: str = "pinned-config.toml",
+    *,
+    agent_title_overrides: bool = False,
+    auto_archive_agent: bool = False,
 ) -> Path:
     """Point every check at a config built from the defaults.
 
@@ -1390,11 +1438,20 @@ def _pin_config(
     )
     path.write_text(
         f"[board]\ncolumns = [{columns}]\n"
+        # Manual order, spelled out like the title policy below it: these checks
+        # drive `J`/`K`, which is the one key the default sort hands back, and a
+        # check whose answer depends on what the board's own config.toml (or the
+        # built-in default) happens to say is not a check. The default sort gets
+        # its own checks — `updated` in `check_store`, the refusal below.
+        'sort = "manual"\n'
         "[behavior]\nannounce_protocol = true\nsync_seconds = 0.5\n"
         # Spelled out rather than left to the default, so this board's own
         # config.toml cannot decide what the checks exercise: the title policy
         # gets a check each way.
         f"agent_title_overrides = {'true' if agent_title_overrides else 'false'}\n"
+        # The archive flag too: it decides whether a check's `archive` call also
+        # reaches herdr, which must not depend on the machine's own config.toml.
+        f"auto_archive_agent = {'true' if auto_archive_agent else 'false'}\n"
         # Pinned model lists, so a check that reads the picker's options does not
         # depend on what the machine's own config.toml happens to offer.
         '[models]\nclaude = ["sonnet", "opus"]\npi = ["deepseek-v4-flash"]\n',
@@ -2457,10 +2514,16 @@ def check_hardening(check: Checker, tmp: str) -> None:
         bool_config.write_text(
             "[ui]\nwidth = true\nheight = false\nshow_agent_kind = true\n"
             "show_status_word = false\n"
+            '[board]\nsort = "manual"\n'
             "[behavior]\nnotify_on_block = false\nnotify_system = false\n"
-            "auto_delete_agent = false\n",
+            "auto_delete_agent = false\nauto_archive_agent = true\n",
             encoding="utf-8",
         )
+        # A sort value nothing recognises: it has to keep the default rather
+        # than be honoured, because a typo silently read as a mode would leave
+        # the columns in an order the key that edits them cannot explain.
+        bogus_config = Path(tmp) / "bogus-sort.toml"
+        bogus_config.write_text('[board]\nsort = "newest"\n', encoding="utf-8")
         saved_config = os.environ.get("KANBAN_CONFIG_FILE")
         os.environ["KANBAN_CONFIG_FILE"] = str(bool_config)
         try:
@@ -2489,6 +2552,21 @@ def check_hardening(check: Checker, tmp: str) -> None:
                 "and deleting a card can be told to keep its agent",
                 loaded.auto_delete_agent is False,
                 str(loaded.auto_delete_agent),
+            )
+            check.check(
+                "and archiving a card can be told to stop its agent",
+                loaded.auto_archive_agent is True,
+                str(loaded.auto_archive_agent),
+            )
+            check.check(
+                "the column order is read from [board]",
+                loaded.sort == "manual",
+                loaded.sort,
+            )
+            check.check(
+                "an unreadable sort falls back to the default, not the typo",
+                load_config(bogus_config).sort == "updated",
+                load_config(bogus_config).sort,
             )
 
             # where a send lands --------------------------------------------
@@ -3174,10 +3252,7 @@ async def check_worktree_dispatch(check: Checker, tmp: str) -> None:
         )
 
     def calls() -> list[list[str]]:
-        return [
-            line.split()
-            for line in log.read_text(encoding="utf-8").splitlines()
-        ]
+        return [line.split() for line in log.read_text(encoding="utf-8").splitlines()]
 
     try:
         config = replace(load_config(), announce_protocol=True)
@@ -3232,8 +3307,7 @@ async def check_worktree_dispatch(check: Checker, tmp: str) -> None:
                 and call[call.index("--pane") + 1] == "w9:p9"
                 for call in recorded
             ),
-            " | ".join(" ".join(call) for call in recorded)
-            or "no calls",
+            " | ".join(" ".join(call) for call in recorded) or "no calls",
         )
         check.check(
             "the card records the checkout its run lives in",
@@ -3292,8 +3366,7 @@ async def check_worktree_dispatch(check: Checker, tmp: str) -> None:
             "deleting the card offers and then removes its checkout",
             offered
             and any(
-                call.startswith("worktree remove --workspace w9")
-                for call in recorded
+                call.startswith("worktree remove --workspace w9") for call in recorded
             ),
             " | ".join(recorded),
         )
@@ -3308,9 +3381,7 @@ async def check_worktree_dispatch(check: Checker, tmp: str) -> None:
             worktree_path=worktree_path,
             worktree_workspace_id="w9",
         )
-        app2 = KanbanApp(
-            config=config, store=shell, herdr=Herdr(binary=str(fake))
-        )
+        app2 = KanbanApp(config=config, store=shell, herdr=Herdr(binary=str(fake)))
         notice = app2.remove_worktree(shell.by_id(stranded.id))
         check.check(
             "a checkout whose workspace is gone is reported, not silently kept",
@@ -3464,6 +3535,7 @@ async def check_live_loop(check: Checker, tmp: str) -> None:
                 agents={"k1": blocked},
                 agents_by_pane={str(card.pane_id): blocked},
             )
+
             def toasts() -> list[str]:
                 return [
                     line
@@ -4064,6 +4136,185 @@ async def check_delete_stops_agent(check: Checker, tmp: str) -> None:
                 os.environ[key] = value
 
 
+async def check_archive_stops_agent(check: Checker, tmp: str) -> None:
+    """`auto_archive_agent`: the card's agent goes with the card — both doors.
+
+    Archiving is about the board, and by default it leaves the run alone. With
+    the flag on the tab closes exactly as `d` closes it — the label check
+    included, so a repurposed pane is still not ours — and `herdr-kanban
+    archive` does the same thing from a script, because a keypress and a script
+    must not mean two different things. Either way the card's pointer at the tab
+    goes with it; flag off, the pane and tab the card was dispatched with
+    survive, which is what lets `unarchive` put a card whose agent is still
+    running back on the board.
+    """
+    import contextlib
+    import io
+    import os
+    from dataclasses import replace
+
+    from .app import KanbanApp
+    from .cli import run_agent_command
+    from .config import load_config
+    from .dispatch import tab_label_for
+    from .herdr import Herdr
+    from .store import Store
+
+    log = Path(tmp) / "archive-agent-calls.txt"
+    fake = _fake_herdr(tmp, "archive-herdr")
+    board = Path(tmp) / "archive-agent-board.json"
+    saved = {
+        key: os.environ.get(key)
+        for key in (
+            "KANBAN_BOARD_FILE",
+            "KANBAN_CONFIG_FILE",
+            "HERDR_BIN_PATH",
+            "HERDR_PANE_ID",
+            "FAKE_LOG",
+            "FAKE_TAB_LABEL",
+        )
+    }
+    os.environ["KANBAN_BOARD_FILE"] = str(board)
+    os.environ["FAKE_LOG"] = str(log)
+    # The CLI builds its own `Herdr`, so the fake reaches it through the
+    # variable herdr injects rather than through a constructor argument.
+    os.environ["HERDR_BIN_PATH"] = str(fake)
+    # Not from a pane: these calls are the human's, so no `_from_agent` refusal.
+    os.environ.pop("HERDR_PANE_ID", None)
+    os.environ["KANBAN_CONFIG_FILE"] = str(
+        _pin_config(tmp, "archive-agent-config.toml", auto_archive_agent=True)
+    )
+
+    def calls() -> list[str]:
+        return log.read_text(encoding="utf-8").splitlines()
+
+    def cli(*argv: str) -> tuple[int, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = run_agent_command(list(argv))
+        return code, (out.getvalue() + err.getvalue()).strip()
+
+    def dispatched_card(store: Store, title: str):
+        """A card mid-run: a pane, the tab its dispatch opened, an agent name."""
+        return store.add(
+            title=title,
+            agent_kind="pi",
+            workspace_id="w1",
+            status="doing",
+            pane_id="w1:p9",
+            tab_id="w1:t9",
+            agent_name="k1",
+        )
+
+    def board_app(store: Store, config: object) -> KanbanApp:
+        return KanbanApp(config=config, store=store, herdr=Herdr(binary=str(fake)))
+
+    try:
+        # The `A` key, flag on: the tab goes with the card.
+        store = Store.open(board)
+        card = dispatched_card(store, "a card whose agent should stop")
+        log.write_text("", encoding="utf-8")
+        os.environ["FAKE_TAB_LABEL"] = tab_label_for(card)
+        app = board_app(store, load_config())
+        async with app.run_test(size=(110, 30)) as pilot:
+            await pilot.pause()
+            app.archive_task(card)
+            await pilot.pause()
+            notice = app.ui.notice
+        check.check(
+            "auto_archive_agent closes the tab when the board archives a card",
+            any(call.startswith("tab close w1:t9") for call in calls()),
+            " | ".join(calls()),
+        )
+        archived = Store.open(board).archived_by_id(card.id)
+        check.check(
+            "and the archived card forgets the pane and tab it was sent to",
+            archived is not None
+            and archived.tab_id == ""
+            and archived.pane_id == ""
+            and archived.agent_name == "",
+            f"{archived.tab_id!r}/{archived.pane_id!r}" if archived else "gone",
+        )
+        check.check(
+            "and the notice reports the stop rather than a running agent",
+            "closed w1:t9" in notice and "still running" not in notice,
+            notice,
+        )
+
+        # Flag off: the run outlives its place on the board.
+        store2 = Store.open(board)
+        kept = dispatched_card(store2, "a card whose agent should keep going")
+        log.write_text("", encoding="utf-8")
+        os.environ["FAKE_TAB_LABEL"] = tab_label_for(kept)
+        app2 = board_app(store2, replace(load_config(), auto_archive_agent=False))
+        async with app2.run_test(size=(110, 30)) as pilot:
+            await pilot.pause()
+            app2.archive_task(kept)
+            await pilot.pause()
+            notice_off = app2.ui.notice
+        left = Store.open(board).archived_by_id(kept.id)
+        check.check(
+            "flag off, archiving leaves the tab and the card's pointer alone",
+            not any(call.startswith("tab close") for call in calls())
+            and left is not None
+            and left.tab_id == "w1:t9"
+            and left.agent_name == "k1",
+            " | ".join(calls()) or "no calls",
+        )
+        check.check(
+            "and the notice says the agent is still running",
+            "still running" in notice_off,
+            notice_off,
+        )
+
+        # A tab the user has taken for something else is not ours to close,
+        # whichever door archives the card (the dead pointer goes either way).
+        store3 = Store.open(board)
+        repurposed = dispatched_card(store3, "a card whose tab moved on")
+        log.write_text("", encoding="utf-8")
+        os.environ["FAKE_TAB_LABEL"] = "something else entirely"
+        app3 = board_app(store3, load_config())
+        async with app3.run_test(size=(110, 30)) as pilot:
+            await pilot.pause()
+            app3.archive_task(repurposed)
+            await pilot.pause()
+        moved_on = Store.open(board).archived_by_id(repurposed.id)
+        check.check(
+            "a repurposed tab is left alone when a card is archived",
+            not any(call.startswith("tab close") for call in calls())
+            and moved_on is not None
+            and moved_on.tab_id == "",
+            " | ".join(calls()) or "no calls",
+        )
+
+        # ...and the CLI says the same thing, which is the whole point of a
+        # flag: `herdr-kanban archive` from a script stops the agent too.
+        scripted = dispatched_card(Store.open(board), "a card archived from a script")
+        log.write_text("", encoding="utf-8")
+        os.environ["FAKE_TAB_LABEL"] = tab_label_for(scripted)
+        code, out = cli("archive", scripted.id)
+        check.check(
+            "the CLI's archive stops the agent too, and says so",
+            code == 0
+            and out.splitlines()[0] == f"{scripted.id} archived from doing"
+            and "closed w1:t9" in out
+            and any(call.startswith("tab close w1:t9") for call in calls()),
+            out,
+        )
+        gone = Store.open(board).archived_by_id(scripted.id)
+        check.check(
+            "and the card the CLI archived has no pane left on it",
+            gone is not None and gone.tab_id == "" and gone.pane_id == "",
+            f"{gone.tab_id!r}" if gone else "gone",
+        )
+    finally:
+        for key, value in saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
 async def check_tab_follows_title(check: Checker, tmp: str) -> None:
     """A card's name reaches its tab, and the board still knows the tab is its.
 
@@ -4196,9 +4447,7 @@ async def check_tab_follows_title(check: Checker, tmp: str) -> None:
             os.environ["FAKE_RENAME_FAIL"] = "herdr is not answering"
             log.write_text("", encoding="utf-8")
             stream = io.StringIO()
-            with contextlib.redirect_stdout(stream), contextlib.redirect_stderr(
-                stream
-            ):
+            with contextlib.redirect_stdout(stream), contextlib.redirect_stderr(stream):
                 code = run_agent_command(["title", "Another name entirely"])
             failed = Store.open(board).by_id(task.id)
             check.check(
@@ -4526,9 +4775,7 @@ async def _run(check: Checker) -> None:
         # they need themselves; the pin is a binary that cannot answer, so a
         # workspace lookup fails the same way everywhere.
         pane_env = {
-            key: value
-            for key, value in os.environ.items()
-            if key.startswith("HERDR_")
+            key: value for key, value in os.environ.items() if key.startswith("HERDR_")
         }
         for key in pane_env:
             os.environ.pop(key, None)
@@ -4562,6 +4809,7 @@ async def _run(check: Checker) -> None:
             check_prompt_delivery(check, tmp)
             check_dispatch_env(check, tmp)
             await check_delete_stops_agent(check, tmp)
+            await check_archive_stops_agent(check, tmp)
             await check_tab_follows_title(check, tmp)
             await check_detail_tail(check, tmp)
             await check_quit(check, tmp)
@@ -4680,6 +4928,30 @@ async def _run(check: Checker) -> None:
             else:
                 check.check("J reorders inside the column", True, "single-card column")
 
+            # ...and the default sort, where there is no manual order to edit --
+            if app.selected_task() is not None:
+                app.config.sort = "updated"
+                sorted_before = [
+                    card.task.id
+                    for card in app.current_view().columns[app.ui.selected_column].cards
+                ]
+                await pilot.press("J")
+                await pilot.pause()
+                sorted_after = [
+                    card.task.id
+                    for card in app.current_view().columns[app.ui.selected_column].cards
+                ]
+                check.check(
+                    "J refuses while the column is sorted, and names the way back",
+                    sorted_after == sorted_before
+                    and 'sort = "manual"' in app.ui.notice
+                    and "config.toml" in app.ui.notice,
+                    app.ui.notice,
+                )
+                app.config.sort = "manual"
+                app.refresh_board()
+                await pilot.pause()
+
             # filter ------------------------------------------------------
             await pilot.press("slash")
             await pilot.press(*"flake")
@@ -4791,21 +5063,17 @@ async def _run(check: Checker) -> None:
             )
             await pilot.press("v")
             await pilot.pause()
-            shown = [
-                c for c in app.current_view().columns if c.column.id == "archived"
-            ]
+            shown = [c for c in app.current_view().columns if c.column.id == "archived"]
             check.check(
                 "v shows the archived column with the archived card in it",
-                len(shown) == 1
-                and [c.task.id for c in shown[0].cards] == [target.id],
+                len(shown) == 1 and [c.task.id for c in shown[0].cards] == [target.id],
                 app.ui.notice,
             )
             app.select_card(target.id)
             await pilot.pause()
             check.check(
                 "an archived card can be selected in its column",
-                app.selected_task() is not None
-                and app.selected_task().id == target.id,
+                app.selected_task() is not None and app.selected_task().id == target.id,
             )
             status_before = target.status
             await pilot.press("L")

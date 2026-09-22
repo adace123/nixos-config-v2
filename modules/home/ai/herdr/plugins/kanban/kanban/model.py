@@ -144,6 +144,27 @@ def query_terms(query: str) -> list[str]:
     return [term.lower() for term in terms]
 
 
+def sorted_cards(tasks: list[Task], mode: str) -> list[Task]:
+    """`tasks` in the order the board is configured to show them.
+
+    `manual` is the board file's list order, which is what `J`/`K` edit and
+    what `Store` keeps whatever this says. `updated` — the default — puts the
+    most recently touched card first, so a column answers "what is moving"
+    without reading ages: a card an agent just picked up rises on its own, and
+    a card nothing has happened to sinks out of the way.
+
+    Only two things are ordered here, and neither is stored: the board file is
+    not rewritten because the clock moved. The sort is stable, so cards whose
+    timestamps are equal — two notes in the same tick, a hand-written file —
+    keep the manual order rather than shuffling between two reads, and a card
+    with no `updated_at` at all (0.0, hand-edited) sinks to the bottom instead
+    of looking like the freshest work on the board.
+    """
+    if mode != "updated":
+        return tasks
+    return sorted(tasks, key=lambda task: task.updated_at, reverse=True)
+
+
 def task_matches(task: Task, query: str, workspace_label: str) -> bool:
     """Every term must appear somewhere on the task (quoted phrases as one)."""
     terms = query_terms(query)
@@ -225,8 +246,12 @@ def build_view(
 
     columns: list[ColumnView] = []
     for index, column in enumerate(config.columns):
+        # Bucket first, then sort: a column is ordered on its own terms, and
+        # the one shared `sorted_cards` call means the board, the archived
+        # column and `herdr-kanban list` cannot disagree about the order.
+        in_column = [task for task in shown if task.status == column.id]
         cards = [
-            _card_view(task, live, ui) for task in shown if task.status == column.id
+            _card_view(task, live, ui) for task in sorted_cards(in_column, config.sort)
         ]
         columns.append(
             ColumnView(
@@ -240,7 +265,7 @@ def build_view(
 
     if ui.show_archived:
         archived_cards: list[CardView] = []
-        for task in archived:
+        for task in sorted_cards(archived, config.sort):
             if task_visible(task, live, ui):
                 archived_cards.append(_card_view(task, live, ui))
             else:
@@ -333,6 +358,7 @@ __all__ = [
     "keep_selection_visible",
     "query_terms",
     "selection_after_move",
+    "sorted_cards",
     "task_matches",
     "task_visible",
     "visible_tasks",
