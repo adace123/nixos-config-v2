@@ -34,8 +34,17 @@ jobs:
         uses: DeterminateSystems/nix-installer-action@v23
         with:
           flakehub: false
+      # Evaluate every system's outputs, but build none of them. A *build* step
+      # must never pass --all-systems: the checks are per-system derivations, so
+      # building e.g. checks.aarch64-darwin.pre-commit here dies with
+      # "platform mismatch" (there is no remote builder for foreign systems).
+      # That regression landed once already in edb59fd; it was fixed in 9cd8e0d.
+      - name: Evaluate Nix flake (all systems)
+        run: nix flake check --all-systems --no-build
+      # Native x86_64-linux build: realises checks.x86_64-linux.pre-commit, which
+      # runs the whole pre-commit hook suite over the tree.
       - name: Check Nix flake (Linux)
-        run: nix flake check --all-systems
+        run: nix flake check
   # Eval-only smoke of the darwin configuration. A full `nix flake check` here
   # would re-evaluate every system and burn macOS runner minutes; actual builds
   # happen on the real host via `just build`.

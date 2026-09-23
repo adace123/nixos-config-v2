@@ -196,7 +196,7 @@ and verifies the full image against the device after flashing.
 
 | Workflow | When | What it does |
 |----------|------|--------------|
-| `flake-check.yml` | Push/PR to `main`/`master` | `nix flake show` smoke check + nixConfig/nix-caches sync guard, full `nix flake check --all-systems` on Linux, eval-only darwin smoke (saves macOS runner minutes; real builds happen via `just build`) |
+| `flake-check.yml` | Push/PR to `main`/`master` | `nix flake show` smoke check + nixConfig/nix-caches sync guard, `nix flake check --all-systems --no-build` (all-systems eval) plus a native `nix flake check` on Linux, eval-only darwin smoke (saves macOS runner minutes; real builds happen via `just build`) |
 | `build-sd-image.yml` | Manual dispatch or push touching ARM-Pi paths | Builds a host's `-sd-image` on a native arm64 runner (see [docs/nixos.md](nixos.md)) |
 | `deploy-oci.yml` | Manual dispatch, or push touching OCI/`infra/` paths | Builds the OCI image, plans, then applies to the `oci-production` environment (see [docs/dathomir.md](dathomir.md)) |
 | `dependabot-auto-merge.yml` | On Dependabot PRs | Auto-merges (squash) Dependabot PRs once their checks pass |
