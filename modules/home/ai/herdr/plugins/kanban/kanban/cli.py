@@ -784,7 +784,7 @@ def _send(args: list[str], store: Store, config: Config) -> int:
     """
     from dataclasses import replace
 
-    from .dispatch import Executor, plan_for, record_outcome
+    from .dispatch import Executor, Outcome, plan_for, record_outcome
     from .herdr import Herdr
 
     as_json = "--json" in args
@@ -904,14 +904,21 @@ def _send(args: list[str], store: Store, config: Config) -> int:
             )
         return 0
 
-    outcome = Executor(Herdr()).run(plan)
-    # Record what the dispatch did even when the turn never confirmed: an agent
-    # that started and took the prompt is a running agent this card owns, and a
-    # card whose pane, tab and name went unwritten cannot be found — nor sent to
-    # again, because herdr refuses the duplicate name. `record_outcome` writes
-    # the fields without moving the card when the outcome is not ok, so the
-    # "not sent" below still means what it says.
-    updated = record_outcome(store, task.id, plan, outcome, target)
+    def record(outcome: Outcome) -> Task | None:
+        # The same hook the board's worker uses: the link is written the moment
+        # the agent starts, before the confirmation wait, so a `send` killed
+        # inside that window still leaves the card findable — and re-sendable,
+        # which herdr's duplicate-name refusal would otherwise prevent.
+        return record_outcome(store, task.id, plan, outcome, target)
+
+    outcome = Executor(Herdr()).run(plan, on_record=record)
+    # The final write: moves the card when the turn was confirmed. The write
+    # above already left the link, so dying before this line loses only the
+    # column move. Recorded even when the turn never confirmed: an agent that
+    # started and took the prompt is a running agent this card owns, and
+    # `record_outcome` writes the fields without moving the card when the
+    # outcome is not ok — so the "not sent" below still means what it says.
+    updated = record(outcome)
     if not outcome.ok:
         print(
             f"{task.id} not sent — {outcome.error or outcome.detail()}", file=sys.stderr

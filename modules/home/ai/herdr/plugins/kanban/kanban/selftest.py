@@ -4022,12 +4022,15 @@ def check_send_records_unconfirmed(check: Checker, tmp: str) -> None:
     with the text still in the composer, and the caller is right to call that
     "not sent" — but the agent is running, and a card with no pane and no name
     is an orphan herdr will not let a re-send replace (duplicate name). So the
-    fields are written whatever the confirmation said; only the column move and
-    the exit code still wait on it.
+    fields are written whatever the confirmation said, and written before the
+    wait rather than after it; only the column move and the exit code still wait
+    on the turn.
     """
     import contextlib
     import io
     import os
+    import threading
+    import time
 
     from . import dispatch
     from .cli import run_agent_command
@@ -4090,6 +4093,42 @@ def check_send_records_unconfirmed(check: Checker, tmp: str) -> None:
             "and leaves the card where it was, not claiming it is in progress",
             stored is not None and stored.status == "backlog",
             stored.status if stored else "-",
+        )
+
+        # The CLI is a dispatching process too: the link has to be on disk while
+        # `send` is still inside the confirmation wait, not only once it
+        # returns, or a script killed in that window loses it the way the board
+        # used to. Run the send on its own thread so the wait can be watched
+        # from outside it.
+        second = Store.open(board).add(
+            title="killed mid-confirmation", workspace_id="w1"
+        )
+        log.write_text("", encoding="utf-8")
+        dispatch.PROMPT_CONFIRM_SECONDS = 0.5
+        codes: list[int] = []
+
+        def run_send() -> None:
+            quiet_out, quiet_err = io.StringIO(), io.StringIO()
+            with contextlib.redirect_stdout(quiet_out), contextlib.redirect_stderr(
+                quiet_err
+            ):
+                codes.append(run_agent_command(["send", second.id]))
+
+        sender = threading.Thread(target=run_send)
+        sender.start()
+        linked_mid_wait = False
+        observe_until = time.monotonic() + 1.0
+        while time.monotonic() < observe_until:
+            current = Store.open(board).by_id(second.id)
+            if current is not None and current.pane_id:
+                linked_mid_wait = sender.is_alive()
+                break
+            time.sleep(0.01)
+        sender.join(timeout=5)
+        check.check(
+            "and the link is written while send is still confirming the turn",
+            linked_mid_wait,
+            f"alive={sender.is_alive()} code={codes}",
         )
     finally:
         for key, value in saved.items():
