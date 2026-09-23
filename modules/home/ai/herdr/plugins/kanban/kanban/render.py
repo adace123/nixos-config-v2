@@ -546,10 +546,13 @@ def render_card(
     label = f" {task.id} "
     # The id shares the top rule with the badges, and a coded id is four cells
     # longer than the `K8` it replaced. When it will not fit, the *code* is what
-    # goes: the counter behind it is board-wide unique, so ` 8 ` still names one
-    # card, and the meta row below still spells the workspace out. Same rule as
-    # the meta row's tokens — the least important one drops first — and the same
-    # reason: a clipped rule loses its `╮` corner, which reads as a broken card.
+    # goes: the meta row below still spells the workspace out, which is the half
+    # the code was carrying, and the badge is read rather than typed. What the
+    # number loses here is its reach — numbers count per workspace code, so
+    # ` 8 ` on a narrow card is a glance, not a reference (`cfg-8` is what a
+    # shell wants, and the detail view has it). The same rule as the meta row's
+    # tokens — the least important one drops first — and the same reason: a
+    # clipped rule loses its `╮` corner, which reads as a broken card.
     room = width - 3 - cell_len(badges)
     if cell_len(label) > room:
         counter = f" {task_seq(task.id)} "

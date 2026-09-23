@@ -52,7 +52,9 @@ USAGE_COMMANDS = """  {cli} status [<task>] <column>   move a card
                        [--worktree|--no-worktree] [--dry-run]
   {cli} archive   [<task>]         archive a card, keeping its record
   {cli} unarchive [<task>]         restore an archived card to the board
-  {cli} rename <task> <code|id>    change a card's id code (cfg-8 -> infra-8)
+  {cli} rename <task> <code|id>    change a card's id code (cfg-8 -> infra-8,
+                                    or infra-9 when infra has used 8)
+  {cli} renumber                   compact every code's numbers to 1..n
   {cli} assign <task> <kind> [--model <name>]
                                    change the agent (and model) a card sends to
   {cli} list   [--mine] [--json]   list cards (--archived: the archive)
@@ -60,8 +62,10 @@ USAGE_COMMANDS = """  {cli} status [<task>] <column>   move a card
   {cli} help                       this text
 
   <task> is a board id (cfg-8, or K3 on a card filed with no workspace) or its
-  number (8); inside the pane a card was dispatched to it can be omitted to mean
-  "the card for this pane". Columns may be ids or labels."""
+  number (8) while only one card holds that number — numbers count per
+  workspace code, so an ambiguous one is refused and the message names the ids
+  that could have meant it. Inside the pane a card was dispatched to, <task> can
+  be omitted to mean "the card for this pane". Columns may be ids or labels."""
 
 
 def usage() -> str:
@@ -83,6 +87,7 @@ AGENT_COMMANDS = (
     "archive",
     "unarchive",
     "rename",
+    "renumber",
     "assign",
     "list",
     "show",
@@ -133,13 +138,26 @@ def _find(
     task = store.resolve(reference, _pane_id())
     if task is not None:
         return task, ""
-    # `show`, `archive` and `unarchive` may name a card that is off the board;
-    # every other verb must not, or an agent could move a card nobody sees.
-    if include_archived and reference:
-        task = store.resolve_archived(reference)
-        if task is not None:
-            return task, ""
     if reference:
+        # A number is a reference only while one card holds it (numbers are
+        # issued per workspace code). Say what it *could* have meant rather than
+        # "no such card", which reads as "that card is gone" — the one answer
+        # that would be wrong.
+        number = int(reference) if reference.isdigit() else 0
+        if number > 0:
+            ids = store.ids_with_seq(number)
+            if len(ids) > 1:
+                return None, (
+                    f"{reference} matches {', '.join(ids)} — numbers count per"
+                    " workspace code, so pass the full id"
+                )
+        # `show`, `archive` and `unarchive` may name a card that is off the
+        # board; every other verb must not, or an agent could move a card
+        # nobody sees.
+        if include_archived:
+            task = store.resolve_archived(reference)
+            if task is not None:
+                return task, ""
         return None, f"no task {reference!r} on the board — try: {CLI} list"
     pane = _pane_id()
     if pane:
@@ -1002,7 +1020,7 @@ def _unarchive(args: list[str], store: Store, _config: Config) -> int:
 
 
 def _rename(args: list[str], store: Store, _config: Config) -> int:
-    """Change a card's id code, keeping its number (`Store.rename`).
+    """Change a card's id code (`Store.rename`), and its number if it must.
 
     Both halves are required: an id is the name other cards, prompts and panes
     already hold, so which card is being renamed is never left to the pane. An
@@ -1039,6 +1057,51 @@ def _rename(args: list[str], store: Store, _config: Config) -> int:
         failed = retitle_tab(store, renamed)
         if failed:
             print(f"(tab not relabelled: {failed})", file=sys.stderr)
+    return 0
+
+
+def _renumber(args: list[str], store: Store, _config: Config) -> int:
+    """Compact every code's numbers to `1..n` (`Store.renumber`).
+
+    The board's numbers were one board-wide counter before they were per code,
+    so a code's ids are sparse and start high. This is the one verb that
+    rewrites ids that already exist, and the only one that takes no card: it is
+    a decision about the whole board.
+
+    Human-only, like `archive` and `rename`, and for the same reason — an id is
+    a name other cards, panes and prompts already hold. A dispatched card's tab
+    is relabelled as `rename` does it, because the label the board recognises
+    its own tab by carries the id; a tab that cannot be relabelled is reported
+    and the renumber stands, since the store is already written and the board
+    finds a running agent by pane rather than by name.
+    """
+    force = "--force" in args
+    args = [arg for arg in args if arg != "--force"]
+    if args:
+        print(f"usage: {CLI} renumber", file=sys.stderr)
+        return 2
+    if _from_agent() and not force:
+        print(
+            "refusing to renumber the board — an id is a name other cards, panes"
+            " and prompts already hold, and rewriting every one of them is yours"
+            " to decide, not the agent's; pass --force if you mean it",
+            file=sys.stderr,
+        )
+        return 1
+    moved, summaries = store.renumber()
+    if not moved:
+        print("nothing to renumber — every code already counts 1..n")
+        return 0
+    print(f"renumbered {len(moved)} card{'' if len(moved) == 1 else 's'}")
+    for summary in summaries:
+        print(f"  {summary}")
+    for task in moved:
+        if task.archived_at or not task.tab_id:
+            continue
+        failed = retitle_tab(store, task)
+        if failed:
+            print(f"  ({task.id}: tab not relabelled: {failed})", file=sys.stderr)
+    print("the previous ids are in board.json.bak")
     return 0
 
 
@@ -1144,6 +1207,7 @@ def run_agent_command(argv: list[str]) -> int:
         "archive": _archive,
         "unarchive": _unarchive,
         "rename": _rename,
+        "renumber": _renumber,
         "assign": _assign,
         "list": _list,
         "show": _show,

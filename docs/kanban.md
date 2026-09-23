@@ -50,7 +50,7 @@ card, so a column can be read without reading it:
 
 | Where | What |
 | --- | --- |
-| `cfg-3` in the top rule | the id — the workspace it was filed in, then the board's counter (**Ids** below). Tinted while an agent has the card: yellow working, grey idle, dimmer still for one that exited. Blocked and done leave it alone — they already colour the whole border — and a live status outranks a stale age. |
+| `cfg-3` in the top rule | the id — the workspace it was filed in, then that code's counter (**Ids** below). Tinted while an agent has the card: yellow working, grey idle, dimmer still for one that exited. Blocked and done leave it alone — they already colour the whole border — and a live status outranks a stale age. |
 | `▲` before the title | priority: `▲` high, `‼` urgent, `▽` low, nothing for normal. |
 | `✎` after it | the agent named this card (`ui.show_agent_kind` off does not hide it; the capture title is in `⏎`). |
 | first line(s) | the title, two rows, ellipsised. |
@@ -109,26 +109,34 @@ The tokens at the right-hand end are dropped as a column narrows, in the order
 they matter least: the age, then the step counter, then the kind, then the mark.
 The workspace label is never dropped, it truncates. The id badge works the other
 way round: a card too narrow for `snowfl-7` drops the *code* and keeps the
-counter (` 7 `) rather than let a badge push the rule's `╮` off the card, since
-the meta row underneath already names the workspace in full.
+number (` 7 `) rather than let a badge push the rule's `╮` off the card, since
+the meta row underneath already names the workspace in full. The badge is read
+rather than typed — the number alone is not a reference any more, now that
+numbers count per workspace code — and `⏎` has the full id.
 
-**Ids** are `<code>-<counter>` — `cfg-8`. The code names the workspace the card
+**Ids** are `<code>-<number>` — `cfg-8`. The code names the workspace the card
 was *filed* in, which is what makes an id worth reading: `herdr-kanban show
 snow-7` places a card without opening the board, and the dispatch prompt
-(`this card is cfg-8`) carries the same label into the pane. The counter is
-board-wide and only ever grows, so a number alone names exactly one card on the
-board (`herdr-kanban status 8 review`), and a card with nothing to code from
-keeps the plain `K8` it would have had before codes existed — filed with no
-workspace at all, or into a workspace whose label is unknown and whose herdr id
-is the only name left (`w1-7`).
+(`this card is cfg-8`) carries the same label into the pane. The number is
+issued per code: each workspace code counts its own cards from one and only ever
+grows, so `cfg-8` and `snow-8` are two cards while every id still names exactly
+one. A bare number is therefore a reference only while it is unambiguous —
+`herdr-kanban status 8 review` works while one card holds `8`, and otherwise the
+error names what it could have meant (`8 matches cfg-8, nixos-8 — numbers count
+per workspace code, so pass the full id`) rather than guessing. A card with
+nothing to code from keeps the plain `K8` it would have had before codes existed
+— filed with no workspace at all, or into a workspace whose label is unknown and
+whose herdr id is the only name left (`w1-7`) — and those share the `K`
+namespace's counter.
 
 The code is the label's own slug, cut to six characters (`nixos-config-v2` →
 `nixos`, `snowflake-reporting` → `snowfl`), so ids work with no configuration at
 all. `[workspaces]` in `config.toml` overrides it — by label, or by herdr's
 workspace id (`w1 = "cfg"`) so that a `herdr workspace rename` cannot change it
 — and is worth the ten seconds for a label whose slug is ugly or ambiguous. Two
-workspaces whose labels start alike get alike codes; the ids stay unique (the
-counter is shared), but the alias is how you tell them apart at a glance.
+workspaces whose labels start alike get alike codes, and then share that code's
+counter: the ids stay unique, because the code is the namespace, but the alias is
+how you tell them apart at a glance.
 
 A code is frozen when the card is filed and never follows the card. A dispatch
 into another workspace, or a rename of the workspace itself, leaves the id alone:
@@ -136,8 +144,25 @@ an id is a name other cards, panes and prompts already hold, so the card's
 *live* workspace is what its meta row shows (`▪ work`) while the id keeps saying
 where the work came from — the same division as `found during cfg-1` and the rest
 of the card's history. Cards filed before this existed keep their `K` ids, and
-every lookup that took `K3` takes `cfg-3` — or `CFG-3`, or just `3`, because an
-id is matched without regard to case and the counter alone is unambiguous.
+every lookup that took `K3` takes `cfg-3` — or `CFG-3`, because an id is matched
+without regard to case.
+
+**The board issues the numbers, and never twice in a code.** A number only means
+something inside its code, so a code's counter is a high-water mark: nothing
+hands out a number that code has used, not after a `d`, not after an `A`, and
+`rename` is the one thing that moves a number between codes — the card keeps it
+while the target code has not spent it (`nixos-3` → `infra-3`) and takes that
+code's next number when it has (`nixos-88` → `infra-9`, and the message says so),
+because the alternative is two cards sharing an id. Picking a number by hand is
+refused; `herdr-kanban renumber` is the verb for that instead. Cards filed while
+the board still counted once, board-wide, keep the numbers that counter gave
+them, so a code's numbers can start high and be sparse — `nixos` held 19 cards
+numbered 33 … 88. `renumber` is the one verb that rewrites ids that already
+exist: it compacts every code to `1..n` in the order its cards were filed, live
+and archived together, and drops each counter to `n` so the code carries on from
+its compacted end. It is refused from a herdr pane like `archive` and `rename`,
+it relabels the tabs it can, and the ids it replaced are left in
+`board.json.bak`.
 
 The **`!` view** is the answer to the header's `▲ 1 needs you`: one keystroke
 shows only the blocked cards, from every workspace at once, with the hidden count
@@ -425,7 +450,9 @@ of reading as "no such card". `herdr-kanban --help` prints this verb table and
 the protocol — the same text `herdr-kanban help` gives — before the board's own
 flags, so an agent that checks its tools finds the commands its prompt names
 rather than a TUI's options. Humans run the same verbs with an explicit id — the
-full `cfg-8`, or just the number `8`, which is unique board-wide:
+full `cfg-8`, or just the number `8` while one card holds it (numbers count per
+workspace code, so an ambiguous number is refused and the message names the ids
+that could have meant it):
 
 | Command | Effect |
 | --- | --- |
@@ -441,7 +468,8 @@ full `cfg-8`, or just the number `8`, which is unique board-wide:
 | `herdr-kanban show [<task>] [--json]` | one card in full, history included (an archived card too) |
 | `herdr-kanban archive [<task>]` | take a card off the board, keeping its record (stopping its agent when `auto_archive_agent` is on) |
 | `herdr-kanban unarchive [<task>]` | put an archived card back in the column it left |
-| `herdr-kanban rename <task> <code\|id>` | change a card's id code, keeping its number (`cfg-8` → `infra-8`) |
+| `herdr-kanban rename <task> <code\|id>` | change a card's id code, and its number when the target code has spent that number |
+| `herdr-kanban renumber` | compact every code's numbers to `1..n` (yours, not an agent's) |
 | `herdr-kanban assign <task> <kind> [--model <name>]` | change the agent kind (and model) a card is sent to |
 
 `add` exists so an agent that finds *more* work has somewhere to put it, rather
@@ -550,9 +578,12 @@ says so when the card has been dispatched.
 
 **Renaming an id is yours too.** A code is frozen when a card is filed, and
 `herdr-kanban rename cfg-8 infra` (or the full `infra-8`) is the one way to
-change it afterwards. Only the code moves: the number is board-wide, and a
-rename that changed it could give one card another's number, so a new id with a
-different counter is refused. The id has to be one herdr would take as an agent
+change it afterwards. The number belongs to the code it was issued in, so it
+survives the move while the code being moved to has not spent it (`cfg-3` →
+`infra-3`) and is reissued from that code's counter when it has (`nixos-88` →
+`infra-9`, and the message says which id it landed on) — two cards sharing an id
+is the one outcome worth a new number, and a number picked by hand is still
+refused. The id has to be one herdr would take as an agent
 name (a lowercase letter, then letters, digits, `-` or `_`, 32 at most), because
 a dispatch names the agent after its card. Cards found during the renamed one
 follow it (`found during infra-8`), its history records `renamed from cfg-8`,
@@ -678,7 +709,11 @@ resolves to the same path, so both open the same board. Live cards are the
 same shape plus the time and the column it left. It is plain JSON —
 hand-editable and diffable, and every write keeps the previous generation beside
 it as `board.json.bak` (copied, never renamed, so a reader can never catch the
-file mid-swap). If a hand-edit goes wrong, that is the way back. Mutations that
+file mid-swap). If a hand-edit goes wrong, that is the way back. `counters` is
+where the ids are issued from — the highest number each workspace code has
+given out, so a code never reuses one — and a file written before that map
+existed is read by taking each code's counter from the ids it already holds,
+which is why an old board keeps every id it had. Mutations that
 turn out to be no-ops — a status set to the value it already has, an edit with no
 effective difference — are not written at all, so they cannot bump the mtime or
 rotate that backup away. Parsing is defensive in the other direction too: a field

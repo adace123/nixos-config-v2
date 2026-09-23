@@ -47,7 +47,7 @@ from .model import (
     selection_after_move,
 )
 from .render import BoardView
-from .store import Store, Task, task_id, workspace_code
+from .store import Store, Task, next_number, task_id, workspace_code
 from .sync import Syncer, SyncLock
 from .widgets import BoardWidget
 
@@ -576,18 +576,17 @@ class KanbanApp(App[None]):
         if draft is None:
             return
         if self.demo_mode:
+            code = workspace_code(
+                self.config.workspace_aliases,
+                draft.workspace_label,
+                draft.workspace_id,
+            )
             self._demo_tasks.append(
                 Task(
                     # Same id rule as the real board, so a demo capture looks
-                    # like a real one: the workspace's code, then the counter.
-                    id=task_id(
-                        workspace_code(
-                            self.config.workspace_aliases,
-                            draft.workspace_label,
-                            draft.workspace_id,
-                        ),
-                        len(self._demo_tasks) + 1,
-                    ),
+                    # like a real one: the workspace's code, then the next
+                    # number that code has not spent yet.
+                    id=task_id(code, next_number(self._demo_tasks, code)),
                     title=draft.title,
                     notes=draft.notes,
                     status=draft.status,

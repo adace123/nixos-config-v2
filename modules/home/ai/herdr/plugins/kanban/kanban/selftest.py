@@ -69,8 +69,8 @@ def check_store(check: Checker, tmp: str) -> None:
     second = store.add(title="Second", agent_kind="claude", status="queued")
     third = store.add(title="Third", agent_kind="codex", status="backlog")
     check.check(
-        "store assigns sequential ids, codes them by workspace, and trims titles",
-        (first.id, second.id, third.id) == ("cfg-1", "K2", "K3")
+        "store numbers each code from one, and trims titles",
+        (first.id, second.id, third.id) == ("cfg-1", "K1", "K2")
         and first.title == "Fix the thing",
         f"{first.id}/{second.id}/{third.id} {first.title!r}",
     )
@@ -79,7 +79,7 @@ def check_store(check: Checker, tmp: str) -> None:
     store.reorder(first.id, 1)
     check.check(
         "set_status moves a card and reorder is column-local",
-        [task.id for task in store.in_column("doing")] == ["K2"]
+        [task.id for task in store.in_column("doing")] == ["K1"]
         and [task.id for task in store.in_column("queued")] == ["cfg-1"],
         str([task.id for task in store.in_column("queued")]),
     )
@@ -87,7 +87,7 @@ def check_store(check: Checker, tmp: str) -> None:
     store.reorder(third.id, 99)
     check.check(
         "out-of-range reorders are refused",
-        [task.id for task in store.in_column("backlog")] == ["K3"],
+        [task.id for task in store.in_column("backlog")] == ["K2"],
     )
 
     # An edit that changes the card's column (`e` in the board) reaches the
@@ -97,7 +97,7 @@ def check_store(check: Checker, tmp: str) -> None:
     store.update(first.id, status="backlog")
     check.check(
         "editing a card's column lands it at the end and records the move",
-        [task.id for task in store.in_column("backlog")] == ["K3", "cfg-1"]
+        [task.id for task in store.in_column("backlog")] == ["K2", "cfg-1"]
         and store.by_id(first.id).history[-1]["what"] == "queued -> backlog",
         f"{[task.id for task in store.in_column('backlog')]} "
         f"{store.by_id(first.id).history[-1]['what']}",
@@ -116,9 +116,15 @@ def check_store(check: Checker, tmp: str) -> None:
     )
     payload = json.loads(store.path.read_text(encoding="utf-8"))
     check.check(
-        "the file is versioned JSON with a growing sequence",
-        payload.get("version") == 1 and payload.get("seq") == 3,
-        str(payload.get("seq")),
+        "the file is versioned JSON with a counter per code",
+        payload.get("version") == 2
+        and payload.get("counters") == {"K": 2, "cfg": 1},
+        f"{payload.get('version')} {payload.get('counters')}",
+    )
+    check.check(
+        "and no board-wide sequence is left in it",
+        "seq" not in payload,
+        str(sorted(payload)),
     )
     check.check(
         "deleting a task removes it",
@@ -195,8 +201,8 @@ def check_store(check: Checker, tmp: str) -> None:
     )
     check.check(
         "a live agent's status reaches its card",
-        view.card("K2") is not None and view.card("K2").status == "working",
-        str(view.card("K2").status if view.card("K2") else None),
+        view.card("K1") is not None and view.card("K1").status == "working",
+        str(view.card("K1").status if view.card("K1") else None),
     )
     check.check(
         "a card in a closed workspace is flagged",
@@ -334,17 +340,19 @@ def check_assign(check: Checker, tmp: str) -> None:
 
 
 def check_rename(check: Checker, tmp: str) -> None:
-    """`rename` changes a card's code and nothing that makes its id an id.
+    """`rename` moves a card to another code, and renumbers it when it must.
 
-    The counter stays (a bare number must keep naming one card), links from
-    follow-ups follow, the new id must be usable as a herdr agent name, and an
-    agent cannot rename a card without `--force`.
+    A number is issued per code, so it survives the move only while the code
+    being moved to has not spent it; links from follow-ups follow, the new id
+    must be usable as a herdr agent name, and an agent cannot rename a card
+    without `--force`.
     """
     import contextlib
     import io
     import os
 
     from .cli import run_agent_command
+    from .store import task_seq
 
     board = Path(tmp) / "rename-board.json"
     saved = {k: os.environ.get(k) for k in ("KANBAN_BOARD_FILE", "HERDR_PANE_ID")}
@@ -362,13 +370,13 @@ def check_rename(check: Checker, tmp: str) -> None:
         parent = store.add(title="the parent", status="doing", workspace_id="w1")
         child = store.add(title="found in it", status="backlog", parent_id=parent.id)
         other = store.add(title="someone else", status="backlog")
-        seq = int(parent.id.rsplit("-", 1)[-1].lstrip("K"))
+        number = task_seq(parent.id)
 
         code, out = cli("rename", parent.id, "herdr-kanban")
         after = Store.open(board)
-        renamed = f"herdr-kanban-{seq}"
+        renamed = f"herdr-kanban-{number}"
         check.check(
-            "rename with a code keeps the card's number",
+            "rename into a code that has not spent the number keeps it",
             code == 0 and out == f"{parent.id} -> {renamed}"
             and after.by_id(renamed) is not None,
             out,
@@ -383,24 +391,40 @@ def check_rename(check: Checker, tmp: str) -> None:
             f"renamed from {parent.id}" in after.by_id(renamed).history[-1]["what"],
         )
         check.check(
-            "and the number alone still finds it",
-            after.resolve(str(seq)) is not None
-            and after.resolve(str(seq)).id == renamed,
+            "and a bare number two codes have issued names neither",
+            after.resolve(str(number)) is None
+            and renamed in after.ids_with_seq(number)
+            and child.id in after.ids_with_seq(number),
+            str(after.ids_with_seq(number)),
         )
-        code, out = cli("rename", str(seq), "Infra-" + str(seq))
+        code, out = cli("rename", renamed, f"Infra-{number}")
         check.check(
             "a full id is accepted, case-insensitively",
-            code == 0 and Store.open(board).by_id(f"infra-{seq}") is not None,
+            code == 0 and Store.open(board).by_id(f"infra-{number}") is not None,
             out,
         )
-        code, out = cli("rename", f"infra-{seq}", "infra-999")
+        code, out = cli("rename", f"infra-{number}", "infra-999")
         check.check(
             "but not one that changes the number",
-            code == 1 and "renumber" in out
-            and Store.open(board).by_id(f"infra-{seq}") is not None,
+            code == 1
+            and "renumber" in out
+            and Store.open(board).by_id(f"infra-{number}") is not None,
             out,
         )
-        code, out = cli("rename", f"infra-{seq}", "9lives")
+        code, out = cli("rename", f"infra-{number}", "herdr-kanban")
+        current = f"herdr-kanban-{number + 1}"
+        check.check(
+            "a code that has already spent the number gives the card its next",
+            code == 0 and out.startswith(f"infra-{number} -> {current}"),
+            out,
+        )
+        check.check(
+            "and that is what the board holds",
+            Store.open(board).by_id(current) is not None
+            and Store.open(board).by_id(f"infra-{number}") is None,
+            out,
+        )
+        code, out = cli("rename", current, "9lives")
         check.check(
             "nor one herdr would not take as an agent name",
             code == 1 and "not a usable id" in out,
@@ -413,11 +437,213 @@ def check_rename(check: Checker, tmp: str) -> None:
             out2,
         )
         os.environ["HERDR_PANE_ID"] = "w1:p9"
-        code, out = cli("rename", f"infra-{seq}", "agent")
-        forced, _ = cli("rename", f"infra-{seq}", "agent", "--force")
+        code, out = cli("rename", current, "agent")
+        forced, _ = cli("rename", current, "agent", "--force")
         check.check(
             "an agent is refused without --force",
             code == 1 and "yours to change" in out and forced == 0,
+            out,
+        )
+    finally:
+        for key, value in saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
+def check_counters(check: Checker, tmp: str) -> None:
+    """The per-code counters: what they are, where they come from, and `renumber`.
+
+    The board's numbers used to come from one board-wide counter. They are
+    issued per workspace code now, which makes three things worth pinning: that
+    a code's counter never hands out a number it has used (not after `d`, not
+    after `A`), that a `version` 1 file migrates by taking each code's counter
+    from the ids it already holds, and that the one verb which rewrites ids —
+    `renumber` — compacts a code without letting two cards share a name, keeps
+    the archived half of a code in the same namespace, and is the human's to
+    run.
+    """
+    import contextlib
+    import io
+    import json
+    import os
+
+    from .cli import run_agent_command
+
+    saved = {k: os.environ.get(k) for k in ("KANBAN_BOARD_FILE", "HERDR_PANE_ID")}
+    os.environ.pop("HERDR_PANE_ID", None)
+
+    def cli(*argv: str) -> tuple[int, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = run_agent_command(list(argv))
+        return code, (out.getvalue() + err.getvalue()).strip()
+
+    try:
+        # -- a code counts on its own, and never twice ---------------------
+        board = Path(tmp) / "counters-board.json"
+        os.environ["KANBAN_BOARD_FILE"] = str(board)
+        store = Store.open(board)
+        cfg1 = store.add(title="one", workspace_code="cfg")
+        cfg2 = store.add(title="two", workspace_code="cfg")
+        other1 = store.add(title="elsewhere", workspace_code="pers")
+        plain = store.add(title="no workspace")
+        check.check(
+            "each code issues its own numbers from one",
+            (cfg1.id, cfg2.id, other1.id, plain.id)
+            == ("cfg-1", "cfg-2", "pers-1", "K1"),
+            f"{cfg1.id}/{cfg2.id}/{other1.id}/{plain.id}",
+        )
+        store.delete(cfg2.id)
+        after_delete = store.add(title="after a delete", workspace_code="cfg")
+        store.archive(other1.id)
+        after_archive = store.add(title="after an archive", workspace_code="pers")
+        check.check(
+            "a deleted or archived number is not reissued in its code",
+            after_delete.id == "cfg-3" and after_archive.id == "pers-2",
+            f"{after_delete.id}/{after_archive.id}",
+        )
+        check.check(
+            "and the counters are the file's own record of that",
+            json.loads(board.read_text(encoding="utf-8")).get("counters")
+            == {"K": 1, "cfg": 3, "pers": 2},
+            str(json.loads(board.read_text(encoding="utf-8")).get("counters")),
+        )
+
+        # -- a version 1 file migrates from the ids it already holds -------
+        old = Path(tmp) / "counters-v1.json"
+        old.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "seq": 88,
+                    "tasks": [
+                        {"id": "nixos-88", "title": "newest"},
+                        {"id": "pers-63", "title": "older"},
+                        {"id": "K14", "title": "plain"},
+                    ],
+                    "archived": [{"id": "nixos-51", "title": "archived"}],
+                }
+            ),
+            encoding="utf-8",
+        )
+        migrated = Store.open(old)
+        check.check(
+            "a version 1 board takes each code's counter from its own ids",
+            migrated.board.counters == {"K": 14, "nixos": 88, "pers": 63},
+            str(migrated.board.counters),
+        )
+        check.check(
+            "and keeps every id it already had",
+            [task.id for task in migrated.tasks]
+            == ["nixos-88", "pers-63", "K14"],
+            str([task.id for task in migrated.tasks]),
+        )
+        check.check(
+            "so the next card in a code carries on from that code's own end",
+            migrated.add(title="next", workspace_code="nixos").id == "nixos-89"
+            and migrated.add(title="next", workspace_code="pers").id == "pers-64"
+            and migrated.add(title="next").id == "K15",
+            str(migrated.board.counters),
+        )
+
+        # -- a hand-edited counter cannot take the board down --------------
+        broken = Path(tmp) / "counters-broken.json"
+        broken.write_text(
+            json.dumps(
+                {
+                    "version": 2,
+                    "counters": {"nixos": "three", "cfg": -2, "K": 9},
+                    "tasks": [{"id": "nixos-5", "title": "hand-edited"}],
+                }
+            ),
+            encoding="utf-8",
+        )
+        check.check(
+            "a counter hand-edited into a word is dropped, not raised",
+            Store.open(broken).board.counters == {"K": 9, "nixos": 5},
+            str(Store.open(broken).board.counters),
+        )
+
+        # -- renumber ------------------------------------------------------
+        # A board whose codes are sparse, the way the real one is after years of
+        # one board-wide counter: nixos has four cards numbered 85 … 89.
+        board2 = Path(tmp) / "counters-renumber.json"
+        board2.write_text(
+            json.dumps(
+                {
+                    "version": 2,
+                    "counters": {"nixos": 89, "pers": 63},
+                    "tasks": [
+                        {"id": "nixos-85", "title": "first"},
+                        {
+                            "id": "nixos-86",
+                            "title": "found in it",
+                            "parent_id": "nixos-85",
+                        },
+                        {"id": "nixos-89", "title": "last"},
+                        {"id": "pers-63", "title": "only"},
+                    ],
+                    "archived": [{"id": "nixos-87", "title": "archived"}],
+                }
+            ),
+            encoding="utf-8",
+        )
+        os.environ["KANBAN_BOARD_FILE"] = str(board2)
+        code, out = cli("renumber")
+        compacted = Store.open(board2)
+        check.check(
+            "renumber compacts each code to 1..n, archived cards included",
+            code == 0
+            and [task.id for task in compacted.tasks]
+            == ["nixos-1", "nixos-2", "nixos-4", "pers-1"]
+            and [task.id for task in compacted.archived] == ["nixos-3"],
+            f"{code} {out} | {[task.id for task in compacted.tasks]}",
+        )
+        check.check(
+            "and the file's own list order is left alone",
+            [task.title for task in compacted.tasks]
+            == ["first", "found in it", "last", "only"],
+            str([task.title for task in compacted.tasks]),
+        )
+        check.check(
+            "and a follow-up link follows the card it was found in",
+            compacted.by_id("nixos-2").parent_id == "nixos-1",
+            str(compacted.by_id("nixos-2").parent_id),
+        )
+        check.check(
+            "and the counter is compacted too, not left where it was",
+            compacted.board.counters == {"nixos": 4, "pers": 1}
+            and compacted.add(title="next", workspace_code="nixos").id
+            == "nixos-5",
+            str(compacted.board.counters),
+        )
+        check.check(
+            "and the run says what it did, per code",
+            "renumbered 5 cards" in out
+            and "nixos: 4 cards now nixos-1..nixos-4" in out
+            and "board.json.bak" in out,
+            out,
+        )
+        code, out = cli("renumber")
+        check.check(
+            "and a board that already counts 1..n has nothing to do",
+            code == 0 and "nothing to renumber" in out,
+            out,
+        )
+        os.environ["HERDR_PANE_ID"] = "w1:p9"
+        code, out = cli("renumber")
+        forced, _ = cli("renumber", "--force")
+        check.check(
+            "an agent cannot renumber the board without --force",
+            code == 1 and "yours to decide" in out and forced == 0,
+            out,
+        )
+        code, out = cli("renumber", "now")
+        check.check(
+            "and renumber takes no argument",
+            code == 2 and "usage" in out,
             out,
         )
     finally:
@@ -583,14 +809,14 @@ def check_archive(check: Checker, tmp: str) -> None:
 
 
 def check_ids(check: Checker, tmp: str) -> None:
-    """Card ids: `<workspace-code>-<counter>`, and every way back in.
+    """Card ids: `<workspace-code>-<number>`, and every way back in.
 
     The code is the feature — a card's name says where it was filed, and `cfg-8`
-    can be pasted into a shell and mean something — while the counter behind it
-    is the invariant that has to survive: it is board-wide, so `8` alone still
-    names exactly one card even though two workspaces' cards share a code. Both
-    halves are pinned here, along with what a badge does with a code too long
-    for the card it sits on.
+    can be pasted into a shell and mean something — while the number behind it
+    is the invariant that has to survive: it is issued per code, so `cfg-1` and
+    `nixos-1` are two cards, each id still names exactly one, and a bare number
+    is only a reference while it is unambiguous. Both halves are pinned here,
+    along with what a badge does with a code too long for the card it sits on.
     """
     import contextlib
     import io
@@ -599,7 +825,15 @@ def check_ids(check: Checker, tmp: str) -> None:
     from .config import load_config
     from .model import LiveState, UiState, build_view
     from .render import render_card
-    from .store import Store, looks_like_id, slug_code, task_seq, workspace_code
+    from .store import (
+        Store,
+        counter_key,
+        id_code,
+        looks_like_id,
+        slug_code,
+        task_seq,
+        workspace_code,
+    )
 
     labels = ("nixos-config-v2", "snowflake-reporting", "argo", "  Mixed  Case ")
     codes = [slug_code(label) for label in labels]
@@ -633,7 +867,7 @@ def check_ids(check: Checker, tmp: str) -> None:
         workspace_code({"w1": "nixos-config-v2"}, "", "w1"),
     )
     check.check(
-        "the counter is the last number in an id, whatever the code says",
+        "the number is the last number in an id, whatever the code says",
         (
             task_seq("cfg-8"),
             task_seq("K8"),
@@ -642,6 +876,25 @@ def check_ids(check: Checker, tmp: str) -> None:
         )
         == (8, 8, 123, 0),
         str([task_seq(i) for i in ("cfg-8", "K8", "snowfl-123", "blocked")]),
+    )
+    check.check(
+        "and the code is what a number is counted in, `K` for a card with none",
+        (
+            id_code("cfg-8"),
+            id_code("nixos-config-12"),
+            id_code("K8"),
+            id_code("k8"),
+            id_code("blocked"),
+            counter_key(""),
+            counter_key("CFG"),
+        )
+        == ("cfg", "nixos-config", "K", "K", "", "K", "cfg"),
+        str(
+            [
+                id_code(i)
+                for i in ("cfg-8", "nixos-config-12", "K8", "k8", "blocked")
+            ]
+        ),
     )
     check.check(
         "only an id shape counts as a task reference, not any word with a digit",
@@ -685,8 +938,8 @@ def check_ids(check: Checker, tmp: str) -> None:
         cli("add", "Long code", "--workspace", "wA")
         filed_ids = [task.id for task in Store.open(board).tasks]
         check.check(
-            "a workspace with no alias codes by its own id, and the counter runs on",
-            filed_ids == ["cfg-1", "w6-2", "nixos-config-3"],
+            "each workspace code counts its own cards from one",
+            filed_ids == ["cfg-1", "w6-1", "nixos-config-1"],
             str(filed_ids),
         )
         slipped = Store.open(Path(tmp) / "ids-loose.json").add(
@@ -701,18 +954,26 @@ def check_ids(check: Checker, tmp: str) -> None:
         store = Store.open(board)
         found = [
             task.id if (task := store.resolve(reference)) else None
-            for reference in ("cfg-1", "CFG-1", "1")
+            for reference in ("cfg-1", "CFG-1", "w6-1")
         ]
         check.check(
-            "a card answers to its id, that id in either case, and its bare number",
-            found == ["cfg-1", "cfg-1", "cfg-1"],
+            "a card answers to its id and to that id in either case",
+            found == ["cfg-1", "cfg-1", "w6-1"],
             str(found),
         )
-        long_card = store.by_id("nixos-config-3")
         check.check(
-            "the bare number finds a card however its workspace was coded",
-            store.resolve("3") is long_card and long_card is not None,
-            str(store.resolve("3").id if store.resolve("3") else None),
+            "a bare number is refused while several codes have issued it",
+            store.resolve("1") is None
+            and store.ids_with_seq(1) == ["cfg-1", "nixos-config-1", "w6-1"],
+            f"{store.resolve('1')} {store.ids_with_seq(1)}",
+        )
+        # A second card in one of those codes makes its next number its own.
+        cli("add", "Only one", "--workspace", "w1")
+        store = Store.open(board)
+        check.check(
+            "and a bare number resolves once only one card holds it",
+            store.resolve("2") is not None and store.resolve("2").id == "cfg-2",
+            str(store.resolve("2")),
         )
         check.check(
             "and a code that is not on the board is not a card",
@@ -724,11 +985,20 @@ def check_ids(check: Checker, tmp: str) -> None:
             code == 0 and Store.open(board).by_id("cfg-1").status == "queued",
             f"{code} {out}",
         )
+        code, out = cli("show", "1")
+        check.check(
+            "and the CLI names the ids an ambiguous number could have meant",
+            code == 1
+            and "matches cfg-1" in out
+            and "nixos-config-1" in out
+            and "no task" not in out,
+            out,
+        )
 
         # A coded id is four cells longer than the `K8` it replaced, so the
         # badge has to give something up on a narrow card rather than clip the
-        # rule's corner. The counter is what stays: the meta row below already
-        # names the workspace in full.
+        # rule's corner. The number is what stays: the meta row below already
+        # names the workspace in full, and a badge is read rather than typed.
         view = build_view(
             load_config(config_file),
             Store.open(board).tasks,
@@ -738,14 +1008,14 @@ def check_ids(check: Checker, tmp: str) -> None:
             height=24,
             icon_mode="unicode",
         )
-        card = view.card("nixos-config-3")
+        card = view.card("nixos-config-1")
         wide = str(render_card(card, 22, False, "unicode")[0])
         narrow = str(render_card(card, 13, False, "unicode")[0])
         check.check(
-            "a card too narrow for its code keeps the counter in the badge",
-            "nixos-config-3" in wide
-            and "nixos-config-3" not in narrow
-            and " 3 " in narrow,
+            "a card too narrow for its code keeps the number in the badge",
+            "nixos-config-1" in wide
+            and "nixos-config-1" not in narrow
+            and " 1 " in narrow,
             f"{wide!r} | {narrow!r}",
         )
     finally:
@@ -5049,6 +5319,7 @@ async def _run(check: Checker) -> None:
         try:
             check_store(check, tmp)
             check_ids(check, tmp)
+            check_counters(check, tmp)
             check_archive(check, tmp)
             check_rename(check, tmp)
             check_assign(check, tmp)

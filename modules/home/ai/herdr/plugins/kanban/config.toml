@@ -86,9 +86,11 @@ sort = "updated"
 # Cards untouched for this many days are tinted yellow, and red at 2x.
 stale_after_days = 3
 
-# Short codes for card ids. A card is filed as `<code>-<counter>` (`snow-8`): the
-# code of the workspace it was filed in, then this board's one ever-growing
-# counter, which is what makes `8` alone name exactly one card. Without an entry
+# Short codes for card ids. A card is filed as `<code>-<number>` (`snow-8`): the
+# code of the workspace it was filed in, then a number from that code's own
+# counter. The counter is per code and only ever grows, so a code never reuses a
+# number and every id names exactly one card — while `8` alone is a reference
+# only while a single card holds it. Without an entry
 # here a workspace codes by its own label, slugified and cut to six characters
 # (`nixos-config-v2` -> `nixos`), which reads fine for a short label and badly
 # for a long one — hence the table below. Key an entry by the label, or by

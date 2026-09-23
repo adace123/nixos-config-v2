@@ -3,17 +3,29 @@
 Layout:
 
 ```json
-{"version": 1, "seq": 4, "tasks": [{"id": "cfg-4", ...}]}
+{"version": 2, "counters": {"cfg": 4, "K": 2}, "tasks": [{"id": "cfg-4", ...}]}
 ```
 
-`seq` only ever grows, so ids are stable and never reused. An id is
-`<code>-<seq>`: a short code for the workspace the card was *filed* in, then
-that counter — `cfg-8`. The code is frozen with the id, the way `parent_id`
-freezes where a card came from: a card is redispatched into another workspace
-(and a workspace can be renamed), and neither may rewrite a name other cards
-and panes already refer to. A card filed with no workspace keeps the plain
-`K<seq>`. See `workspace_code` for how a code is chosen, and
-`Config.workspace_aliases` for the `[workspaces]` overrides.
+An id is `<code>-<n>`: a short code for the workspace the card was *filed* in,
+then a number issued from that code's own counter — `cfg-8`. The counter is per
+code, so `cfg-8` and `nixos-8` are two cards and each id still names exactly
+one: a code is a namespace, and `counters` is the highest number each namespace
+has ever handed out. A number is never reissued inside its code, so an id is a
+stable name other cards, panes and prompts can hold — and `cfg-8` can be pasted
+into a shell. The code is frozen with the id, the way `parent_id` freezes where
+a card came from: a card is redispatched into another workspace (and a
+workspace can be renamed), and neither may rewrite a name other cards and panes
+already refer to. A card filed with no workspace keeps the plain `K<n>`, whose
+numbers come from the `K` namespace. See `workspace_code` for how a code is
+chosen, and `Config.workspace_aliases` for the `[workspaces]` overrides.
+
+`counters` is a map rather than the single number this file used to carry,
+because a board-wide counter is what made `8` alone name a card: numbers are
+per code now, and the cost is that a bare number is only a reference while it
+is unambiguous (`Store.resolve`). A file written before this keeps its ids —
+`_read` takes each code's counter from the numbers its cards already hold — and
+a `version` 1 `seq` is simply ignored: there is no reading of one board-wide
+number that makes a per-code counter mean anything.
 
 Order inside a column is either `updated` — the default, which shows the card
 touched most recently first — or `manual`, the list order itself, which is what
@@ -36,7 +48,7 @@ import os
 import re
 import shutil
 import time
-from collections.abc import Collection, Iterator, Mapping
+from collections.abc import Collection, Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -44,7 +56,7 @@ from typing import Any
 
 from .config import PLUGIN_ID
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 HISTORY_LIMIT = 25
 PROGRESS_LIMIT = 50
 STEP_LIMIT = 40
@@ -60,13 +72,20 @@ PRIORITIES = ("low", "normal", "high", "urgent")
 CODE_LIMIT = 6
 ALIAS_LIMIT = 12
 
-# A card id: `<code>-<seq>` (`cfg-8`, `nixos-1`), or the plain `K8` this board
+# The counter namespace a card filed with no workspace is numbered from: its id
+# is `K8`, so `K` is where those numbers live. A real code can never be `K` —
+# `slug_code` lowercases everything it keeps, and `_VALID_ID` (a rename) demands
+# a lowercase first letter — so the plain ids and the coded ones cannot land in
+# the same namespace by accident.
+NO_CODE_KEY = "K"
+
+# A card id: `<code>-<n>` (`cfg-8`, `nixos-1`), or the plain `K8` this board
 # wrote before codes existed — and still writes for a card filed with no
-# workspace. Two patterns rather than one `code?seq` because the counter has to
+# workspace. Two patterns rather than one `code?n` because the number has to
 # be the *last* run of digits: a single greedy match reads `cfg-123` as code
-# `cfg-12` and counter `3`, and a board-wide counter that can be misread is
-# worse than no counter at all. The plain form keeps the old, narrow shape
-# (`K8`, `8`) so a bare `v2` in an argument is still a word and not a card.
+# `cfg-12` and number `3`, and a number that can be misread is worse than no
+# number at all. The plain form keeps the old, narrow shape (`K8`, `8`) so a
+# bare `v2` in an argument is still a word and not a card.
 _CODED_ID = re.compile(r"^[A-Za-z][A-Za-z0-9_-]*?-(\d+)$")
 _PLAIN_ID = re.compile(r"^[Kk]?(\d+)$")
 # What `rename` accepts: an id that is also a valid herdr agent name
@@ -96,14 +115,61 @@ def slug_code(text: str, limit: int = CODE_LIMIT) -> str:
 
 
 def task_seq(task_id: str) -> int:
-    """The counter in an id (`cfg-8` and `K8` are both 8), or 0 for a
-    hand-edited id that is not one."""
+    """The number in an id (`cfg-8` and `K8` are both 8), or 0 for a
+    hand-edited id that is not one.
+
+    A number is only half an id now that it is issued per workspace code: this
+    answers *which number*, and `id_code` answers which code it belongs to.
+    """
     text = (task_id or "").strip()
     for pattern in (_CODED_ID, _PLAIN_ID):
         match = pattern.match(text)
         if match:
             return int(match.group(1))
     return 0
+
+
+def counter_key(code: str) -> str:
+    """The counter namespace a *code*'s numbers are issued from.
+
+    `cfg` -> `cfg`, and no code at all -> `K`, the namespace the plain `K8` ids
+    come from (`NO_CODE_KEY`). A code is lowercase by construction (`slug_code`
+    lowercases, and a rename lowercases), and `K` is uppercase, so the plain
+    namespace can never be folded into a workspace whose code is `k`.
+    """
+    return (code or "").strip().lower() or NO_CODE_KEY
+
+
+def id_code(task_id: str) -> str:
+    """The counter namespace an id was filed under: `cfg-8` -> `cfg`, `K8` -> `K`.
+
+    "" for a hand-edited id that is not one: a name the board never issued has
+    no number to count, and inventing a namespace for it would let it raise a
+    counter it does not belong to.
+    """
+    text = (task_id or "").strip()
+    if _CODED_ID.match(text):
+        return text.rsplit("-", 1)[0].lower()
+    if _PLAIN_ID.match(text):
+        return NO_CODE_KEY
+    return ""
+
+
+def next_number(cards: Iterable[Task], code: str) -> int:
+    """One past the highest number `cards` already hold in this code's namespace.
+
+    For a caller that mints an id without a `Store` behind it — the demo
+    board's captured cards — so it applies the same rule `Store.add` does and
+    the two cannot drift apart.
+    """
+    key = counter_key(code)
+    return (
+        max(
+            (task_seq(task.id) for task in cards if id_code(task.id) == key),
+            default=0,
+        )
+        + 1
+    )
 
 
 def looks_like_id(text: str) -> bool:
@@ -136,13 +202,58 @@ def task_id_for(code: str, seq: int) -> str:
 
 
 def task_id(code: str, seq: int) -> str:
-    """The id for a card: its workspace code, then the board's counter.
+    """The id for a card: its workspace code, then a number from that code.
 
     `K<seq>` when there is no code — a card filed with no workspace, or a label
     that yields nothing slug-worthy. Composition lives here so the board file's
     ids and the demo board's ids cannot drift apart.
     """
     return f"{code}-{seq}" if code else f"K{seq}"
+
+
+def _as_int(value: Any, default: int = 0) -> int:
+    """An integer out of JSON, which the user may have hand-edited.
+
+    The same bargain `_as_time` makes: a board file is meant to be editable, so
+    a counter typed as `"three"` costs you that counter, not the board.
+    """
+    if value is None or isinstance(value, bool):
+        return default
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value.strip())
+        except ValueError:
+            return default
+    return default
+
+
+def _as_counters(value: Any) -> dict[str, int]:
+    """The per-code counters out of JSON, which the user may have hand-edited.
+
+    A `version` 1 board's single `seq` is not one of these: it is an int, and
+    there is no reading of one board-wide number that makes a per-code counter
+    mean anything, so `Store._read` takes each code's counter from the ids that
+    code already holds instead. Anything that is not a positive number is
+    dropped rather than raised — a stray counter must not cost you the board.
+    """
+    if not isinstance(value, dict):
+        return {}
+    counters: dict[str, int] = {}
+    for key, number in value.items():
+        if not isinstance(key, str):
+            continue
+        count = _as_int(number)
+        if count > 0:
+            # The key is a namespace, not a code: left as it is (`K` is the
+            # plain ids' namespace, and lowercasing it would fold them into the
+            # namespace of a workspace whose code happens to be `k`). An empty
+            # key is the one spelling that has to be normalised.
+            counters[key.strip() or NO_CODE_KEY] = count
+    return counters
 
 
 def _as_time(value: Any) -> float | None:
@@ -353,7 +464,12 @@ class Task:
 @dataclass
 class Board:
     version: int = SCHEMA_VERSION
-    seq: int = 0
+    # The highest number ever issued in each counter namespace: the workspace
+    # code a card is filed under, or `K` for a card filed with no workspace.
+    # Numbers only mean something inside their code, so this is a map and not
+    # one number — `nixos-19` and `pers-19` are two cards — and each namespace
+    # only ever grows, so a code never hands the same number to two cards.
+    counters: dict[str, int] = field(default_factory=dict)
     tasks: list[Task] = field(default_factory=list)
     # Cards taken off the board with `archive` (`A`). Same shape as a live card
     # — the record is kept whole — plus `archived_at`/`archived_from`.
@@ -421,9 +537,13 @@ class Store:
             return
         tasks = raw.get("tasks") if isinstance(raw, dict) else None
         archived = raw.get("archived") if isinstance(raw, dict) else None
+        # The version and the counters are read off the same guard as the two
+        # lists: a board file holding a JSON array, or a counter hand-edited
+        # into a word, costs you the counters and not the board.
+        fields = raw if isinstance(raw, dict) else {}
         board = Board(
-            version=int(raw.get("version") or SCHEMA_VERSION),
-            seq=int(raw.get("seq") or 0),
+            version=_as_int(fields.get("version"), SCHEMA_VERSION),
+            counters=_as_counters(fields.get("counters")),
         )
         if isinstance(tasks, list):
             board.tasks = [
@@ -433,18 +553,18 @@ class Store:
             board.archived = [
                 Task.from_dict(item) for item in archived if isinstance(item, dict)
             ]
-        if not board.seq:
-            # A file that lost `seq` — hand-edited, or written by something else
-            # — has to carry on past the highest id on the board. `len(tasks)`
-            # would be a *guess* that a gap can make too low: with only `K7`
-            # left after four deletions, four adds would re-issue `K7` and the
-            # board would have two cards with one name. Codes do not affect
-            # this: the counter after the last dash is the same board-wide one.
-            # Archived cards count too — archiving `K7` must not free its number.
-            board.seq = max(
-                (task_seq(task.id) for task in board.tasks + board.archived),
-                default=0,
-            )
+        # A counter has to be at least the highest number its code has already
+        # issued, whatever the stored map says: a hand-edited id, a file written
+        # by something else, or a `version` 1 board (which has no map at all —
+        # this loop is the whole migration) must not be able to hand a live
+        # number to a second card. `len(tasks)` would be a *guess* that a gap can
+        # make too low: with only `K7` left after four deletions, four adds would
+        # re-issue `K7` and the board would have two cards with one name.
+        # Archived cards count too — archiving `K7` must not free its number.
+        for task in board.tasks + board.archived:
+            key = id_code(task.id)
+            if key:
+                board.counters[key] = max(board.counters.get(key, 0), task_seq(task.id))
         self.board = board
         self._mtime = stat.st_mtime
         self.loaded_at = time.time()
@@ -470,7 +590,13 @@ class Store:
         """The exact document that would be written right now."""
         return {
             "version": SCHEMA_VERSION,
-            "seq": self.board.seq,
+            # Sorted, so a hand-edited or freshly minted counter shows up as a
+            # one-line diff rather than moving a block around.
+            "counters": {
+                code: self.board.counters[code]
+                for code in sorted(self.board.counters)
+                if self.board.counters[code] > 0
+            },
             "tasks": [task.to_dict() for task in self.board.tasks],
             "archived": [task.to_dict() for task in self.board.archived],
         }
@@ -572,10 +698,15 @@ class Store:
             str(extra.get("workspace_label") or extra.get("workspace_id") or "")
         )
         with self._locked():
-            self.board.seq += 1
+            # One past the highest number this code has issued, whatever the
+            # cards on the board happen to be: a card filed in a workspace whose
+            # numbers are nowhere near the last one filed elsewhere starts its
+            # own count, which is the point of a per-code counter.
+            key = counter_key(code)
+            self.board.counters[key] = self.board.counters.get(key, 0) + 1
             now = time.time()
             task = Task(
-                id=task_id(code, self.board.seq),
+                id=task_id(code, self.board.counters[key]),
                 title=title,
                 created_at=now,
                 updated_at=now,
@@ -683,16 +814,23 @@ class Store:
             return task, f"{task.id} archived from {task.archived_from}"
 
     def rename(self, task_id: str, wanted: str) -> tuple[Task | None, str]:
-        """Give a card a new id, live or archived. Returns (task, message).
+        """Give a card a new id code — and, when it has to, a new number.
 
         `wanted` is a full id (`herdr-kanban-66`) or just the code
-        (`herdr-kanban`), which keeps the card's counter. Only the code may
-        change: the counter is what makes a bare number name exactly one card
-        board-wide, so a rename that moved it could hand one card another's
-        number. The code is held to the shape an id must have anyway — a
-        lowercase letter first, then letters, digits, `-` and `_`, 32 at most —
-        because the id doubles as a dispatched agent's name, and herdr only
-        accepts names of that shape.
+        (`herdr-kanban`). A number belongs to the code's own counter, so it
+        survives the move only while it is still free in the code being moved
+        to: `nixos-3` -> `infra-3` on a board that has never issued `infra-3`.
+        When the target has already spent that number the card takes the
+        target's next one — `nixos-88` -> `infra-9` — and the message says which
+        id it landed on. The alternative is two cards sharing an id or a rename
+        that cannot cross codes at all, and neither is worth keeping a number.
+        Picking a number by hand stays refused: numbers are issued by the
+        board, and `renumber` is the verb for compacting a code.
+
+        The code is held to the shape an id must have anyway — a lowercase
+        letter first, then letters, digits, `-` and `_`, 32 at most — because
+        the id doubles as a dispatched agent's name, and herdr only accepts
+        names of that shape.
 
         Every card that says it was found during this one (`parent_id`) follows
         the rename, so the link reads the same both ways afterwards.
@@ -702,37 +840,111 @@ class Store:
             task = self.by_id(task_id) or self.archived_by_id(task_id)
             if task is None:
                 return None, f"no task {task_id} on the board or in the archive"
-            seq = task_seq(task.id)
-            if wanted == task.id.lower():
+            number = task_seq(task.id)
+            if wanted == task.id.lower() or wanted == id_code(task.id):
                 # Its own id, in any case — including a plain `K3`, which is
                 # not a code and must not be read as one (`k3-3`).
                 return task, f"{task.id} unchanged"
-            if not _CODED_ID.match(wanted):
-                wanted = task_id_for(wanted, seq)
-            elif task_seq(wanted) != seq:
-                return task, (
-                    f"refusing to renumber {task.id} as {wanted} — the number is"
-                    f" board-wide and stays {seq}; rename the code only"
-                    f" (e.g. {task_id_for(wanted.rsplit('-', 1)[0], seq)})"
-                )
-            if not _VALID_ID.match(wanted):
+            if _CODED_ID.match(wanted):
+                code, asked = wanted.rsplit("-", 1)
+                if int(asked) != number:
+                    return task, (
+                        f"refusing to renumber {task.id} as {wanted} — a number is"
+                        " issued per workspace code and is not picked by hand;"
+                        f" name the code only ({code}) and the board keeps"
+                        f" {number} if that code has not used it"
+                    )
+            else:
+                code = wanted
+            if not _VALID_ID.match(task_id_for(code, number)):
                 return task, (
                     f"{wanted!r} is not a usable id: a lowercase letter first,"
                     " then letters, digits, - or _, at most 32 characters"
                 )
-            if wanted == task.id:
-                return task, f"{task.id} unchanged"
-            clash = self.by_id(wanted) or self.archived_by_id(wanted)
-            if clash is not None:
-                return task, f"{wanted} is already a card: {clash.title!r}"
+            key = counter_key(code)
+            if number <= self.board.counters.get(key, 0):
+                # Spent already in the code this card is moving to, so it takes
+                # that code's next number: an id that named an older card would
+                # be a name two cards share.
+                number = self.board.counters.get(key, 0) + 1
+            self.board.counters[key] = number
+            new_id = task_id_for(code, number)
             old = task.id
-            task.id = wanted
+            task.id = new_id
             task.note(f"renamed from {old}")
             task.updated_at = time.time()
             for other in self.board.tasks + self.board.archived:
                 if other.parent_id == old:
-                    other.parent_id = wanted
-            return task, f"{old} -> {wanted}"
+                    other.parent_id = new_id
+            if task_seq(new_id) != task_seq(old):
+                return task, (
+                    f"{old} -> {new_id} — {task_seq(old)} is already used in"
+                    f" {code}, so the card took that code's next number"
+                )
+            return task, f"{old} -> {new_id}"
+
+    def renumber(self) -> tuple[list[Task], list[str]]:
+        """Compact every code's numbers to `1..n`, in the order they were issued.
+
+        The board's numbers were one board-wide counter before they were per
+        code, so a code's numbers are sparse and start high (`nixos` holds 19
+        cards numbered 33 … 88). This is the one verb that rewrites ids that
+        already exist: for each code its cards — live and archived together,
+        since they share the code's namespace — are renumbered `1..n` in the
+        order of the numbers they hold now, which is the order they were filed
+        in. Each counter is set to `n` afterwards, so the next card filed in a
+        code carries on from its compacted end.
+
+        Returns `(cards that moved, one summary line per code)`. `updated_at`
+        is deliberately left alone: the card's work did not change, only its
+        name, and stamping every card on the board as just-touched would throw
+        away the age the meta row is read for.
+
+        A compacted code's counter *drops* to `n`, which is the point — leaving
+        it high would have the next card filed there carry on from 89 and the
+        code would be sparse again at once. The numbers above `n` are free
+        afterwards, so a stale `nixos-88` in an old prompt means nothing: the
+        ids it named are gone, and `board.json.bak` is where they still are. A
+        code with no cards is left alone entirely — there is nothing to compact,
+        and keeping its counter is what stops a number being reissued there.
+
+        It is not automatic. An id is a name other cards, panes and prompts
+        already hold, so compacting them is a decision with a backup behind it
+        (`board.json.bak`), not a side effect of an upgrade.
+        """
+        with self._locked():
+            by_code: dict[str, list[Task]] = {}
+            for task in self.board.tasks + self.board.archived:
+                key = id_code(task.id)
+                if key:
+                    by_code.setdefault(key, []).append(task)
+            moved: list[Task] = []
+            summaries: list[str] = []
+            renames: dict[str, str] = {}
+            for key, cards in sorted(by_code.items()):
+                cards.sort(key=lambda task: (task_seq(task.id), task.id))
+                for number, task in enumerate(cards, start=1):
+                    old = task.id
+                    new_id = task_id("" if key == NO_CODE_KEY else key, number)
+                    if new_id != old:
+                        task.id = new_id
+                        task.note(f"renumbered from {old}")
+                        renames[old] = new_id
+                        moved.append(task)
+                self.board.counters[key] = len(cards)
+                first = task_id("" if key == NO_CODE_KEY else key, 1)
+                last = task_id("" if key == NO_CODE_KEY else key, len(cards))
+                summaries.append(
+                    f"{key}: {len(cards)} card{'' if len(cards) == 1 else 's'}"
+                    f" now {first}..{last}"
+                )
+            # A follow-up link is an id too, so it follows its card, exactly as
+            # it does through `rename`.
+            if renames:
+                for task in self.board.tasks + self.board.archived:
+                    if task.parent_id in renames:
+                        task.parent_id = renames[task.parent_id]
+            return moved, summaries
 
     def unarchive(self, task_id: str) -> tuple[Task | None, str]:
         """Put an archived card back on the board, in the column it left.
@@ -860,9 +1072,12 @@ class Store:
         """Find a card from `cfg-8`, `K3`, `3`, or the pane the caller runs in.
 
         Ids are matched case-insensitively: the code is lowercase, and typing
-        `CFG-8` is not an error. The bare number is enough on its own, because
-        the counter behind it is board-wide — no two cards share one, whatever
-        their codes say.
+        `CFG-8` is not an error. A full id names exactly one card, always. A
+        bare number names one only while a single card holds it — numbers count
+        per workspace code, so `3` can be `cfg-3` and `nixos-3` at once, and an
+        ambiguous number resolves to nothing rather than to whichever card the
+        board happens to hold first (`ids_with_seq` is what a caller names in
+        the message).
 
         Agents get their card without being told its id: herdr injects
         `HERDR_PANE_ID` into the pane the agent runs in, and the board records
@@ -879,9 +1094,11 @@ class Store:
                     return task
             number = int(reference) if reference.isdigit() else 0
             if number > 0:
-                for task in self.board.tasks:
-                    if task_seq(task.id) == number:
-                        return task
+                matches = self.with_seq(number)
+                if len(matches) == 1:
+                    return matches[0]
+                if matches:
+                    return None
             return self.find_by_title(reference)
         if pane_id:
             for task in self.board.tasks:
@@ -889,13 +1106,34 @@ class Store:
                     return task
         return None
 
+    def with_seq(self, number: int, archived: bool = False) -> list[Task]:
+        """Every card in one half of the board whose id ends in this number.
+
+        A list, not a card: the number is issued per workspace code, so `8` is
+        `cfg-8`, `nixos-8`, and whatever else a code has issued eight of.
+        """
+        cards = self.board.archived if archived else self.board.tasks
+        return [task for task in cards if task_seq(task.id) == number]
+
+    def ids_with_seq(self, number: int) -> list[str]:
+        """The ids a bare number could mean, live board and archive together.
+
+        Sorted, so the message a caller prints from this reads the same way
+        twice running.
+        """
+        return sorted(
+            [task.id for task in self.board.tasks if task_seq(task.id) == number]
+            + [task.id for task in self.board.archived if task_seq(task.id) == number]
+        )
+
     def resolve_archived(self, reference: str) -> Task | None:
         """Find an archived card from `cfg-8`, `K3`, `3`, or its title.
 
         The live board's `resolve` deliberately does not look here: an agent
         that calls `status`/`note` must act on a card that is still on the
         board. `show`, `archive` and `unarchive` opt in, so an archived card
-        can still be named by id from a shell.
+        can still be named by id from a shell. A bare number is resolved by the
+        same rule as `resolve`: only while one archived card holds it.
         """
         reference = (reference or "").strip()
         if not reference:
@@ -906,9 +1144,11 @@ class Store:
                 return task
         number = int(reference) if reference.isdigit() else 0
         if number > 0:
-            for task in self.board.archived:
-                if task_seq(task.id) == number:
-                    return task
+            matches = self.with_seq(number, archived=True)
+            if len(matches) == 1:
+                return matches[0]
+            if matches:
+                return None
         title = " ".join(reference.split()).lower()
         return next(
             (

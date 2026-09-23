@@ -95,8 +95,9 @@ herdr-kanban add "<title>" --notes "why it is separate from this one"
   review really is on this board, and what the human is waiting on. Read
   everything; change only the card you were given and the ones you file.
 - **Ids** are `<workspace-code>-<n>` — `cfg-8`, the code naming the workspace the
-  card was *filed* in. Matching ignores case and the number alone is unique
-  board-wide, so `8` names the same card as `cfg-8`.
+  card was *filed* in. Matching ignores case, and the number counts per workspace
+  code, so `8` names a card only while one card holds it: pass the full id when
+  the board says the number is ambiguous.
 - **Nothing to publish.** Each verb writes the board file directly, so a board
   open in a pane (and the board's background reconciler) picks the change up
   on its next tick. There is nothing to poke and no notification to send.
