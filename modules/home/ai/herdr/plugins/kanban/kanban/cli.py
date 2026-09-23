@@ -709,9 +709,13 @@ def _add(args: list[str], store: Store, config: Config) -> int:
     parent_id = ""
     wanted_parent = options.get("from", "")
     if wanted_parent:
-        parent = store.resolve(wanted_parent)
+        # Same resolution every other verb uses (`_find`), so an ambiguous bare
+        # number here names the ids it could have meant rather than reporting
+        # the card as missing — `--from 8` reads as "that card is gone", which
+        # is the one answer that is wrong (nixos-91).
+        parent, error = _find(store, wanted_parent)
         if parent is None:
-            print(f"no task {wanted_parent} on the board", file=sys.stderr)
+            print(error, file=sys.stderr)
             return 1
         parent_id = parent.id
     elif _from_agent():

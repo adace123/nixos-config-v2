@@ -995,6 +995,18 @@ def check_ids(check: Checker, tmp: str) -> None:
             and "no task" not in out,
             out,
         )
+        # `--from` reads its number through `_find` like every other verb, so
+        # it names the candidates too rather than reporting the card as missing
+        # (nixos-91).
+        code, out = cli("add", "Child of an ambiguous parent", "--from", "1")
+        check.check(
+            "and add --from resolves a bare number the same way",
+            code == 1
+            and "matches cfg-1" in out
+            and "nixos-config-1" in out
+            and "no task" not in out,
+            out,
+        )
 
         # A coded id is four cells longer than the `K8` it replaced, so the
         # badge has to give something up on a narrow card rather than clip the
