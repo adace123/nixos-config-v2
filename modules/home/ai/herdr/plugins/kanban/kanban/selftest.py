@@ -3904,18 +3904,22 @@ def check_prompt_delivery(check: Checker, tmp: str) -> None:
 
     This is the failure pi reproduces intermittently: `agent prompt` reports the
     text and the Enter as written, the agent stays idle, and a board that trusts
-    the call marks the card as running while nothing happens.
+    the call marks the card as running while nothing happens. The turn is not
+    success — but the agent that was started is real, so the run is recorded at
+    the moment it exists rather than only after a confirmation that may never
+    come.
     """
     import os
     from dataclasses import replace
 
+    from . import dispatch
     from .config import load_config
     from .dispatch import Executor, Plan
     from .herdr import Herdr
 
     log = Path(tmp) / "calls.txt"
 
-    def drive(react: bool, start_fail: str = "") -> tuple[bool, list[str], str]:
+    def drive(react: bool, start_fail: str = "") -> tuple[bool, list[str], str, list]:
         log.write_text("", encoding="utf-8")
         os.environ["FAKE_LOG"] = str(log)
         os.environ["FAKE_REACT"] = "1" if react else "0"
@@ -3925,6 +3929,7 @@ def check_prompt_delivery(check: Checker, tmp: str) -> None:
         else:
             os.environ.pop("FAKE_START_FAIL", None)
         steps = []
+        records = []
         plan = Plan(
             task_id="K1",
             workspace_id="w1",
@@ -3935,23 +3940,41 @@ def check_prompt_delivery(check: Checker, tmp: str) -> None:
             tab_label="K1 do the thing",
         )
         outcome = Executor(Herdr(binary=str(_fake_herdr(tmp)))).run(
-            plan, on_step=steps.append
+            plan, on_step=steps.append, on_record=records.append
         )
-        return outcome.ok, [f"{s.label}: {s.detail}" for s in steps], outcome.error
+        return (
+            outcome.ok,
+            [f"{s.label}: {s.detail}" for s in steps],
+            outcome.error,
+            records,
+        )
 
     saved = {
         k: os.environ.get(k)
         for k in ("FAKE_LOG", "FAKE_REACT", "FAKE_CWD", "FAKE_START_FAIL")
     }
+    # The unconfirmed path polls for the whole production window, twice; these
+    # checks only care *that* it waited, not for how long.
+    saved_confirm = dispatch.PROMPT_CONFIRM_SECONDS
+    dispatch.PROMPT_CONFIRM_SECONDS = 0.05
     try:
-        ok, steps, error = drive(react=True)
+        ok, steps, error, records = drive(react=True)
         check.check(
             "a prompt the agent acts on is reported as submitted",
             ok and any("task submitted" in step for step in steps) and not error,
             " | ".join(steps),
         )
+        check.check(
+            "and the run is recorded the moment the agent starts",
+            len(records) == 1
+            and records[0].agent_name == "k1"
+            and records[0].pane_id == "w1:p9"
+            and records[0].tab_id == "w1:t9"
+            and not records[0].ok,
+            str([(r.agent_name, r.pane_id, r.ok) for r in records]),
+        )
 
-        ok, steps, error = drive(react=False)
+        ok, steps, error, records = drive(react=False)
         check.check(
             "a prompt the agent ignores is not reported as success",
             not ok and "never started" in error,
@@ -3963,15 +3986,24 @@ def check_prompt_delivery(check: Checker, tmp: str) -> None:
             " | ".join(steps),
         )
         check.check(
-            "so the card is not marked as dispatched",
-            not ok,
+            "but the agent it started is recorded anyway, before the failed wait",
+            len(records) == 1
+            and records[0].agent_name == "k1"
+            and records[0].pane_id == "w1:p9"
+            and not records[0].ok,
+            str([(r.agent_name, r.pane_id) for r in records]),
         )
 
-        ok, steps, error = drive(react=True, start_fail="already used")
+        ok, steps, error, records = drive(react=True, start_fail="already used")
         check.check(
             "a refused agent name is reported, not swallowed",
             not ok and "already used" in error,
             error[:60],
+        )
+        check.check(
+            "and nothing is recorded when no agent was ever started",
+            records == [],
+            str([(r.agent_name, r.pane_id) for r in records]),
         )
     finally:
         for key, value in saved.items():
@@ -3979,7 +4011,195 @@ def check_prompt_delivery(check: Checker, tmp: str) -> None:
                 os.environ.pop(key, None)
             else:
                 os.environ[key] = value
+        dispatch.PROMPT_CONFIRM_SECONDS = saved_confirm
         del replace, load_config
+
+
+def check_send_records_unconfirmed(check: Checker, tmp: str) -> None:
+    """`send` records the run even when the turn never confirms.
+
+    The CLI's door into the same invariant: `agent prompt` can report success
+    with the text still in the composer, and the caller is right to call that
+    "not sent" — but the agent is running, and a card with no pane and no name
+    is an orphan herdr will not let a re-send replace (duplicate name). So the
+    fields are written whatever the confirmation said; only the column move and
+    the exit code still wait on it.
+    """
+    import contextlib
+    import io
+    import os
+
+    from . import dispatch
+    from .cli import run_agent_command
+    from .store import Store
+
+    board = Path(tmp) / "unconfirmed-board.json"
+    log = Path(tmp) / "unconfirmed-calls.txt"
+    env_keys = (
+        "KANBAN_BOARD_FILE",
+        "HERDR_WORKSPACE_ID",
+        "HERDR_PLUGIN_CONTEXT_JSON",
+        "HERDR_BIN_PATH",
+        "FAKE_LOG",
+        "FAKE_REACT",
+        "FAKE_CWD",
+    )
+    saved = {key: os.environ.get(key) for key in env_keys}
+    saved_confirm = dispatch.PROMPT_CONFIRM_SECONDS
+    for key in env_keys:
+        os.environ.pop(key, None)
+    log.write_text("", encoding="utf-8")
+    os.environ.update(
+        {
+            "KANBAN_BOARD_FILE": str(board),
+            "HERDR_WORKSPACE_ID": "w1",
+            "HERDR_BIN_PATH": str(_fake_herdr(tmp, "fake-herdr-unconfirmed")),
+            "FAKE_LOG": str(log),
+            "FAKE_REACT": "0",  # the prompt lands; the turn never starts
+            "FAKE_CWD": tmp,
+        }
+    )
+    dispatch.PROMPT_CONFIRM_SECONDS = 0.05
+    try:
+        card = Store.open(board).add(
+            title="delivered but never confirmed", workspace_id="w1"
+        )
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = run_agent_command(["send", card.id])
+        stored = Store.open(board).by_id(card.id)
+        check.check(
+            "send reports an unconfirmed turn as not sent",
+            code == 1 and "not sent" in err.getvalue(),
+            f"{code} {err.getvalue().strip()[:70]}",
+        )
+        check.check(
+            "but records the pane, tab and agent it did start",
+            stored is not None
+            and bool(stored.pane_id)
+            and bool(stored.tab_id)
+            and bool(stored.agent_name)
+            and stored.dispatched_at is not None,
+            str(
+                (stored.pane_id, stored.tab_id, stored.agent_name, stored.dispatched_at)
+                if stored
+                else None
+            ),
+        )
+        check.check(
+            "and leaves the card where it was, not claiming it is in progress",
+            stored is not None and stored.status == "backlog",
+            stored.status if stored else "-",
+        )
+    finally:
+        for key, value in saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        dispatch.PROMPT_CONFIRM_SECONDS = saved_confirm
+
+
+async def check_dispatch_record_survives_close(check: Checker, tmp: str) -> None:
+    """A board closed mid-dispatch still leaves the card linked to its agent.
+
+    The write must not ride on the board's event loop: the dispatch worker
+    starts the agent, and the record has to be on disk before the worker waits
+    on the prompt — because the board (or the quick-add popup that launched it)
+    can be gone by the time that wait ends. This closes the app inside the wait
+    and checks the link survived it.
+    """
+    import asyncio
+    import os
+
+    from . import dispatch
+    from .app import KanbanApp
+    from .config import load_config
+    from .herdr import Herdr
+    from .store import Store
+
+    board = Path(tmp) / "dispatch-record-board.json"
+    log = Path(tmp) / "dispatch-record-calls.txt"
+    env_keys = (
+        "KANBAN_BOARD_FILE",
+        "HERDR_WORKSPACE_ID",
+        "HERDR_PLUGIN_CONTEXT_JSON",
+        "HERDR_BIN_PATH",
+        "FAKE_LOG",
+        "FAKE_REACT",
+        "FAKE_CWD",
+    )
+    saved = {key: os.environ.get(key) for key in env_keys}
+    saved_confirm = dispatch.PROMPT_CONFIRM_SECONDS
+    for key in env_keys:
+        os.environ.pop(key, None)
+    log.write_text("", encoding="utf-8")
+    os.environ.update(
+        {
+            "KANBAN_BOARD_FILE": str(board),
+            "HERDR_WORKSPACE_ID": "w1",
+            "HERDR_BIN_PATH": str(_fake_herdr(tmp, "fake-herdr-record")),
+            "FAKE_LOG": str(log),
+            "FAKE_REACT": "0",  # the turn never confirms
+            "FAKE_CWD": tmp,
+        }
+    )
+    # Wide enough to close the board inside the confirmation wait on purpose.
+    dispatch.PROMPT_CONFIRM_SECONDS = 1.0
+    try:
+        app = KanbanApp(
+            config=load_config(),
+            store=Store.open(board),
+            herdr=Herdr(binary=os.environ["HERDR_BIN_PATH"]),
+        )
+        linked_while_busy = False
+        async with app.run_test(size=(120, 36)) as pilot:
+            await pilot.pause()
+            await pilot.press("a")
+            await pilot.pause()
+            await pilot.press(*"Keep the link")
+            await pilot.press("ctrl+n")
+            for _ in range(150):
+                await pilot.pause(0.02)
+                current = Store.open(board).tasks
+                card = current[0] if current else None
+                if card is not None and card.pane_id:
+                    linked_while_busy = any(
+                        worker.group == "dispatch" and not worker.is_finished
+                        for worker in app.workers
+                    )
+                    break
+            check.check(
+                "the card is linked while the dispatch is still confirming",
+                linked_while_busy,
+                str([(w.group, w.is_finished) for w in app.workers]),
+            )
+        # The board is gone; the worker was inside the confirmation wait.
+        after = Store.open(board)
+        card = after.tasks[0] if after.tasks else None
+        check.check(
+            "and the link survives the board closing on it",
+            card is not None
+            and bool(card.pane_id)
+            and bool(card.agent_name)
+            and bool(card.dispatched_at),
+            str((card.pane_id, card.agent_name) if card else None),
+        )
+        check.check(
+            "with the card left where it was, since the turn never confirmed",
+            card is not None and card.status == "backlog",
+            card.status if card else "-",
+        )
+        # The orphaned worker is still finishing its second wait; let it go
+        # before the env it is using is restored under it.
+        await asyncio.sleep(2.5)
+    finally:
+        for key, value in saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        dispatch.PROMPT_CONFIRM_SECONDS = saved_confirm
 
 
 async def check_delete_stops_agent(check: Checker, tmp: str) -> None:
@@ -4807,6 +5027,8 @@ async def _run(check: Checker) -> None:
             check_settle_columns(check, tmp)
             check_sync_daemon(check, tmp)
             check_prompt_delivery(check, tmp)
+            check_send_records_unconfirmed(check, tmp)
+            await check_dispatch_record_survives_close(check, tmp)
             check_dispatch_env(check, tmp)
             await check_delete_stops_agent(check, tmp)
             await check_archive_stops_agent(check, tmp)

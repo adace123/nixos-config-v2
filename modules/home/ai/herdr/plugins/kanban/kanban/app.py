@@ -9,6 +9,7 @@ store, and the toast messages can never drift apart.
 from __future__ import annotations
 
 import contextlib
+import sys
 import time
 
 from textual import work
@@ -24,7 +25,6 @@ from .dispatch import (
     Executor,
     Outcome,
     Plan,
-    dispatch_fields,
     plan_for,
     record_outcome,
     result_summary,
@@ -192,11 +192,30 @@ class KanbanApp(App[None]):
             self.refresh_board()
 
     def post(self, callback, *args: object) -> None:
-        """Hand work back from a worker thread, tolerating a shutting-down app."""
+        """Hand work back from a worker thread, tolerating a shutting-down app.
+
+        The record a dispatch leaves is written by the worker against the store
+        (see `run_dispatch`), so what is dropped here is UI only — a notice that
+        never lands, not a card that never learns about its agent. It is still
+        said out loud rather than swallowed: a silently dropped callback is how
+        a dispatch can look like it never happened.
+        """
         try:
             self.call_from_thread(callback, *args)
-        except Exception:  # pragma: no cover - shutdown races
-            pass
+        except Exception as error:  # pragma: no cover - shutdown races
+            # Drop it loudly. Textual's logger is silent unless `TEXTUAL_LOG`
+            # names a file, so a board that is no longer running also says it on
+            # stderr — where a pane that is still attached can show it. While the
+            # board *is* running, stderr stays untouched: writing there would
+            # corrupt the display.
+            with contextlib.suppress(Exception):
+                self.log.warning(f"post dropped {callback!r}: {error!r}")
+            if not self.is_running:
+                with contextlib.suppress(Exception):
+                    print(
+                        f"kanban: post dropped {callback!r}: {error!r}",
+                        file=sys.stderr,
+                    )
 
     def workers_running(self) -> list[Worker]:
         """In-flight sync/dispatch/notification workers (used by the selftest)."""
@@ -993,6 +1012,28 @@ class KanbanApp(App[None]):
 
     @work(thread=True, exclusive=True, group="dispatch")
     def run_dispatch(self, plan: Plan, task_id: str) -> None:
+        task = self.task(task_id)
+        if task is None or task.archived_at:
+            return
+        # Decided here, while the card is still where it was: the record below
+        # moves it, and re-deriving the target afterwards would be asking the
+        # destination what the destination is.
+        target = self._dispatch_column(task.status)
+        # The worker writes through a `Store` of its own rather than the board's.
+        # `Store` keeps the board in memory and reloads it under its `flock`, and
+        # the board's is read and reloaded by the UI thread — two threads on one
+        # in-memory board is how a written record gets reloaded away. A store of
+        # its own is file-backed and `flock`-serialised against every other one.
+        store = Store.open(self.store.path)
+
+        def record(outcome: Outcome) -> None:
+            # Written from this worker, not from the board's event loop, because
+            # the dispatch outlives the board: a pane or quick-add popup closed
+            # mid-send must not take the card's pane, tab and agent name with it.
+            # `record_outcome` is store-only and writes without moving the card
+            # when the outcome is not ok; nothing here touches the UI.
+            record_outcome(store, task_id, plan, outcome, target)
+
         outcome = self.executor.run(
             plan,
             on_step=lambda step: self.post(
@@ -1000,23 +1041,34 @@ class KanbanApp(App[None]):
                 f"{plan.task_id} · {step.label}: {step.detail}"[:120],
                 0,
             ),
+            # Fired by the executor the moment the agent is started, before the
+            # prompt is confirmed — the window a worker can die in.
+            on_record=record,
         )
-        self.post(self.after_dispatch, task_id, plan, outcome)
+        # The final write: moves the card when the turn was confirmed. The write
+        # above already left the link, so dying before this line loses only the
+        # column move.
+        record(outcome)
+        self.post(self.after_dispatch, task_id, plan, outcome, target)
 
-    def after_dispatch(self, task_id: str, plan: Plan, outcome: Outcome) -> None:
+    def after_dispatch(
+        self, task_id: str, plan: Plan, outcome: Outcome, target: str
+    ) -> None:
+        """What the board shows now the dispatch finished.
+
+        The record itself is already on the card (`run_dispatch` wrote it, in the
+        worker, through its own store), so this is the UI: the toast, the notice,
+        the selection. The board's store is reloaded first to pick that write up;
+        `target` comes in from the worker rather than being re-derived, because
+        by now the card is already in it.
+        """
+        if not self.demo_mode:
+            self.store.reload()
         task = self.task(task_id)
         # An archived card is off the board: a dispatch that was in flight when it
-        # was archived has nothing left to write onto.
+        # was archived has nothing left to show.
         if task is None or task.archived_at:
             return
-        target = self._dispatch_column(task.status)
-        if self.demo_mode:
-            # Demo cards live in memory, so the shared store path does not apply:
-            # same fields, written straight onto the throwaway task.
-            self._hand_over(task, target, **dispatch_fields(plan, outcome))
-        else:
-            record_outcome(self.store, task.id, plan, outcome, target)
-
         if outcome.ok:
             where = plan.workspace_label or plan.workspace_id
             if outcome.worktree_path:
@@ -1039,14 +1091,6 @@ class KanbanApp(App[None]):
         self.ui.selected_id = task_id
         self._after_change(task_id)
         self.refresh_live()
-
-    def _hand_over(self, task: Task, status: str, **fields: object) -> None:
-        if self.demo_mode:
-            for key, value in fields.items():
-                setattr(task, key, value)
-            task.status = status
-        else:
-            self.store.hand_over(task.id, status, **fields)
 
     def _dispatch_column(self, current: str) -> str:
         """The column a send lands in — the rule itself lives with the columns

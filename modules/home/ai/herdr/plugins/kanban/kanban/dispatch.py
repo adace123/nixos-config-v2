@@ -370,7 +370,24 @@ class Executor:
     def __init__(self, herdr: Herdr) -> None:
         self.herdr = herdr
 
-    def run(self, plan: Plan, on_step: Callable[[Step], None] | None = None) -> Outcome:
+    def run(
+        self,
+        plan: Plan,
+        on_step: Callable[[Step], None] | None = None,
+        on_record: Callable[[Outcome], None] | None = None,
+    ) -> Outcome:
+        """Plan against herdr. `on_record` is the durable half of a dispatch.
+
+        `on_record` is called once, the moment this run has something the board
+        must not lose: an agent started in a pane it owns. That is *before* the
+        prompt is confirmed, because the confirmation can take seconds and the
+        process running it can die inside that window — a card whose pane, tab
+        and agent name were never written is a running agent the board cannot
+        find and cannot re-dispatch. The outcome handed over is not `ok` (the
+        turn is not confirmed yet), so a recorder writes the fields without
+        moving the card; the caller's own write after `run` returns does the
+        move.
+        """
         steps: list[Step] = []
 
         def step(label: str, detail: str = "", ok: bool = True) -> Step:
@@ -379,6 +396,10 @@ class Executor:
             if on_step is not None:
                 on_step(entry)
             return entry
+
+        def commit(outcome: Outcome) -> None:
+            if on_record is not None:
+                on_record(outcome)
 
         # 1. An agent already running for this card: just hand it more work.
         if plan.reuses_running_agent:
@@ -472,6 +493,22 @@ class Executor:
         step("agent", f"{plan.name} ({plan.kind}) ready in {pane_id}")
         if plan.args:
             step("flags", " ".join(plan.args))
+
+        # 4b. The agent exists: write that down before waiting on the prompt.
+        #     A worker killed mid-confirmation (the nixos-82 pane died 0.8s
+        #     after `agent prompt` reported success) must still leave the card
+        #     linked to the agent it started. Not `ok`: the turn is unconfirmed,
+        #     so this records the run without claiming the card is in progress.
+        commit(
+            Outcome(
+                False,
+                list(steps),
+                agent_name=plan.name,
+                pane_id=pane_id,
+                tab_id=tab_id,
+                **worktree_fields,
+            )
+        )
 
         # 5. Hand it the work, and make sure it actually took.
         handed_over, error = self._hand_over(plan.name, plan.prompt, step)

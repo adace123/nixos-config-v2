@@ -263,6 +263,12 @@ Enter (what you would press) and only then reports failure. A dispatch that neve
 started leaves the card where it was rather than claiming it is in progress, and
 tells you the pane is open with the text in it.
 
+The confirmation is not what records the run. The card is linked to its pane,
+tab and agent name the moment the agent starts, before the wait begins — the
+write comes from the dispatch worker, not from the board's event loop, so a
+board or quick-add popup closed mid-dispatch still leaves the link behind. Only
+the move to In Progress waits on the turn.
+
 **Stopping an agent.** A card is the record of a run, so `d` (delete) stops the
 agent and closes the tab its dispatch opened, as part of deleting. Set
 `auto_delete_agent = false` to delete the card and keep the agent — the board
@@ -482,12 +488,14 @@ without touching anything — which is how you check what an automation is about
 do. `--model` and `--workspace` override the card for that one run and are
 recorded on it, so a later re-send does not quietly go back to the default;
 `--worktree` and `--no-worktree` do the same for the checkout (unset follows the
-card). It is
-the same `Executor.run` the board uses, prompt-confirmation and all, and the same
-bookkeeping: the card records its pane, tab and agent name, and moves to the
-column `send_column` picks. The protocol prompt never mentions `send`, so an
-agent will not find it by accident; it exists for you and for the automations
-plugin ("send the top of the backlog every morning").
+card). It is the same `Executor.run` the board uses, prompt-confirmation and all,
+and the same bookkeeping: the card records its pane, tab and agent name, and
+moves to the column `send_column` picks. A send that delivered the prompt but
+never confirmed still records the link — the agent is findable and re-sendable
+instead of an orphan herdr refuses to replace — while still exiting non-zero with
+`not sent`; only the move waits on the confirmation. The protocol prompt never
+mentions `send`, so an agent will not find it by accident; it exists for you and
+for the automations plugin ("send the top of the backlog every morning").
 
 All of it writes through the same store, so a board that is already open picks
 the change up on its next tick — no server, socket, or callback involved.

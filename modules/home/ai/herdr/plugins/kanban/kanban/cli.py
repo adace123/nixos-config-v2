@@ -905,14 +905,18 @@ def _send(args: list[str], store: Store, config: Config) -> int:
         return 0
 
     outcome = Executor(Herdr()).run(plan)
+    # Record what the dispatch did even when the turn never confirmed: an agent
+    # that started and took the prompt is a running agent this card owns, and a
+    # card whose pane, tab and name went unwritten cannot be found — nor sent to
+    # again, because herdr refuses the duplicate name. `record_outcome` writes
+    # the fields without moving the card when the outcome is not ok, so the
+    # "not sent" below still means what it says.
+    updated = record_outcome(store, task.id, plan, outcome, target)
     if not outcome.ok:
-        # The card is left where it was: a dispatch that never started must not
-        # claim otherwise (see `record_outcome`).
         print(
             f"{task.id} not sent — {outcome.error or outcome.detail()}", file=sys.stderr
         )
         return 1
-    updated = record_outcome(store, task.id, plan, outcome, target)
     if as_json:
         print(json.dumps(_task_json(updated or task, config), indent=2))
         return 0
