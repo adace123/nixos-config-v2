@@ -316,8 +316,10 @@ taken for something else is left where it is); the notice then names the tab
 that went, and the card forgets the pane and tab it was dispatched to. A
 worktree stays either way: a checkout is only ever offered for removal when the
 card is deleted.
-`herdr-kanban unarchive cfg-8` puts it back at the end
-of the column it came from, and `herdr-kanban list --archived` shows what is in
+`herdr-kanban unarchive cfg-8` puts it back
+in the column it came from — last in that column's list order, which is what
+`sort = "manual"` draws, and first under the default `sort = "updated"` because
+the restore touches the card — and `herdr-kanban list --archived` shows what is in
 there; an archived card is still `show`-able and still answers to its id or its
 number. `A` asks nothing first — unlike `d`, nothing is lost — and the footer
 names the `unarchive` that undoes it.

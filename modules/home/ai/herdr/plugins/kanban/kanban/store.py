@@ -949,9 +949,12 @@ class Store:
     def unarchive(self, task_id: str) -> tuple[Task | None, str]:
         """Put an archived card back on the board, in the column it left.
 
-        It lands at the end of that column. A card whose column no longer
-        exists keeps its stored status and shows up as an orphan, the same as
-        any other card the config moved out from under.
+        It lands at the end of that column's stored list order, so `sort =
+        "manual"` draws it last; the restore also refreshes `updated_at`, so
+        under the default `sort = "updated"` it is the card the board draws
+        first in that column. A card whose column no longer exists keeps its
+        stored status and shows up as an orphan, the same as any other card the
+        config moved out from under.
         """
         with self._locked():
             task = self.archived_by_id(task_id)
@@ -975,14 +978,19 @@ class Store:
             return task, f"{task.id} restored to {restore}"
 
     def _move_to_column(self, task: Task, status: str) -> bool:
-        """Put `task` at the end of `status`, recording the transition.
+        """Append `task` to `status` in the stored list order, recording the transition.
 
-        Every status change lands the card the same way — at the end of its new
-        column, with `<old> -> <new>` in its history — whichever door it came
-        through (`set_status`, a dispatch's `hand_over`, or an edit that moved
-        the card). Three callers, one rule; a caller that set `status` in place
-        would leave the card wherever it sat in the old list order, so the new
-        column would be sorted by a position that belonged to another column.
+        Every status change lands the card the same way — last in its new
+        column's list order, with `<old> -> <new>` in its history — whichever
+        door it came through (`set_status`, a dispatch's `hand_over`, or an edit
+        that moved the card). Three callers, one rule; a caller that set
+        `status` in place would leave the card wherever it sat in the old list
+        order, so the new column's `manual` order would be sorted by a position
+        that belonged to another column.
+
+        The stored position is only what `sort = "manual"` shows. The move also
+        refreshes `updated_at`, so under the default `sort = "updated"` the
+        card drawn first in the new column is this one, not the last.
         """
         if task.status == status:
             return False
@@ -1002,7 +1010,7 @@ class Store:
         return True
 
     def set_status(self, task_id: str, status: str, hold: bool = False) -> Task | None:
-        """Move a card to another column, landing at the end of it.
+        """Move a card to another column; `_move_to_column` says where it lands.
 
         `hold` marks the move as an explicit park rather than the board's own
         reconciliation, and is only meaningful for a card landing in Blocked:
@@ -1345,7 +1353,11 @@ class Store:
     # -- convenience -----------------------------------------------------
 
     def hand_over(self, task_id: str, status: str, **fields: Any) -> Task | None:
-        """Set fields and move columns in one write (used by dispatch)."""
+        """Set fields and move columns in one write (used by dispatch).
+
+        The column move is `_move_to_column`'s: last in the column's stored
+        order, first on the default `updated` sort.
+        """
         with self._locked():
             task = self.by_id(task_id)
             if task is None:

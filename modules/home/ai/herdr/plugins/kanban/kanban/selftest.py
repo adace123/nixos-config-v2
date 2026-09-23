@@ -92,11 +92,12 @@ def check_store(check: Checker, tmp: str) -> None:
 
     # An edit that changes the card's column (`e` in the board) reaches the
     # store through `update`, not `set_status`. It still has to move the card
-    # like every other status change: to the end of the new column, with the
-    # transition in its history rather than a bare "edited status".
+    # like every other status change: last in the new column's stored order
+    # (what `sort = "manual"` shows), with the transition in its history rather
+    # than a bare "edited status".
     store.update(first.id, status="backlog")
     check.check(
-        "editing a card's column lands it at the end and records the move",
+        "editing a card's column lands it last in the stored order and records the move",
         [task.id for task in store.in_column("backlog")] == ["K2", "cfg-1"]
         and store.by_id(first.id).history[-1]["what"] == "queued -> backlog",
         f"{[task.id for task in store.in_column('backlog')]} "
