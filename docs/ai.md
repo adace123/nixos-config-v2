@@ -12,7 +12,7 @@ modules/home/ai/
 ├── pi-extensions/  # Pi-only extensions (OpenCode session headers)
 ├── hermes.nix      # Hermes (a Pi-compatible agent)
 ├── herdr/          # Herdr terminal multiplexer
-│   ├── herdr.nix   #   config.toml + plugin/extension deployment
+│   ├── herdr.nix   #   config.toml + plugin/extension/skill deployment
 │   ├── kanban-package.nix # packaging for the kanban board (Textual TUI)
 │   ├── pi-extensions/ #  pi-side hooks (the pane state bridge)
 │   └── plugins/    #   installed herdr plugins
@@ -63,6 +63,15 @@ Add a skill by appending its `skills/<path>` to `commonSkills` in `skills.nix`.
   agents the board did not dispatch. Pi gets it via `home.file` in `pi.nix`,
   Claude Code via `programs.claude-code.skills` in `claude.nix` — see
   [kanban.md](kanban.md#how-cards-get-updated).
+- Upstream skill for both: `herdr` is never stored in this repo. It is derived
+  from the pinned `herdr` binary (`herdr --skill`, the release-matched copy of
+  `skills/herdr/SKILL.md`) by `modules/home/ai/herdr/herdr.nix`, so the skill
+  cannot drift from the CLI that serves the pane the agent runs in. Pi gets it
+  at `~/.pi/agent/skills/herdr`, Claude Code via
+  `programs.claude-code.skills` — see
+  [herdr.dev/docs/agent-skill](https://herdr.dev/docs/agent-skill/). A copy
+  installed earlier with `npx skills add -g` lives outside Nix; delete
+  `~/.agents/skills/herdr` so nothing keeps reading that one.
 
 ## Claude Code (`claude.nix`)
 

@@ -10,6 +10,21 @@ let
   # python3.withPackages [ textual ] plus the manifest/config the activation
   # script below deploys. See kanban-package.nix.
   kanban = import ./kanban-package.nix { inherit pkgs; };
+
+  # The agent skill herdr ships (https://herdr.dev/docs/agent-skill/): the
+  # release-matched copy of skills/herdr/SKILL.md, which `herdr --skill` prints
+  # from the installed binary.
+  #
+  # Derived from that binary rather than copied into this repo or fetched from
+  # the release tag: the skill teaches the CLI surface, so it must never drift
+  # from the herdr that is actually installed, and this repo already pins herdr
+  # (llm-agents). A flake input of github:herdrdev/herdr would be a second
+  # version pin to keep in step; a fetchurl on v${version} would need its hash
+  # bumped on every herdr update.
+  herdrSkill = pkgs.runCommand "herdr-agent-skill" { } ''
+    mkdir -p $out
+    ${llmAgents.herdr}/bin/herdr --skill > $out/SKILL.md
+  '';
 in
 {
   home.packages = [
@@ -33,6 +48,18 @@ in
   # replaced by `herdr integration install pi`, and its header says to add
   # custom hooks beside it. See modules/home/ai/herdr/pi-extensions/.
   home.file.".pi/agent/extensions/herdr-ask-blocked.ts".source = ./pi-extensions/herdr-ask-blocked.ts;
+
+  # ...and, beside it, the skill that teaches an agent to drive herdr. Declared
+  # here rather than in pi.nix/claude.nix because herdr owns the file: both
+  # harnesses get the same derivation output, so pi (~/.pi/agent/skills/ is
+  # auto-discovered) and Claude Code read the same bytes as the binary that
+  # serves the pane they run in.
+  home.file.".pi/agent/skills/herdr" = {
+    source = herdrSkill;
+    recursive = true;
+  };
+
+  programs.claude-code.skills.herdr = herdrSkill;
 
   # herdr plugins (both .sh plugins, deployed via the activation scripts
   # below): herdr-picker (fuzzy launcher) and herdr-automations
