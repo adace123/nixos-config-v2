@@ -1,0 +1,15 @@
+# statix configuration. Picked up automatically: statix's `--config` defaults to
+# `.`, and the pre-commit hook (see flake-parts/pre-commit.nix) runs
+# `statix check --format errfmt` over the whole tree, so anything not disabled
+# here must be clean.
+#
+# NOTE: `disabled` takes lint *names*, not codes. `disabled = ["W20"]` is
+# silently accepted and does nothing; `"repeated_keys"` is the one that works.
+# `statix list` prints the names (W-codes are only for `statix explain`).
+disabled = [
+  # Dotted-path style (`sops.age.keyFile = ...`, `systemd.timers.x = ...`) is
+  # deliberate in this repo's module code: each setting stays on one line next
+  # to its own comment instead of being nested one level deeper.
+  "repeated_keys"
+]
+ignore = [ ".direnv" ]

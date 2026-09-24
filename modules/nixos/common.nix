@@ -42,8 +42,8 @@ in
     cores = 4;
     # Single source of truth: nix-caches.nix (also used by flake.nix `nixConfig`
     # and modules/home/default.nix).
-    extra-substituters = caches.extra-substituters;
-    extra-trusted-public-keys = caches.extra-trusted-public-keys;
+    inherit (caches) extra-substituters;
+    inherit (caches) extra-trusted-public-keys;
   };
 
   # Networking — DHCP on all interfaces

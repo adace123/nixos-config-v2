@@ -28,11 +28,21 @@
         # Format Nix code
         nixfmt.enable = true;
 
-        # Lint Nix code with auto-fix
-        statix = {
-          enable = true;
-          args = [ "fix" ]; # Enable auto-fixing of issues
-        };
+        # Lint Nix code. This is git-hooks.nix's built-in hook, whose entry is
+        # `statix check --format errfmt` with pass_filenames = false — statix
+        # accepts a single target, so it checks the whole tree (honouring
+        # .gitignore) instead of the staged files.
+        #
+        # Do NOT add `args = [ "fix" ]` to this hook. pre-commit appends args as
+        # extra argv after the entry, so statix reads "fix" as its TARGET path,
+        # prints `config error: path error: file not found: fix` and still exits
+        # 0 — a silent no-op that checked nothing. There is no fix mode in the
+        # built-in hook; run `statix fix` by hand to apply suggestions.
+        #
+        # `statix.toml` (repo root, picked up by statix's default `-c .`) turns
+        # off `repeated_keys`; everything else statix reports must be fixed,
+        # because `nix flake check` runs these hooks over the whole tree.
+        statix.enable = true;
 
         # Find dead Nix code
         deadnix.enable = true;

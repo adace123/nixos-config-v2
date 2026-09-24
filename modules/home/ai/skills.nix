@@ -20,7 +20,7 @@ let
 
   skillsRoot = "${inputs.mattpocock-skills}/skills";
 
-  skillName = path: baseNameOf path;
+  skillName = baseNameOf;
 
   mkPiFile = path: {
     source = "${skillsRoot}/${path}";

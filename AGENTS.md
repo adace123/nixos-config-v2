@@ -22,7 +22,10 @@ This is a Nix flake-based configuration for managing macOS systems using nix-dar
 
 ### Linting Commands
 
-- `statix` - Lint Nix code (via pre-commit)
+- `statix` - Lint Nix code (runs as a pre-commit hook over the **whole tree**, not just the staged files)
+  - `statix fix .` applies the auto-fixable suggestions; the hook itself only checks and never rewrites files
+  - `repeated_keys` (W20) is disabled in `statix.toml` — dotted-path style such as `sops.age.keyFile = ...` is deliberate in this repo's module code
+  - `statix.toml` `disabled` takes lint *names*, not codes: `disabled = ["W20"]` is accepted and silently does nothing
 - `deadnix` - Find dead/unused Nix code
 - `shellcheck` - Lint shell scripts
 - `markdownlint` - Lint Markdown files
@@ -374,6 +377,9 @@ manually (with a `host` input) or by path-filtered pushes. Key lessons:
 - Comprehensive hook suite configured in `flake-parts/pre-commit.nix`
 - Uses `prek` as pre-commit implementation
 - Hooks run on `git commit` after installing via `pre-commit install`
+- `statix.toml` (repo root) configures statix and is picked up automatically via statix's default `-c .`
+- The statix hook is git-hooks.nix's **built-in check**: entry `statix check --format errfmt` with `pass_filenames = false`, so it checks the whole tree (honouring `.gitignore`) instead of the staged files. Do not add `args = [ "fix" ]` to it — pre-commit appends args as extra argv after the entry, so statix reads `fix` as its TARGET path, prints `config error: path error: file not found: fix`, and still exits **0**, checking nothing. There is no fix mode in the built-in hook; run `statix fix` by hand instead.
+- Because the hook checks the whole tree, `nix flake check` (via `checks.pre-commit`) fails on *any* statix finding in the repo, not only on the files a commit touches.
 
 ## Research Tools
 

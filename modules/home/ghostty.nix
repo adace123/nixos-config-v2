@@ -1,4 +1,4 @@
-{ ... }:
+_:
 
 {
   # Ghostty terminal emulator configuration

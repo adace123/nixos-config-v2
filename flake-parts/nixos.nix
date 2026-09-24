@@ -4,12 +4,12 @@ let
   coruscantHost = hosts.coruscant;
   dathomirHost = hosts.dathomir;
   threepioHost = hosts.threepio;
-  nixos-raspberrypi = inputs.nixos-raspberrypi;
+  inherit (inputs) nixos-raspberrypi;
 
   mkPiSystem =
     host: modules:
     inputs.nixpkgs.lib.nixosSystem {
-      system = host.system;
+      inherit (host) system;
       specialArgs = {
         inherit
           inputs
@@ -27,7 +27,7 @@ let
       extraSpecialArgs ? { },
     }:
     inputs.nixpkgs.lib.nixosSystem {
-      system = host.system;
+      inherit (host) system;
       specialArgs = {
         inherit inputs host;
       }

@@ -22,7 +22,7 @@
   hardware.bluetooth.enable = true;
 
   networking = {
-    hostName = host.hostName;
+    inherit (host) hostName;
   };
 
   services.tailscale = {
