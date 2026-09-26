@@ -406,6 +406,7 @@ class TaskDetailModal(Dialog):
     BINDINGS = [
         Binding("escape,q", "cancel", "close", show=False),
         Binding("s", "dispatch", "send", show=False),
+        Binding("b", "bounce", "changes requested", show=False),
         Binding("e", "edit", "edit", show=False),
         Binding("f", "focus_agent", "agent", show=False),
         Binding("x", "close_agent", "stop agent", show=False),
@@ -464,8 +465,8 @@ class TaskDetailModal(Dialog):
             )
         steps = "1-9 tick a step · " if self.subject.steps else ""
         return (
-            f"{steps}s send · e edit · f agent · o workspace · x stop agent"
-            " · r agent output · d delete · A archive · esc close"
+            f"{steps}s send · b changes requested · e edit · f agent · o workspace"
+            " · x stop agent · r agent output · d delete · A archive · esc close"
         )
 
     @property
@@ -680,6 +681,9 @@ class TaskDetailModal(Dialog):
     def action_dispatch(self) -> None:
         self.dismiss("dispatch")
 
+    def action_bounce(self) -> None:
+        self.dismiss("bounce")
+
     def action_edit(self) -> None:
         self.dismiss("edit")
 
@@ -860,6 +864,76 @@ class DispatchModal(Dialog):
         self.dismiss(plan)
 
 
+# -- review ------------------------------------------------------------------
+
+
+class ReviewModal(Dialog):
+    """Ask what a Review card needs before its agent runs again (`b`).
+
+    One box, because a bounce is one question: what needs changing. The box is
+    a `TextArea`, so `⏎` starts a new line, and `ctrl+s` sends the card back —
+    the key every other form on the board saves with. The comment reaches the
+    agent verbatim, so nothing here summarises or reformats it.
+    """
+
+    BINDINGS = [
+        Binding("escape", "cancel", "cancel", show=False),
+        Binding("ctrl+s", "send", "send back", show=False),
+    ]
+
+    def __init__(self, task: Task, workspace_label: str = "") -> None:
+        super().__init__()
+        self.subject = task
+        self.workspace_label = workspace_label
+        self.box_id = "review-form"
+
+    def dialog_title(self) -> str:
+        return f"{self.subject.id}  changes requested"
+
+    def hint_text(self) -> str:
+        return "ctrl+s sends it back to its agent · esc cancels"
+
+    def build_body(self) -> Iterator[object]:
+        task = self.subject
+        # Named rather than assumed: the whole promise of the key is that the
+        # agent that did the work picks it up again, in the pane it already
+        # runs in — so the dialog says which agent, and where.
+        agent = task.agent_name or task.pane_id or "its agent"
+        where = self.workspace_label or task.workspace_label or "its workspace"
+        yield Static(
+            f"{truncate(task.title, 64)}\n"
+            f"{agent} is re-prompted in {where} — the run is continued, not"
+            " restarted.",
+            classes="field-note",
+        )
+        yield Static("What needs changing?", classes="field-label")
+        yield TextArea(id="field-comment")
+
+    def build_buttons(self) -> Iterator[object]:
+        yield Button("Send back", variant="primary", id="send")
+        yield Button("Cancel", id="cancel")
+
+    def on_mount(self) -> None:
+        self.query_one("#field-comment", TextArea).focus()
+
+    def action_send(self) -> None:
+        text = self.query_one("#field-comment", TextArea).text.strip()
+        if not text:
+            # The modal stays up: a bounce with nothing in it re-prompts the
+            # agent with an empty prompt, which is the one thing the key must
+            # not do. (A cancel is how you leave without one.)
+            self.query_one("#field-comment", TextArea).focus()
+            self.notify("say what needs changing", severity="warning")
+            return
+        self.dismiss(text)
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "send":
+            self.action_send()
+        elif event.button.id == "cancel":
+            self.dismiss(None)
+
+
 # -- filter ------------------------------------------------------------------
 
 
@@ -950,6 +1024,8 @@ class HelpModal(Dialog):
                     "  v            show / hide the archived column",
                     "  u            unarchive the selected card",
                     "  s            send the card to its agent",
+                    "  b            send it back: changes requested, and the agent",
+                    "               is re-prompted with the comment you type",
                     "  f o p        focus the agent / workspace / pane in herdr",
                     "  / w c        filter · workspace filter · clear filters",
                     "  !            only the cards whose agents need an answer",
@@ -1044,6 +1120,7 @@ __all__ = [
     "DispatchModal",
     "FilterModal",
     "HelpModal",
+    "ReviewModal",
     "TaskDetailModal",
     "TaskDraft",
     "TaskFormModal",

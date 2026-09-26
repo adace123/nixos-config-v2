@@ -50,7 +50,7 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "development aid: render the real Textual screen at --width/--height "
             "and print it as text. DIALOG may be board (default), add, dispatch, "
-            "detail, filter, help, or delete."
+            "review, detail, filter, help, or delete."
         ),
     )
     parser.add_argument(
@@ -186,10 +186,15 @@ def run_screen_snapshot(args: argparse.Namespace) -> int:
 
     from .app import KanbanApp
 
+    # A dialog whose key needs a card that has the state it acts on says so
+    # with the keys before it: `review` jumps to the column holding the demo
+    # card with a live agent (the bounce refuses a card whose run has ended),
+    # then presses `b`.
     keys = {
         "board": None,
         "add": "a",
         "dispatch": "s",
+        "review": "3,b",
         "detail": "enter",
         "filter": "slash",
         "help": "question_mark",
@@ -216,9 +221,10 @@ def run_screen_snapshot(args: argparse.Namespace) -> int:
         async with app.run_test(size=(width, height)) as pilot:
             await pilot.pause()
             key = keys[dialog]
-            if key:
-                await pilot.press(key)
-                await pilot.pause()
+            for press in (key or "").split(","):
+                if press:
+                    await pilot.press(press)
+                    await pilot.pause()
             for extra in (args.keys or "").split(","):
                 if extra.strip():
                     await pilot.press(extra.strip())

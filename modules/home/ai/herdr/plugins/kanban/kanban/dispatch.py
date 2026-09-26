@@ -213,6 +213,31 @@ def build_prompt(task: Task, config: Config | None = None) -> str:
     return "\n\n".join(parts)
 
 
+def review_prompt(task: Task, comment: str, config: Config | None = None) -> str:
+    """The prompt a review bounce hands back: the reviewer's comment, then the protocol.
+
+    A bounce is a second round, not a fresh dispatch, and the first line says
+    so: the agent's own turn ended with the card in Review, so a bare repeat of
+    the task would read as work it had already finished. The column line names
+    where the same dispatch is about to put the card, so "still working" and
+    "done" in the protocol below mean what they say. The comment is quoted as
+    written and the protocol is appended exactly as a first send appends it —
+    the way the agent moves its card does not change because it is round two.
+    """
+    where = (config.send_column(task.status) if config else "") or "In Progress"
+    lines = [
+        f"Changes requested on {task.id} — {task.title}",
+        f"The card is back in {config.label_for(where) if config else where} for"
+        " another round.",
+        "",
+        (comment or "").strip(),
+    ]
+    if config is None or config.announce_protocol:
+        review = config.review_column if config is not None else "review"
+        lines += ["", protocol_block(task.id, review=review or "review")]
+    return "\n".join(lines)
+
+
 def agent_args(config: Config, kind: str, model: str = "") -> tuple[str, ...]:
     """The flags `agent start` gets for `kind`, with the card's `model` applied.
 
@@ -247,8 +272,16 @@ def plan_for(
     live: LiveState,
     fallback_workspace: str = "",
     fallback_kind: str = "",
+    prompt: str | None = None,
 ) -> Plan:
-    """Decide what a dispatch of `task` would do, without doing any of it."""
+    """Decide what a dispatch of `task` would do, without doing any of it.
+
+    `prompt` replaces the ordinary title/notes/protocol prompt for one run —
+    what a review bounce needs, since the text handed back is the reviewer's
+    comment rather than the task again (`review_prompt`). Prompt assembly stays
+    in this function so a caller cannot build a plan whose text disagrees with
+    the plan's own fields.
+    """
     agent = live.lookup(task)
 
     kind = task.agent_kind or fallback_kind or config.default_agent
@@ -271,7 +304,7 @@ def plan_for(
         workspace_label=workspace_label,
         kind=kind,
         name=name,
-        prompt=build_prompt(task, config),
+        prompt=prompt if prompt is not None else build_prompt(task, config),
         tab_label=tab_label_for(task),
         args=agent_args(config, kind, task.agent_model),
         model=task.agent_model,
@@ -659,5 +692,6 @@ __all__ = [
     "protocol_block",
     "result_summary",
     "retitle_tab",
+    "review_prompt",
     "worktree_from_result",
 ]

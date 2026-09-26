@@ -107,6 +107,9 @@ herdr-kanban add "<title>" --notes "why it is separate from this one"
 - `send` dispatches an agent from a card. It exists for the human and for
   automations; the dispatch protocol never mentions it, and one agent should not
   start another.
+- `bounce` sends a card back to the agent that did the work, with a comment.
+  It is the reviewer's verb — the board's `b` is the same round — and it
+  re-prompts another card's agent rather than moving your own work along.
 - There is no CLI delete. Destroying a card is a board key, and it stays one.
 - `archive`, `rename` and the Done column are refused from a pane for the same
   reason as each other: they are the human's call. `--force` exists for the human who

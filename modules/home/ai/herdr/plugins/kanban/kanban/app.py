@@ -11,6 +11,7 @@ from __future__ import annotations
 import contextlib
 import sys
 import time
+from dataclasses import replace
 
 from textual import work
 from textual.app import App, ComposeResult
@@ -29,6 +30,7 @@ from .dispatch import (
     record_outcome,
     result_summary,
     retitle_tab,
+    review_prompt,
 )
 from .herdr import Herdr
 from .modals import (
@@ -36,6 +38,7 @@ from .modals import (
     DispatchModal,
     FilterModal,
     HelpModal,
+    ReviewModal,
     TaskDetailModal,
     TaskDraft,
     TaskFormModal,
@@ -728,6 +731,9 @@ class KanbanApp(App[None]):
     def on_detail_action(self, action: str | None, task: Task) -> None:
         if action == "dispatch":
             self.dispatch_task(task)
+        elif action == "bounce":
+            self.ui.selected_id = task.id
+            self.action_bounce()
         elif action == "edit":
             self.ui.selected_id = task.id
             self.action_edit_task()
@@ -941,6 +947,78 @@ class KanbanApp(App[None]):
             ),
             lambda confirmed, task=task: self.on_plan(confirmed, task),
         )
+
+    def action_bounce(self) -> None:
+        """`b`: the card goes back to its agent with changes requested.
+
+        The reviewer's half of the Review column: `⏎` says whether the work is
+        right, and this says what is not — a round the board records, unlike a
+        plain re-send.
+        """
+        task = self.selected_task()
+        if task is None:
+            self.set_notice("select a card first")
+            return
+        self.bounce_task(task)
+
+    def bounce_task(self, task: Task) -> None:
+        """Ask for the comment, once the card is known to have an agent to ask.
+
+        Only a card whose agent is still running can be bounced: what makes the
+        key worth having is that the agent that did the work is re-prompted in
+        the pane it already occupies (and in the checkout it already owns, see
+        `plan_for`) — not that a second agent is started on the same card. A
+        card whose run has ended is what `s` is for, and the notice says so.
+        """
+        if self._refuse_archived(task, "send it back"):
+            return
+        plan = self.plan_for_task(task)
+        if not plan.reuses_running_agent:
+            self.set_notice(
+                f"{task.id} has no agent running to send back to — press s to send"
+                " it, or ⏎ to read it",
+                timeout=6,
+            )
+            return
+        self.push_screen(
+            ReviewModal(task, self.live.workspace_label(task)),
+            lambda comment, task=task: self.on_review_comment(comment, task),
+        )
+
+    def on_review_comment(self, comment: str | None, task: Task) -> None:
+        """Record the round, then hand the card back to the agent's pane.
+
+        The record is written first, through the board's own store, so the
+        dispatch worker's own store — opened fresh, and reloaded under the same
+        lock — reads the round back before its `hand_over` moves the card. A
+        write after the dispatch would be a second read-modify-write against a
+        card the worker is still holding, and the round would be the thing lost.
+        """
+        if not comment:
+            return
+        # The dialog was open for as long as it took to type, so re-read and
+        # re-plan: an agent that exited in that window must not be recorded as
+        # having been sent the comment.
+        task = self.task(task.id) or task
+        plan = self.plan_for_task(task)
+        if not plan.reuses_running_agent:
+            self.set_notice(
+                f"{task.id}'s agent stopped before the comment was sent — press s"
+                " to start it again",
+                timeout=8,
+            )
+            return
+        if self.demo_mode:
+            self.set_notice(f"demo: would send {task.id} back with changes requested")
+            return
+        plan = replace(plan, prompt=review_prompt(task, comment, self.config))
+        updated, _ = self.store.request_changes(task.id, comment)
+        round_number = updated.review_round if updated is not None else 1
+        self.set_notice(
+            f"{task.id} · changes requested (round {round_number}) — sending back…",
+            timeout=0,
+        )
+        self.run_dispatch(plan, task.id)
 
     def wip_warning(self, task: Task) -> str:
         """A note when dispatching would push a column past its wip_limits.

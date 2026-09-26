@@ -50,6 +50,8 @@ USAGE_COMMANDS = """  {cli} status [<task>] <column>   move a card
                        [--from <task>] [--model <name>] [--force]
   {cli} send   [<task>] [--agent <kind>] [--workspace <id>] [--model <name>]
                        [--worktree|--no-worktree] [--dry-run]
+  {cli} bounce [<task>] <comment>  send the card back to its running agent with
+                                    changes requested (the board's `b`)
   {cli} archive   [<task>]         archive a card, keeping its record
   {cli} unarchive [<task>]         restore an archived card to the board
   {cli} rename <task> <code|id>    change a card's id code (cfg-8 -> infra-8,
@@ -84,6 +86,7 @@ AGENT_COMMANDS = (
     "step",
     "add",
     "send",
+    "bounce",
     "archive",
     "unarchive",
     "rename",
@@ -245,6 +248,9 @@ def _task_json(task: Task, config: Config) -> dict[str, Any]:
         "progress": task.progress,
         "steps": task.steps,
         "steps_done": task.steps_done,
+        # How many times a reviewer has sent this back (`bounce`): a card's own
+        # count of its review rounds, beside the history lines that record them.
+        "review_round": task.review_round,
         # The card's own record of what happened to it: who created it, every
         # column it has been in, every title it has had. `progress` above is the
         # agent's narrative; this is the audit trail.
@@ -961,6 +967,101 @@ def _send(args: list[str], store: Store, config: Config) -> int:
     return 0
 
 
+def _bounce(args: list[str], store: Store, config: Config) -> int:
+    """Send a card back to its agent with changes requested.
+
+    The board's `b`, for a script: `herdr-kanban bounce cfg-8 "use the retry
+    helper"`. This is a re-prompt, not a dispatch: the card must already have
+    an agent running, because the point is to hand the work back to the agent
+    that did it — in the pane it runs in, and in the checkout it already owns
+    (`plan_for` reuses both). The round is recorded on the card *before* the
+    prompt is written, so a send that fails still leaves what was asked for on
+    the record; the move back to In Progress stays the dispatch's, as it is for
+    `s`.
+    """
+    from .dispatch import Executor, Outcome, plan_for, record_outcome, review_prompt
+    from .herdr import Herdr
+
+    reference = ""
+    words = list(args)
+    # The comment is free text, so a first word that names a card already on the
+    # board is the card and everything else is what to change; a word that
+    # merely *looks* like one (`eslint-9` is a shape a workspace code makes
+    # ordinary) stays in the comment.
+    if words and looks_like_id(words[0]) and store.resolve(words[0]) is not None:
+        reference, words = words[0], words[1:]
+    comment = " ".join(words).strip()
+    if not comment:
+        print(f"usage: {CLI} bounce [<task>] <comment>", file=sys.stderr)
+        return 2
+    if not reference and " " not in comment and looks_like_id(comment):
+        # Nothing but an id-shaped word, and not one the board knows: the card
+        # was meant and its comment was forgotten, or the id was mistyped.
+        # Either way this is not a review comment, and bouncing the pane's card
+        # with it would send the agent something it cannot act on.
+        print(
+            f"usage: {CLI} bounce [<task>] <comment> — {comment!r} looks like a"
+            " card id; pass the id, then what needs changing",
+            file=sys.stderr,
+        )
+        return 2
+
+    task, error = _find(store, reference)
+    if task is None:
+        print(error, file=sys.stderr)
+        return 1
+
+    live = _live_now()
+    plan = plan_for(
+        task,
+        config,
+        live,
+        fallback_workspace=os.environ.get("HERDR_WORKSPACE_ID", ""),
+        fallback_kind=config.default_agent,
+        prompt=review_prompt(task, comment, config),
+    )
+    if not plan.reuses_running_agent:
+        print(
+            f"{task.id} has no agent running to send back to — a bounce re-prompts"
+            f" the agent that did the work. Start one with: {CLI} send {task.id}",
+            file=sys.stderr,
+        )
+        return 1
+
+    target = config.send_column(task.status)
+    recorded_task, recorded = store.request_changes(
+        task.id, comment, by="agent" if _from_agent() else "user"
+    )
+    if recorded_task is None:
+        # The card went away between finding it and writing the round; there is
+        # nothing left to prompt, and the agent's pane is not this command's to
+        # guess at.
+        print(recorded, file=sys.stderr)
+        return 1
+    print(recorded)
+
+    def record(outcome: Outcome) -> Task | None:
+        # The hook `_send` uses: the card's link is written the moment the
+        # agent is prompted, so a `bounce` killed inside the confirmation wait
+        # leaves a card that is still findable (and re-sendable).
+        return record_outcome(store, task.id, plan, outcome, target)
+
+    outcome = Executor(Herdr()).run(plan, on_record=record)
+    record(outcome)
+    if not outcome.ok:
+        print(
+            f"{task.id} not sent back — {outcome.error or outcome.detail()}",
+            file=sys.stderr,
+        )
+        return 1
+    print(
+        f"{task.id}  {task.title}\n"
+        f"     changes requested — back to {outcome.agent_name or plan.name} in"
+        f" {config.label_for(target or task.status)}"
+    )
+    return 0
+
+
 def _archive(args: list[str], store: Store, config: Config) -> int:
     """Take a card off the board, keeping its record (`unarchive` puts it back).
 
@@ -1208,6 +1309,7 @@ def run_agent_command(argv: list[str]) -> int:
         "step": _step,
         "add": _add,
         "send": _send,
+        "bounce": _bounce,
         "archive": _archive,
         "unarchive": _unarchive,
         "rename": _rename,

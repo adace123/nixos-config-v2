@@ -3225,7 +3225,22 @@ if args[:2] == ["workspace", "list"]:
              "number": 9, "active_tab_id": "w9:t1", "agent_status": "idle"})
     emit({"type": "workspace_list", "workspaces": workspaces})
 if args[:2] == ["agent", "list"]:
-    emit({"type": "agent_list", "agents": []})
+    # A live agent, for the checks that need one to re-prompt — a review bounce
+    # is only meaningful against the agent that did the work. The pane is the
+    # one the card was dispatched to, and the shape is what herdr reports for
+    # an agent started without a name (the kind, not the name we passed).
+    agents = []
+    pane = os.environ.get("FAKE_AGENT_PANE")
+    if pane:
+        agents.append(
+            {"agent": os.environ.get("FAKE_AGENT_NAME", "pi"),
+             "agent_status": os.environ.get("FAKE_AGENT_STATUS", "idle"),
+             "workspace_id": "w1",
+             "pane_id": pane,
+             "tab_id": "w1:t1",
+             "cwd": os.environ.get("FAKE_CWD", "/tmp"),
+             "terminal_title_stripped": "pi - probe"})
+    emit({"type": "agent_list", "agents": agents})
 if args[:2] == ["pane", "list"]:
     emit({"type": "pane_list", "panes": [{"pane_id": "w1:p1", "workspace_id": "w1",
                                           "tab_id": "w1:t1", "cwd": os.environ.get("FAKE_CWD", "/tmp")}]})
@@ -3464,6 +3479,350 @@ async def check_send_now(check: Checker, tmp: str) -> None:
             "send --model runs this send on that model",
             code == 0 and "--model sonnet" in out,
             out.replace(chr(10), " | ")[:100],
+        )
+    finally:
+        for key, value in saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
+async def check_review_bounce(check: Checker, tmp: str) -> None:
+    """The review bounce: `b` on the board, `herdr-kanban bounce` from a shell.
+
+    The whole round is exercised — the record, the prompt, and the column the
+    card ends up in — because a bounce is only different from `s` if the round
+    is written down *and* the same agent picks the work up again. That second
+    half is why the checks hold the pane to account: a bounce that started a
+    fresh agent would pass a weaker test while breaking the one promise the key
+    makes.
+    """
+    import contextlib
+    import io
+    import os
+    import time
+    from dataclasses import replace
+
+    from .app import KanbanApp
+    from .cli import run_agent_command
+    from .config import load_config
+    from .dispatch import review_prompt
+    from .herdr import Herdr
+    from .store import CHANGES_REQUESTED, Store
+
+    log = Path(tmp) / "bounce-calls.txt"
+    board = Path(tmp) / "bounce-board.json"
+    app_board = Path(tmp) / "bounce-app-board.json"
+    fake = _fake_herdr(tmp, "fake-herdr-bounce")
+    env_keys = (
+        "KANBAN_BOARD_FILE",
+        "HERDR_PANE_ID",
+        "HERDR_WORKSPACE_ID",
+        "HERDR_BIN_PATH",
+        "FAKE_LOG",
+        "FAKE_REACT",
+        "FAKE_CWD",
+        "FAKE_AGENT_PANE",
+        "FAKE_AGENT_NAME",
+        "FAKE_AGENT_STATUS",
+    )
+    saved = {key: os.environ.get(key) for key in env_keys}
+    for key in env_keys:
+        os.environ.pop(key, None)
+
+    def cli(*argv: str) -> tuple[int, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = run_agent_command(list(argv))
+        return code, (out.getvalue() + err.getvalue()).strip()
+
+    try:
+        config = replace(load_config(), announce_protocol=True)
+        os.environ.update(
+            {
+                "KANBAN_BOARD_FILE": str(board),
+                "HERDR_WORKSPACE_ID": "w1",
+                # The CLI builds its own `Herdr`, which takes the binary from here.
+                "HERDR_BIN_PATH": str(fake),
+                "FAKE_LOG": str(log),
+                "FAKE_REACT": "1",
+                "FAKE_CWD": tmp,
+            }
+        )
+        log.write_text("", encoding="utf-8")
+        seed = Store.open(board)
+        card = seed.add(
+            title="Send this back",
+            workspace_id="w1",
+            workspace_label="nixos-config-v2",
+            agent_kind="pi",
+            status="review",
+        )
+        seed.hand_over(
+            card.id,
+            "review",
+            pane_id="w1:p7",
+            agent_name=f"{card.id}-pi",
+            dispatched_at=time.time(),
+        )
+
+        def card_now():
+            return Store.open(board).by_id(card.id)
+
+        # -- the record -------------------------------------------------
+        first, recorded = Store.open(board).request_changes(
+            card.id, "the flake check still fails"
+        )
+        check.check(
+            "a bounce records the round in History and the comment in Updates",
+            first is not None
+            and first.review_round == 1
+            and first.history[-1]["what"] == f"{CHANGES_REQUESTED} (round 1)"
+            and first.progress[-1]["text"] == "the flake check still fails"
+            and first.progress[-1]["by"] == "user"
+            and "round 1" in recorded,
+            f"{recorded} / {first.history[-1]['what'] if first else '-'}",
+        )
+        check.check(
+            "the record alone does not move the card",
+            card_now().status == "review",
+            card_now().status,
+        )
+        second, _ = Store.open(board).request_changes(card.id, "and the docs")
+        check.check(
+            "a second bounce is round two, and both rounds stay in History",
+            second is not None
+            and second.review_round == 2
+            and second.history[-1]["what"] == f"{CHANGES_REQUESTED} (round 2)"
+            and sum(
+                1
+                for entry in second.history
+                if str(entry.get("what", "")).startswith(CHANGES_REQUESTED)
+            )
+            == 2,
+            str(second.review_round if second else "-"),
+        )
+        _, ignored = Store.open(board).request_changes(card.id, "   ")
+        check.check(
+            "an empty comment is not a round",
+            card_now().review_round == 2 and "empty comment" in ignored,
+            ignored,
+        )
+
+        # -- the prompt -------------------------------------------------
+        prompt = review_prompt(card_now(), "use the retry helper", config)
+        check.check(
+            "a bounce prompt names the round, quotes the comment, keeps the protocol",
+            f"Changes requested on {card.id}" in prompt
+            and prompt.index("use the retry helper") < prompt.index("herdr kanban:")
+            and "The card is back in In Progress" in prompt
+            and "herdr-kanban status review" in prompt,
+            prompt.replace(chr(10), " | ")[:120],
+        )
+        quiet = review_prompt(card_now(), "x", replace(config, announce_protocol=False))
+        check.check(
+            "announce_protocol = false keeps the protocol out of a bounce too",
+            "herdr-kanban" not in quiet
+            and quiet.startswith(f"Changes requested on {card.id}"),
+            repr(quiet[:60]),
+        )
+
+        # -- refusals ---------------------------------------------------
+        os.environ["FAKE_AGENT_PANE"] = "w1:p7"
+        code, out = cli("bounce", card.id)
+        check.check(
+            "bounce needs a comment: a lone card id is not sent as one",
+            code == 2 and "usage" in out and card_now().review_round == 2,
+            f"{code} {out[:60]}",
+        )
+        code, out = cli("bounce", "cfg-99")
+        check.check(
+            "an id the board does not know is not taken for a comment either",
+            code == 2
+            and "looks like a card id" in out
+            and card_now().review_round == 2,
+            f"{code} {out[:60]}",
+        )
+        code, out = cli("bounce")
+        check.check(
+            "bounce with nothing at all is a usage error",
+            code == 2 and "usage" in out,
+            f"{code} {out[:60]}",
+        )
+        code, out = cli("bounce", "the flake check still fails")
+        check.check(
+            "a bounce with no card to bounce is refused",
+            code == 1 and "pass a task id" in out and card_now().review_round == 2,
+            f"{code} {out[:60]}",
+        )
+        lonely = Store.open(board).add(
+            title="Nobody is running this", workspace_id="w1", status="review"
+        )
+        Store.open(board).hand_over(
+            lonely.id, "review", pane_id="w1:p404", dispatched_at=time.time()
+        )
+        code, out = cli("bounce", lonely.id, "pick this up again")
+        sent = Store.open(board).by_id(lonely.id)
+        check.check(
+            "a card whose agent is gone is sent to `send`, not started here",
+            code == 1
+            and "no agent running" in out
+            and sent is not None
+            and sent.review_round == 0
+            and sent.status == "review",
+            f"{code} {out[:70]}",
+        )
+
+        # -- the send-back ----------------------------------------------
+        log.write_text("", encoding="utf-8")
+        code, out = cli("bounce", card.id, "use the retry helper")
+        sent = Store.open(board).by_id(card.id)
+        calls = log.read_text(encoding="utf-8")
+        check.check(
+            "a bounce re-prompts the agent in its own pane and lands In Progress",
+            code == 0
+            and sent is not None
+            and sent.status == "doing"
+            and "agent prompt w1:p7" in calls
+            and "agent start" not in calls,
+            f"{code} {sent.status if sent else '-'} {out[:50]}",
+        )
+        check.check(
+            "and the round it recorded is the one the agent was given",
+            sent is not None
+            and sent.review_round == 3
+            # The round is written before the prompt and the move after it, so
+            # the round sits one entry above the dispatch's `-> doing`.
+            and any(
+                entry["what"] == f"{CHANGES_REQUESTED} (round 3)"
+                for entry in sent.history
+            )
+            and sent.history[-1]["what"] == "review -> doing"
+            and "use the retry helper" in calls,
+            f"{sent.review_round if sent else '-'} {sent.history[-2:] if sent else '-'}",
+        )
+
+        # -- the board key, for real --------------------------------------
+        # Not the demo board: a bounce is written by two different stores — the
+        # board's own, then the dispatch worker's — and only a real run proves
+        # the worker reads the round back before it moves the card.
+        key_card = Store.open(board).add(
+            title="Bounce me from the board",
+            workspace_id="w1",
+            workspace_label="nixos-config-v2",
+            agent_kind="pi",
+            status="review",
+        )
+        Store.open(board).hand_over(
+            key_card.id,
+            "review",
+            pane_id="w1:p9",
+            agent_name=f"{key_card.id}-pi",
+            dispatched_at=time.time(),
+        )
+        os.environ["FAKE_AGENT_PANE"] = "w1:p9"
+        log.write_text("", encoding="utf-8")
+        app = KanbanApp(
+            config=config, store=Store.open(board), herdr=Herdr(binary=str(fake))
+        )
+        async with app.run_test(size=(120, 36)) as pilot:
+            await pilot.pause()
+            # The board's first live read has to land before `b` can see the
+            # agent whose pane the card was dispatched to.
+            for _ in range(20):
+                await pilot.pause(0.05)
+                if app.workers_running() == []:
+                    break
+            app.select_card(key_card.id)
+            await pilot.press("b")
+            await pilot.pause()
+            real_key = app.screen.__class__.__name__ == "ReviewModal"
+            if real_key:
+                await pilot.press(*"use the retry helper")
+                await pilot.press("ctrl+s")
+                for _ in range(60):
+                    await pilot.pause(0.05)
+                    if app.workers_running() == []:
+                        break
+        bounced = Store.open(board).by_id(key_card.id)
+        calls = log.read_text(encoding="utf-8")
+        check.check(
+            "the board's b records the round and the dispatch keeps it",
+            real_key
+            and bounced is not None
+            and bounced.status == "doing"
+            and bounced.review_round == 1
+            and bounced.history[-2]["what"] == f"{CHANGES_REQUESTED} (round 1)"
+            and "agent prompt w1:p9" in calls
+            and "use the retry helper" in calls,
+            f"{bounced.status if bounced else '-'} / "
+            f"{bounced.history[-2:] if bounced else '-'}",
+        )
+
+        # -- the key ----------------------------------------------------
+        # The demo board's third column is the one holding its card with a live
+        # agent (`cfg-3`, pane `w1:p9`): a bounce refuses a card whose run has
+        # ended, which is the guard this check has to get past the honest way.
+        os.environ["KANBAN_BOARD_FILE"] = str(app_board)
+        app = KanbanApp(
+            config=config,
+            store=Store(Path(app_board)),
+            herdr=Herdr(binary="/nonexistent-herdr"),
+            demo=True,
+        )
+        async with app.run_test(size=(120, 36)) as pilot:
+            await pilot.pause()
+            # The demo board's first column holds a card with no live agent, and
+            # its third the one with an agent (`cfg-3`, pane `w1:p9`): the guard
+            # and the key, in the order a reviewer would meet them.
+            await pilot.press("1")
+            await pilot.pause()
+            await pilot.press("b")
+            await pilot.pause()
+            refused = app.screen.__class__.__name__ != "ReviewModal"
+            refusal = app.ui.notice
+            await pilot.press("3")
+            await pilot.pause()
+            await pilot.press("b")
+            await pilot.pause()
+            board_key = app.screen.__class__.__name__ == "ReviewModal"
+            empty_refused = False
+            if board_key:
+                await pilot.press("ctrl+s")
+                await pilot.pause()
+                empty_refused = app.screen.__class__.__name__ == "ReviewModal"
+                await pilot.press("escape")
+                await pilot.pause()
+            await pilot.press("enter")
+            await pilot.pause()
+            await pilot.press("b")
+            await pilot.pause()
+            detail_key = app.screen.__class__.__name__ == "ReviewModal"
+            if detail_key:
+                await pilot.press(*"needs a test")
+                await pilot.press("ctrl+s")
+                await pilot.pause()
+            notice = app.ui.notice
+        check.check(
+            "b refuses a card whose run has ended rather than starting one",
+            refused and "no agent running" in refusal,
+            f"{refused} {refusal!r}",
+        )
+        check.check(
+            "b opens the comment box on the board and in the detail view",
+            board_key and detail_key,
+            f"board={board_key} detail={detail_key}",
+        )
+        check.check(
+            "and an empty comment is refused, not sent as a round",
+            empty_refused,
+            str(empty_refused),
+        )
+        check.check(
+            "and the demo board says what it would do without writing a board",
+            "demo: would send" in notice and not app_board.exists(),
+            f"{notice!r} written={app_board.exists()}",
         )
     finally:
         for key, value in saved.items():
@@ -5344,6 +5703,7 @@ async def _run(check: Checker) -> None:
             check_hardening(check, tmp)
             await check_dialogs(check, tmp)
             await check_send_now(check, tmp)
+            await check_review_bounce(check, tmp)
             await check_worktree_dispatch(check, tmp)
             await check_edit_title(check, tmp)
             await check_live_loop(check, tmp)

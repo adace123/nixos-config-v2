@@ -61,6 +61,11 @@ HISTORY_LIMIT = 25
 PROGRESS_LIMIT = 50
 STEP_LIMIT = 40
 
+# The marker a review bounce leaves in `History` (`Store.request_changes`), in
+# the reviewer's own words. Spelled out here because the CLI's `bounce`, the
+# board's `b` and the selftest all have to agree on what a round reads as.
+CHANGES_REQUESTED = "changes requested"
+
 PRIORITIES = ("low", "normal", "high", "urgent")
 
 # How much of a workspace label an automatic id code keeps, and how long a
@@ -356,6 +361,12 @@ class Task:
     # The title as it stood before the first replacement, so a rename is
     # always reversible.
     original_title: str = ""
+    # How many times a reviewer has sent this card back for changes
+    # (`herdr-kanban bounce` / the board's `b`): the review round the card is
+    # on. A round is a history entry as well, but the count is what survives
+    # the history cap — and what answers "how many times has this come back?"
+    # without counting `changes requested` lines by eye.
+    review_round: int = 0
     progress: list[dict[str, Any]] = field(default_factory=list)
     # A checklist: [{"text", "done", "at", "by"}]. A better progress signal
     # than a pile of notes, for hand-worked and agent-worked cards alike.
@@ -409,6 +420,7 @@ class Task:
         clean["updated_at"] = _as_time(clean.get("updated_at")) or 0.0
         clean["dispatched_at"] = _as_time(clean.get("dispatched_at"))
         clean["archived_at"] = _as_time(clean.get("archived_at")) or 0.0
+        clean["review_round"] = max(0, _as_int(clean.get("review_round"), 0))
         if clean.get("title_source") not in TITLE_SOURCES:
             clean["title_source"] = "user"
         if clean.get("created_by") not in CREATED_BY:
@@ -1264,6 +1276,41 @@ class Store:
             return task, (
                 f"{task.id} title -> {cleaned} (by {source}"
                 + (", replacing yours)" if replaced else ")")
+            )
+
+    def request_changes(
+        self, task_id: str, comment: str, by: str = "user"
+    ) -> tuple[Task | None, str]:
+        """Record a review round: the card goes back to its agent for changes.
+
+        Two records, because the board keeps two. `History` gets the round
+        itself (`changes requested (round N)`) — short, greppable, and what
+        makes review rounds legible in the detail view — while `Updates` gets
+        the comment as it was written, which is where a message belongs on this
+        board (`block`'s reason lands there too). The comment is not repeated
+        into the history line: it is a paragraph, and History is one row per
+        entry.
+
+        The move back to In Progress is *not* here: it belongs to the dispatch
+        that follows, because a card only claims to be in progress once an
+        agent has taken the work — the same rule `send` follows. A record with
+        no successful send is still the truth about what the reviewer asked
+        for, which is why this is written first.
+        """
+        cleaned = (comment or "").strip()
+        with self._locked():
+            task = self.by_id(task_id)
+            if task is None:
+                return None, f"no task {task_id} on the board"
+            if not cleaned:
+                return task, f"{task.id}: empty comment ignored"
+            task.review_round += 1
+            task.note(f"{CHANGES_REQUESTED} (round {task.review_round})")
+            task.update_entry(cleaned, by=by)
+            task.updated_at = time.time()
+            return (
+                task,
+                f"{task.id}: changes requested (round {task.review_round})",
             )
 
     def add_progress(

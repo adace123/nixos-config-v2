@@ -44,6 +44,7 @@ class BoardWidget(Widget):
         Binding("u", "unarchive_task", "unarchive", show=False),
         Binding("v", "toggle_archived", "archive view", show=False),
         Binding("s", "dispatch", "send", show=False),
+        Binding("b", "bounce", "changes requested", show=False),
         Binding("f", "focus_agent", "agent", show=False),
         Binding("o", "focus_workspace", "workspace", show=False),
         Binding("p", "focus_pane", "pane", show=False),
@@ -167,6 +168,9 @@ class BoardWidget(Widget):
 
     def action_dispatch(self) -> None:
         self.kanban.action_dispatch()
+
+    def action_bounce(self) -> None:
+        self.kanban.action_bounce()
 
     def action_focus_agent(self) -> None:
         self.kanban.action_focus_agent()

@@ -91,6 +91,7 @@ delete (which also stops its agent), `A` archive (kept off the board; its agent
 is left running unless `auto_archive_agent` is on), `v` show/hide the
 **Archived** column, `u` unarchive the selected
 card, `x` stop the agent but keep the card, `s` send,
+`b` send it back with changes requested (a review round, see below),
 `!` show only the cards whose agents are waiting on you, `f` focus the agent,
 `o` focus the workspace, `p` focus the pane, `/` filter, `w` cycle the workspace
 filter, `c` clear every filter, `r` refresh, `?` help, `q` quit, and `1`-`9` in
@@ -293,6 +294,25 @@ tab and agent name the moment the agent starts, before the wait begins — the
 write comes from the dispatch worker, not from the board's event loop, so a
 board or quick-add popup closed mid-dispatch still leaves the link behind. Only
 the move to In Progress waits on the turn.
+
+**Sending one back.** A card in Review is either done or not, and `b` is the
+"not": the review round, as opposed to `s`, which re-prompts the same agent but
+leaves the card's record saying only that it was sent again. `b` asks for a
+comment first, then sends the card back to the agent that did the work —
+re-prompted in the pane it already runs in, and in its own checkout when it has
+one, so nothing is forked and no second agent is started. Only a card whose
+agent is still running can be bounced; a card whose run has ended is what `s` is
+for, and the notice says so.
+
+The comment lands on the card in **Updates**, as yours, and the round itself
+lands in **History** as `changes requested (round N)` — which is what makes
+review rounds readable in `⏎` instead of one more move in a flat list — while
+`review_round` counts them for `herdr-kanban show --json`. The move back to In
+Progress is the dispatch's, the same rule every send follows, so a bounce that
+never reached an agent leaves the card in Review with the round on record rather
+than claiming the work restarted. `herdr-kanban bounce <id> "what to change"` is
+the same round from a shell; the comment is required, and from the card's own
+pane the id can be left out the way every other verb allows.
 
 **Stopping an agent.** A card is the record of a run, so `d` (delete) stops the
 agent and closes the tab its dispatch opened, as part of deleting. Set

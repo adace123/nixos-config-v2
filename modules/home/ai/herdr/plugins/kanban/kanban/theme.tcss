@@ -27,6 +27,7 @@ ModalScreen {
 #dispatch-form,
 #filter-form,
 #help-dialog,
+#review-form,
 #confirm-dialog {
     background: #181825;
     border: round #45475a;
@@ -139,6 +140,10 @@ TextArea:focus {
 
 #field-notes {
     height: 5;
+}
+
+#field-comment {
+    height: 7;
 }
 
 Button {
