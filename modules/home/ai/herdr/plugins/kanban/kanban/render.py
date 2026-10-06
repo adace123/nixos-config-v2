@@ -30,11 +30,13 @@ COLUMN_HEADER_Y = 1
 CARDS_Y = 2
 
 
-def format_age(timestamp: float | None) -> str:
-    """Compact relative age, e.g. "2h" — for the detail view and cards."""
-    if not timestamp:
-        return "—"
-    seconds = max(0.0, time.time() - timestamp)
+def format_duration(seconds: float) -> str:
+    """Compact relative duration, e.g. "2h" — no sign, no ceiling.
+
+    Split out from `format_age` so the board can say how long an agent has been
+    idle without pretending it has an absolute timestamp to hand it.
+    """
+    seconds = max(0.0, seconds)
     if seconds < 90:
         return f"{int(seconds)}s"
     minutes = seconds / 60
@@ -49,6 +51,13 @@ def format_age(timestamp: float | None) -> str:
     return f"{int(days / 7)}w"
 
 
+def format_age(timestamp: float | None) -> str:
+    """Compact relative age, e.g. "2h" — for the detail view and cards."""
+    if not timestamp:
+        return "—"
+    return format_duration(time.time() - timestamp)
+
+
 @dataclass
 class CardView:
     """A task plus the live herdr state the card shows."""
@@ -56,6 +65,14 @@ class CardView:
     task: Task
     status: str = ""  # live herdr status; "" when no agent is running for it
     agent_online: bool = False
+    # How long the status above has held, in seconds, as the board observed it.
+    # 0.0 means untimed — a hand-built state, or a card the board has only just
+    # started watching — and only matters for the two below.
+    status_age: float = 0.0
+    # An agent that has sat idle in In Progress past `idle_stale_minutes`: the
+    # status rule adds how long it has been idle and tints yellow. Set in
+    # `model._card_view`, so the app, the snapshot and the tests all agree.
+    idle_stale: bool = False
     workspace_ok: bool = True
     # The kind this card's agent is (or was started as), resolved once in
     # `model.build_view`: the task's own kind when the board dispatched it, else
@@ -331,6 +348,9 @@ def id_badge_style(
     """
     if selected:
         return f"bold {icons.PALETTE['lavender']}"
+    if card.idle_stale:
+        # The status rule says the same thing; the badge is the glance.
+        return f"bold {icons.PALETTE['yellow']}"
     if card.status in ("working", "idle", "unknown", "exited"):
         return f"bold {icons.status_color(card.status)}"
     if not card.status and not show_age and card.task.updated_at:
@@ -501,7 +521,13 @@ def _card_rule(
     content = ""
     if card.status:
         mark = icons.status_glyph(card.status, card.frame, mode)
-        word = f"{mark} {icons.status_label(card.status)}"
+        label = icons.status_label(card.status)
+        # An idle agent past the stale window says how long it has been idle —
+        # the marker and its evidence in the one place with room at every card
+        # width. The word still drops on a narrow card; the tint stays.
+        if card.idle_stale:
+            label = f"{label} {format_duration(card.status_age)}"
+        word = f"{mark} {label}"
         if show_status_word and cell_len(word) <= room:
             content = word
         elif cell_len(mark) <= room:
@@ -509,7 +535,14 @@ def _card_rule(
     if content:
         line.append("─" * lead, style=border_style)
         line.append(" ")
-        line.append(content, style=icons.status_color(card.status))
+        line.append(
+            content,
+            style=(
+                icons.PALETTE["yellow"]
+                if card.idle_stale
+                else icons.status_color(card.status)
+            ),
+        )
         line.append(" ")
         # Measured rather than computed: the closing ╯ and the trimmed card
         # width are the only things that matter, and the arithmetic that gets

@@ -185,6 +185,16 @@ class Config:
     workspace_aliases: dict[str, str] = field(default_factory=dict)
     # Past this age an untouched card's age is tinted (yellow, then red at 2x).
     stale_after_days: float = 3.0
+    # A card in In Progress whose agent has been idle this long shows the idle
+    # mark with how long it has been idle, tinted (see `model._card_view`).
+    # Minutes; 0 turns the marker off. The clock is the board's own observation
+    # of the transition, so it starts when the board first sees the idle agent,
+    # not when the agent actually went idle.
+    idle_stale_minutes: float = 15.0
+    # A dispatched card whose agent is gone stops saying `no agent` this long
+    # after the board saw it exit, and goes back to a plain rule. Minutes; 0
+    # keeps `no agent` forever, the way the board behaved before decay existed.
+    exited_decay_minutes: float = 60.0
     path: Path | None = None
     load_error: str = ""
 
@@ -415,6 +425,14 @@ def load_config(path: Path | None = None) -> Config:
     staleness = board.get("stale_after_days")
     if isinstance(staleness, (int, float)) and not isinstance(staleness, bool):
         config.stale_after_days = max(0.1, float(staleness))
+
+    # The two live-state clocks are in minutes and may be 0 (off), so unlike
+    # `stale_after_days` there is no floor to clamp to: a card that never
+    # shows the marker is a setting, not a typo.
+    for key in ("idle_stale_minutes", "exited_decay_minutes"):
+        value = board.get(key)
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            setattr(config, key, max(0.0, float(value)))
 
     # [agents.<kind>] args = ["…"] — flags for dispatch, per agent kind.
     agents = data.get("agents")

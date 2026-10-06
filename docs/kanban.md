@@ -59,7 +59,7 @@ card, so a column can be read without reading it:
 | first line(s) | the title, two rows, ellipsised. |
 | `▪` + label | the workspace, with the dot in that workspace's colour. `⚠` and a red label when the workspace is closed. |
 | meta row, right | step progress (`2/5`), age, then the agent's mark (`π`) — and its kind (`π pi`) when `ui.show_agent_kind` is on. |
-| bottom rule | the live state, in words: `◐ working`, `▲ needs you`, `○ idle`, `✓ done`, `∅ no agent`. |
+| bottom rule | the live state, in words: `◐ working`, `▲ needs you`, `○ idle`, `✓ done`, `∅ no agent`. An agent idle in In Progress past `idle_stale_minutes` adds how long it has been idle (`○ idle 20m`, tinted yellow as is the id badge); a card whose agent is gone drops `no agent` after `exited_decay_minutes` and goes back to a plain rule. |
 
 The placement is deliberate: a card answers "which of these needs me" before it
 answers "what is it", which is the order you scan a board in. The rule along the
@@ -390,6 +390,22 @@ that agent name instead, and by the card's slug when no name was ever recorded
 (a dispatch names the agent after its card), so a link that went missing heals
 rather than needing a re-dispatch. A card with neither to check against — an old
 record — is believed by its pane as it always was.
+
+**Idle past a window, and gone for good, are the two states the snapshot
+cannot spell out.** herdr reports no timestamp for a status change — `agent
+list` carries `state_change_seq`, a counter, not a clock — so the board times
+the transitions it observes itself, in `Syncer.read_live`. A card whose agent
+has been idle in In Progress for `idle_stale_minutes` (15 by default) shows how
+long it has been idle (`○ idle 20m`, tinted yellow), which is the hint that an
+agent finished but did not move the card; a dispatched card whose agent is gone
+stops saying `no agent` once `exited_decay_minutes` (60 by default) have passed
+and goes back to a plain rule, because "exited" is news only while it is
+recent. Both clocks start when the board first sees the state, so they measure
+the current session rather than a persisted fact — a board that has just opened
+says nothing about a transition it did not watch, the same bargain the
+reconciler already makes. The decay is display-only: the detail view
+(`⏎`) still reports the raw status, and reconciliation never acts on `idle` or
+`exited` anyway. Set either key to 0 in `config.toml` to turn that half off.
 
 **When an agent blocks, the card moves to Blocked and herdr says so.** Blocked
 is the one state that costs something to ignore — the agent is stopped until you
@@ -817,6 +833,13 @@ sort = "updated"        # column order: "updated" = the card touched most
 # wip_limits = { doing = 5 }
 stale_after_days = 3    # age is tinted yellow past this, red at 2x; with
                         # show_age = false the id badge carries it instead
+idle_stale_minutes = 15 # an agent idle in In Progress this long says how long
+                        # (○ idle 20m, tinted); the clock starts when the board
+                        # first sees it, and 0 turns the marker off
+exited_decay_minutes = 60
+                        # a card whose agent is gone stops saying "no agent"
+                        # this long after the board saw it exit, back to a plain
+                        # rule; the same session clock, and 0 keeps it forever
 
 [workspaces]
 # Short codes for card ids (`cfg-8`). Optional: an unlisted workspace codes by

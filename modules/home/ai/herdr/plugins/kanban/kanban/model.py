@@ -8,6 +8,7 @@ can never disagree.
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 
 from . import icons
@@ -32,6 +33,13 @@ class LiveState:
     agents_by_pane: dict[str, Agent] = field(default_factory=dict)
     down: bool = False
     error: str = ""
+    # task id -> the monotonic time its live status was first seen in its
+    # current value. Maintained by `Syncer.read_live` across ticks; empty for a
+    # state built by hand (the demo, the tests, the first tick of a process),
+    # which is exactly "untimed" and keeps a card's old behaviour. Monotonic,
+    # not wall time: it only ever measures an interval, and a machine sleeping
+    # or a clock stepping must not turn it negative.
+    status_since: dict[str, float] = field(default_factory=dict)
 
     def lookup(self, task: Task) -> Agent | None:
         """The live agent for a task, or None when nothing can be confirmed.
@@ -259,12 +267,48 @@ def task_visible(task: Task, live: LiveState, ui: UiState) -> bool:
     return task_matches(task, ui.filter_text, live.workspace_label(task))
 
 
-def _card_view(task: Task, live: LiveState, ui: UiState) -> CardView:
-    """One card's live state, resolved once. Live and archived cards alike."""
+def _card_view(task: Task, live: LiveState, ui: UiState, config: Config) -> CardView:
+    """One card's live state, resolved once. Live and archived cards alike.
+
+    Two things the raw live status cannot tell on its own are decided here, both
+    timed from `LiveState.status_since`:
+
+      - a card whose agent has sat idle in In Progress for `idle_stale_minutes`
+        is flagged (`idle_stale`), so a card an agent finished but forgot to
+        move carries a hint instead of looking freshly picked up;
+      - a card whose agent is gone stops saying `no agent` once
+        `exited_decay_minutes` have passed since the board saw it exit (`status`
+        decays to ""), because "exited" is news only while it is recent —
+        forever it is just a card with no status.
+
+    Both are display-only. `Syncer` and the detail modal keep the raw
+    `for_task` status, so reconciliation (which never acts on `idle` or
+    `exited`) and `⏎` are unchanged; this is the layer that owns "what a card
+    shows", and the decay belongs here rather than in `for_task` for exactly
+    that reason. A card with no entry in `status_since` — a hand-built state, or
+    one the board has only just started watching — is untimed and behaves as it
+    always did.
+    """
     status, online = live.for_task(task)
+    since = live.status_since.get(task.id)
+    age = max(0.0, time.monotonic() - since) if since else 0.0
+    if (
+        status == "exited"
+        and config.exited_decay_minutes > 0
+        and age >= config.exited_decay_minutes * 60
+    ):
+        status = ""
+    idle_stale = (
+        status == "idle"
+        and task.status in config.columns_with_role("doing")
+        and config.idle_stale_minutes > 0
+        and age >= config.idle_stale_minutes * 60
+    )
     return CardView(
         task=task,
         status=status,
+        status_age=age,
+        idle_stale=idle_stale,
         agent_online=online,
         workspace_ok=live.workspace_ok(task),
         agent_kind=live.kind_hint(task),
@@ -308,7 +352,8 @@ def build_view(
         # column and `herdr-kanban list` cannot disagree about the order.
         in_column = [task for task in shown if task.status == column.id]
         cards = [
-            _card_view(task, live, ui) for task in sorted_cards(in_column, config.sort)
+            _card_view(task, live, ui, config)
+            for task in sorted_cards(in_column, config.sort)
         ]
         columns.append(
             ColumnView(
@@ -324,7 +369,7 @@ def build_view(
         archived_cards: list[CardView] = []
         for task in sorted_cards(archived, config.sort):
             if task_visible(task, live, ui):
-                archived_cards.append(_card_view(task, live, ui))
+                archived_cards.append(_card_view(task, live, ui, config))
             else:
                 hidden += 1
         columns.append(

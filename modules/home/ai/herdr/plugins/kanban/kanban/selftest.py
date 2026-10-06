@@ -5026,6 +5026,240 @@ def check_pane_identity(check: Checker, tmp: str) -> None:
             os.environ["KANBAN_BOARD_FILE"] = saved
 
 
+def check_live_staleness(check: Checker, tmp: str) -> None:
+    """The board times the live states it watches, and the view spends that clock.
+
+    herdr reports no timestamp for a status change — `agent list` carries
+    `state_change_seq`, a counter, not a clock — so `Syncer.read_live` times the
+    transitions it observes, and the view turns that into the two card states
+    the raw snapshot cannot express: an idle agent that has sat in In Progress
+    past `idle_stale_minutes` is flagged, and a card whose agent is gone stops
+    saying `no agent` after `exited_decay_minutes`. These checks pin the clock
+    (start, hold, restamp, carry-forward on a failed read) and what the view
+    does with it; a state that never carried a clock keeps the old behaviour.
+    """
+    from dataclasses import replace
+
+    from .config import load_config
+    from .herdr import Agent, Result, Workspace
+    from .model import LiveState, UiState, build_view
+    from .render import CardView, _card_rule, format_duration
+    from .sync import store_syncer
+
+    def make_agent(name: str, status: str, pane: str) -> Agent:
+        return Agent(
+            name=name,
+            status=status,
+            workspace_id="w1",
+            pane_id=pane,
+            tab_id="w1:t1",
+            cwd="",
+            focused=False,
+            title="",
+            logo="",
+        )
+
+    class StubHerdr(Herdr):
+        def __init__(self) -> None:
+            super().__init__(binary="/nonexistent-herdr")
+            self.status = "idle"
+            self.agents_ok = True
+
+        def workspaces(self):  # type: ignore[override]
+            return [
+                Workspace(
+                    id="w1",
+                    label="probe",
+                    number=1,
+                    active_tab_id="w1:t1",
+                    agent_status="idle",
+                )
+            ], Result(ok=True)
+
+        def agents(self):  # type: ignore[override]
+            if not self.agents_ok:
+                return [], Result(ok=False, message="agent list failed")
+            return [make_agent(idle_card.slug, self.status, "w1:p1")], Result(ok=True)
+
+    board = Path(tmp) / "staleness-board.json"
+    store = Store.open(board)
+    idle_card = store.add(
+        title="agent went idle", status="doing", workspace_id="w1", agent_kind="pi"
+    )
+    gone_card = store.add(
+        title="agent is gone", status="review", workspace_id="w1", agent_kind="pi"
+    )
+    store.hand_over(
+        idle_card.id,
+        "doing",
+        pane_id="w1:p1",
+        tab_id="w1:t1",
+        agent_name=idle_card.slug,
+        dispatched_at=time.time(),
+    )
+    store.hand_over(
+        gone_card.id,
+        "review",
+        pane_id="w1:p2",
+        tab_id="w1:t1",
+        agent_name=gone_card.slug,
+        dispatched_at=time.time(),
+    )
+
+    herdr = StubHerdr()
+    config = replace(
+        load_config(_pin_config(tmp, "staleness-config.toml")),
+        idle_stale_minutes=15.0,
+        exited_decay_minutes=60.0,
+    )
+    syncer = store_syncer(config, store, herdr)
+
+    # -- the clock the Syncer keeps across ticks -------------------------
+    clock = [1000.0]
+    real = time.monotonic
+    time.monotonic = lambda: clock[0]  # type: ignore[assignment]
+    try:
+        first = syncer.read_live(force=True)
+        check.check(
+            "the first sighting of a status starts its clock",
+            first.status_since.get(idle_card.id) == 1000.0
+            and first.status_since.get(gone_card.id) == 1000.0,
+            str(first.status_since),
+        )
+        clock[0] += 30
+        held = syncer.read_live()
+        check.check(
+            "an unchanged status keeps its clock",
+            held.status_since.get(idle_card.id) == 1000.0,
+            str(held.status_since),
+        )
+        herdr.status = "working"
+        clock[0] += 5
+        flipped = syncer.read_live()
+        check.check(
+            "a status change restamps the clock",
+            flipped.status_since.get(idle_card.id) == 1035.0,
+            str(flipped.status_since),
+        )
+        herdr.agents_ok = False
+        clock[0] += 600
+        unread = syncer.read_live()
+        check.check(
+            "a failed agent read carries the clocks forward, not to now",
+            unread.status_since.get(idle_card.id) == 1035.0
+            and unread.status_since.get(gone_card.id) == 1000.0,
+            str(unread.status_since),
+        )
+    finally:
+        time.monotonic = real  # type: ignore[assignment]
+
+    # -- what the view spends the clock on --------------------------------
+    def shown(task: Task, live: LiveState) -> CardView | None:
+        view = build_view(
+            config,
+            store.tasks,
+            live,
+            UiState(),
+            width=160,
+            height=20,
+            icon_mode="unicode",
+        )
+        return view.card(task.id)
+
+    idle_agent = make_agent(idle_card.slug, "idle", "w1:p1")
+    review_agent = make_agent(gone_card.slug, "idle", "w1:p2")
+    watched = LiveState(
+        agents={idle_agent.name: idle_agent, review_agent.name: review_agent},
+        agents_by_pane={
+            idle_agent.pane_id: idle_agent,
+            review_agent.pane_id: review_agent,
+        },
+        status_since={
+            idle_card.id: time.monotonic() - 1000,
+            gone_card.id: time.monotonic() - 1000,
+        },
+    )
+    idle_view = shown(idle_card, watched)
+    assert idle_view is not None
+    check.check(
+        "an idle agent in In Progress past the window is flagged",
+        idle_view.idle_stale and idle_view.status == "idle",
+        f"{idle_view.status}/{idle_view.idle_stale}",
+    )
+    rule = _card_rule(idle_view, 30, "unicode", "x", True).plain
+    check.check(
+        "and its rule says how long the agent has been idle",
+        "idle" in rule and format_duration(idle_view.status_age) in rule,
+        rule,
+    )
+    review_view = shown(gone_card, watched)
+    check.check(
+        "but an idle agent is only stale in In Progress, not in Review",
+        review_view is not None and not review_view.idle_stale,
+        str(review_view and review_view.idle_stale),
+    )
+    fresh_view = shown(
+        idle_card,
+        LiveState(
+            agents={idle_agent.name: idle_agent},
+            agents_by_pane={idle_agent.pane_id: idle_agent},
+            status_since={idle_card.id: time.monotonic()},
+        ),
+    )
+    check.check(
+        "and a recently idle agent is not flagged",
+        fresh_view is not None
+        and fresh_view.status == "idle"
+        and not fresh_view.idle_stale,
+        str(fresh_view and (fresh_view.status, fresh_view.idle_stale)),
+    )
+    decayed = shown(
+        gone_card, LiveState(status_since={gone_card.id: time.monotonic() - 3700})
+    )
+    check.check(
+        "a gone agent past the decay window stops saying no agent",
+        decayed is not None and decayed.status == "",
+        str(decayed and decayed.status),
+    )
+    inside = shown(
+        gone_card, LiveState(status_since={gone_card.id: time.monotonic() - 60})
+    )
+    untimed = shown(gone_card, LiveState())
+    check.check(
+        "a gone agent inside the window still says it, as untimed state does",
+        inside is not None
+        and inside.status == "exited"
+        and untimed is not None
+        and untimed.status == "exited",
+        str(inside and inside.status),
+    )
+
+    # -- the two keys ----------------------------------------------------
+    parsed = Path(tmp) / "staleness-keys.toml"
+    parsed.write_text(
+        "[board]\nidle_stale_minutes = 5\nexited_decay_minutes = 0\n",
+        encoding="utf-8",
+    )
+    keys = load_config(parsed)
+    check.check(
+        "the staleness keys parse, and 0 turns one off",
+        keys.idle_stale_minutes == 5.0 and keys.exited_decay_minutes == 0.0,
+        f"{keys.idle_stale_minutes}/{keys.exited_decay_minutes}",
+    )
+    bad = Path(tmp) / "staleness-bad.toml"
+    bad.write_text(
+        '[board]\nidle_stale_minutes = "soon"\nexited_decay_minutes = -5\n',
+        encoding="utf-8",
+    )
+    fallback = load_config(bad)
+    check.check(
+        "a bad value falls back, a negative one clamps to off",
+        fallback.idle_stale_minutes == 15.0
+        and fallback.exited_decay_minutes == 0.0,
+        f"{fallback.idle_stale_minutes}/{fallback.exited_decay_minutes}",
+    )
+
+
 def check_prompt_delivery(check: Checker, tmp: str) -> None:
     """A prompt that lands in the composer but starts nothing must not pass.
 
@@ -6356,6 +6590,7 @@ async def _run(check: Checker) -> None:
             await check_live_loop(check, tmp)
             check_settle_columns(check, tmp)
             check_pane_identity(check, tmp)
+            check_live_staleness(check, tmp)
             check_sync_daemon(check, tmp)
             check_prompt_delivery(check, tmp)
             check_send_records_unconfirmed(check, tmp)

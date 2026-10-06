@@ -87,6 +87,17 @@ sort = "updated"
 # wip_limits = { doing = 5 }
 # Cards untouched for this many days are tinted yellow, and red at 2x.
 stale_after_days = 3
+# A card in In Progress whose agent has been idle this many minutes shows the
+# idle mark with how long it has been idle, tinted yellow — the hint that an
+# agent finished but did not move the card. The clock starts when the board
+# first sees the idle agent, so it is about the current session, not a persisted
+# fact; 0 turns the marker off.
+idle_stale_minutes = 15
+# A dispatched card whose agent is gone stops saying "no agent" this many
+# minutes after the board saw it exit, and goes back to a plain rule: "exited"
+# is news while it is recent, and noise once it is not. Same session clock as
+# above; 0 keeps "no agent" forever.
+exited_decay_minutes = 60
 
 # Short codes for card ids. A card is filed as `<code>-<number>` (`snow-8`): the
 # code of the workspace it was filed in, then a number from that code's own

@@ -153,6 +153,10 @@ class Syncer:
         # task id -> the live status it had last reconcile, for the transition
         # announcements in `announce_transitions`.
         self.last_status: dict[str, str] = {}
+        # task id -> (live status, monotonic time it was first seen in it).
+        # `read_live` keeps this across ticks so the view can time a stale idle
+        # or a decayed exit; see `_status_since`.
+        self._live_status: dict[str, tuple[str, float]] = {}
 
     def read_live(self, force: bool = False) -> LiveState:
         """Read herdr, on two clocks, and return it as a `LiveState`.
@@ -174,13 +178,51 @@ class Syncer:
             )
             self._workspaces_read_at = now
         agents, agent_result = self.herdr.agents()
-        return LiveState(
+        live = LiveState(
             workspaces=self._workspaces,
             agents={agent.name: agent for agent in agents},
             agents_by_pane={agent.pane_id: agent for agent in agents},
             down=not (self._workspaces_ok or agent_result.ok),
             error=self._workspaces_error,
         )
+        live.status_since = self._status_since(live, agent_result.ok)
+        return live
+
+    def _status_since(self, live: LiveState, agents_ok: bool) -> dict[str, float]:
+        """When each card's live status last changed, as the board observed it.
+
+        herdr reports no clock for this: `agent list` has `state_change_seq`, a
+        counter, not a timestamp, so "how long has this agent been idle" has no
+        answer in the snapshot itself. The only honest anchor is the board's own
+        observation — the first tick that sees a card in a new status starts its
+        clock — which is the same bargain `reconcile` already makes with
+        `last_status`: a process that has just started says nothing about a
+        transition it did not watch. The clock therefore resets when the board
+        or the daemon restarts; the marker is a hint about the current session,
+        not a persisted fact.
+
+        A tick that could not read the agent list must not look like every agent
+        vanishing at once, so a failed read (herdr down, or `agent list` alone
+        failing) carries the previous clocks forward untouched instead of
+        restamping them. `time.monotonic` rather than wall time: the value is
+        only ever subtracted from another `monotonic` reading, so a clock step
+        or a sleep cannot make it negative.
+        """
+        if not agents_ok or live.down:
+            return {
+                task_id: since for task_id, (_, since) in self._live_status.items()
+            }
+        now = time.monotonic()
+        fresh: dict[str, tuple[str, float]] = {}
+        for task in self.tasks():
+            status, _ = live.for_task(task)
+            previous = self._live_status.get(task.id)
+            if previous is not None and previous[0] == status:
+                fresh[task.id] = previous
+            else:
+                fresh[task.id] = (status, now)
+        self._live_status = fresh
+        return {task_id: since for task_id, (_, since) in fresh.items()}
 
     def reconcile(self, live: LiveState) -> None:
         """One tick of the rules, against `live`."""
