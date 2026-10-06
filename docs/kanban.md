@@ -73,7 +73,10 @@ that is moving. That is `[board] sort = "updated"`, the default, and it is a vie
 the board file is not rewritten to record it. `sort = "manual"` gives back the
 file's own list order instead, which is the order `J`/`K` edit — while a column is
 sorted those keys refuse and the notice names the config line, because a reorder
-you cannot see move is a write that lies about the board.
+you cannot see move is a write that lies about the board. The sort is what the
+board draws and what bare `list` follows; `list --json` reports the board file's
+own list order instead, because an automation reading the array — "the top of
+the backlog" — must not have it reorder underfoot when a card is touched.
 
 The **agent mark** (`π`) comes from `task.agent_kind` when the board did the
 dispatching; for an agent started by hand the live agent's own mark

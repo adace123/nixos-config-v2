@@ -260,6 +260,84 @@ def check_store(check: Checker, tmp: str) -> None:
     )
 
 
+def check_list_order(check: Checker, tmp: str) -> None:
+    """`list --json` holds its order; bare `list` still follows the board.
+
+    The configured sort is a view for an eye moving down a column, and it keys
+    on `updated_at`: a card that is noted or moved rises to the top. An
+    automation reading the JSON array by position — the "send the top of the
+    backlog" shape — would watch the board shuffle underneath it between two
+    calls, so the machine-readable form reports the board file's own list order
+    instead. Bare `list` keeps drawing what the board draws.
+    """
+    import contextlib
+    import io
+    import json
+    import os
+
+    from .cli import run_agent_command
+
+    board = Path(tmp) / "list-order-board.json"
+    config_path = _pin_config(tmp, "list-order-config.toml", sort="updated")
+    saved = {
+        key: os.environ.get(key)
+        for key in ("KANBAN_BOARD_FILE", "KANBAN_CONFIG_FILE", "HERDR_PANE_ID")
+    }
+    os.environ["KANBAN_BOARD_FILE"] = str(board)
+    os.environ["KANBAN_CONFIG_FILE"] = str(config_path)
+    os.environ.pop("HERDR_PANE_ID", None)
+
+    def cli(*argv: str) -> tuple[int, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = run_agent_command(list(argv))
+        return code, (out.getvalue() + err.getvalue()).strip()
+
+    try:
+        store = Store.open(board)
+        for title in ("First in the file", "Second in the file", "Third in the file"):
+            store.add(title=title, status="backlog")
+        # Stamps go on the file the CLI reads, not on the objects `add` returned:
+        # each add reloads, so an earlier card's in-memory stamp is gone by the
+        # next one. Fixed stamps rather than a sleep, so the order being checked
+        # is decided by the check and not by timer resolution.
+        payload = store.payload()
+        for item, stamp in zip(payload["tasks"], (100.0, 200.0, 300.0)):
+            item["updated_at"] = stamp
+        board.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+        file_order = [item["id"] for item in payload["tasks"]]
+        code, out = cli("list", "--json")
+        check.check(
+            "list --json keeps the board file's order under sort = updated",
+            code == 0 and [item["id"] for item in json.loads(out)] == file_order,
+            out[:80],
+        )
+        code, out = cli("list")
+        positions = [out.index(task_id) for task_id in file_order]
+        check.check(
+            "bare list still follows the configured sort",
+            code == 0 and positions == sorted(positions, reverse=True),
+            out,
+        )
+        # A touch is exactly what the view sort reacts to; the JSON must not.
+        code, _ = cli("note", file_order[0], "touched, so it is the newest now")
+        code2, out = cli("list", "--json")
+        check.check(
+            "a touch that reorders the board leaves list --json alone",
+            code == 0
+            and code2 == 0
+            and [item["id"] for item in json.loads(out)] == file_order,
+            out[:80],
+        )
+    finally:
+        for key, value in saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
 def check_assign(check: Checker, tmp: str) -> None:
     """`assign` changes the agent a card is sent to, and says what it did."""
     import contextlib
@@ -1705,6 +1783,7 @@ def _pin_config(
     *,
     agent_title_overrides: bool = False,
     auto_archive_agent: bool = False,
+    sort: str = "manual",
 ) -> Path:
     """Point every check at a config built from the defaults.
 
@@ -1725,8 +1804,9 @@ def _pin_config(
         # drive `J`/`K`, which is the one key the default sort hands back, and a
         # check whose answer depends on what the board's own config.toml (or the
         # built-in default) happens to say is not a check. The default sort gets
-        # its own checks — `updated` in `check_store`, the refusal below.
-        'sort = "manual"\n'
+        # its own checks — `updated` in `check_store` and `check_list_order`,
+        # the refusal below.
+        f'sort = "{sort}"\n'
         "[behavior]\nannounce_protocol = true\nsync_seconds = 0.5\n"
         # Spelled out rather than left to the default, so this board's own
         # config.toml cannot decide what the checks exercise: the title policy
@@ -6024,6 +6104,7 @@ async def _run(check: Checker) -> None:
         os.environ["KANBAN_NOTIFY_CMD"] = "true"
         try:
             check_store(check, tmp)
+            check_list_order(check, tmp)
             check_pane_args(check, tmp)
             check_ids(check, tmp)
             check_counters(check, tmp)

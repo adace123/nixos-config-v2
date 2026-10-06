@@ -436,10 +436,19 @@ def _list(args: list[str], store: Store, config: Config) -> int:
         in_task_pane = bool(pane) and store.resolve("", pane) is not None
         mine = "--mine" in args or (in_task_pane and not args)
         tasks = list(store.tasks)
-    # The board's column order, so an agent reading `list` sees what you see.
-    # Sorting the flat list before the per-column grouping below is the same
-    # thing as sorting each column: the group keeps the order it was given.
-    tasks = sorted_cards(tasks, config.sort)
+    # Bare `list` draws the board's column order, so an agent reading it sees
+    # what you see. Sorting the flat list before the per-column grouping below is
+    # the same thing as sorting each column: the group keeps the order it was
+    # given.
+    #
+    # `--json` is automation input, not a column an eye follows down. The
+    # configured sort keys on `updated_at`, so a card that is noted or moved
+    # rises to the top and the array reorders between two reads — a consumer
+    # taking "the top of the backlog" by position would get whatever happened to
+    # be touched last. The board file's own list order does not move for a
+    # touch, so the machine-readable form reports that instead.
+    if not as_json:
+        tasks = sorted_cards(tasks, config.sort)
     if mine:
         tasks = [
             task

@@ -79,7 +79,9 @@ default_column = "backlog"
 # edit. Order is a view, not a write: the file keeps its list order either way,
 # so switching back to "manual" restores the arrangement you had. While a column
 # is sorted, `J`/`K` refuses and says so rather than moving a card you would not
-# see move.
+# see move. The sort is the board's and bare `list`'s; `list --json` always
+# reports the file's list order, so an automation's array does not move when a
+# card is touched.
 sort = "updated"
 # Optional per-column card limits, shown as "3/5" and highlighted when full.
 # wip_limits = { doing = 5 }

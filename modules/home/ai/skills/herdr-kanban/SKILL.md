@@ -91,9 +91,11 @@ herdr-kanban add "<title>" --notes "why it is separate from this one"
   a suggestion instead of overwriting it.
 - **Planning** — `list --json` prints the whole board (bare `list` inside a
   card's pane gives only yours), and `show <id> --json` gives one card in full.
-  That is how you check whether a follow-up is already filed, which column
-  review really is on this board, and what the human is waiting on. Read
-  everything; change only the card you were given and the ones you file.
+  Its order is the board file's list order, not the board's `sort`, so it does
+  not move when a card is touched. That is how you check whether a follow-up is
+  already filed, which column review really is on this board, and what the human
+  is waiting on. Read everything; change only the card you were given and the
+  ones you file.
 - **Ids** are `<workspace-code>-<n>` — `cfg-8`, the code naming the workspace the
   card was *filed* in. Matching ignores case, and the number counts per workspace
   code, so `8` names a card only while one card holds it: pass the full id when
