@@ -17,7 +17,8 @@
       "Bash(nix flake check:*)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(statix check:*)",
-      "Bash(nix-instantiate:*)"
+      "Bash(nix-instantiate:*)",
+      "Bash(herdr-kanban:*)"
     ]
   }
 }
