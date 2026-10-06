@@ -38,6 +38,16 @@ class Checker:
             print(f"  FAIL  {name}{('  — ' + detail) if detail else ''}")
 
 
+def _write_python_executable(path: Path, source: str) -> None:
+    """Write a fixture command using the interpreter running this self-test.
+
+    Nix build sandboxes do not provide `/usr/bin/env`, so generated test commands
+    must not rely on `#!/usr/bin/env bash` (or `python3` being on `PATH`).
+    """
+    path.write_text(f"#!{sys.executable}\n{source}", encoding="utf-8")
+    path.chmod(0o755)
+
+
 def check_store(check: Checker, tmp: str) -> None:
     """The messy half: real persistence, plans, and dispatch bookkeeping.
 
@@ -1505,18 +1515,21 @@ def check_add_notification(check: Checker, tmp: str) -> None:
     board = Path(tmp) / "add-notify-board.json"
     log = Path(tmp) / "add-notify.txt"
     notifier = Path(tmp) / "add-notifier"
-    notifier.write_text(
-        f'#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "{log}"\n', encoding="utf-8"
+    _write_python_executable(
+        notifier,
+        f"import sys\n"
+        f"with open({str(log)!r}, 'a', encoding='utf-8') as handle:\n"
+        "    handle.write(' '.join(sys.argv[1:]) + '\\n')\n",
     )
-    notifier.chmod(0o755)
     herdr_log = Path(tmp) / "add-notify-herdr.txt"
     fake_herdr = Path(tmp) / "add-notify-herdr"
-    fake_herdr.write_text(
-        f'#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "{herdr_log}"\n'
-        'echo \'{"id":"x","result":{}}\'\n',
-        encoding="utf-8",
+    _write_python_executable(
+        fake_herdr,
+        f"import sys\n"
+        f"with open({str(herdr_log)!r}, 'a', encoding='utf-8') as handle:\n"
+        "    handle.write(' '.join(sys.argv[1:]) + '\\n')\n"
+        "print('{\"id\":\"x\",\"result\":{}}')\n",
     )
-    fake_herdr.chmod(0o755)
 
     keys = (
         "KANBAN_BOARD_FILE",
@@ -1920,12 +1933,14 @@ async def check_quick_capture(check: Checker, tmp: str) -> None:
 
     calls: list[list[str]] = []
     fake = Path(tmp) / "fake-herdr"
-    fake.write_text(
-        '#!/usr/bin/env bash\necho "$@" >> ' + str(Path(tmp) / "calls.txt") + "\n"
-        'echo \'{"id":"x","result":{}}\'\n',
-        encoding="utf-8",
+    calls_file = Path(tmp) / "calls.txt"
+    _write_python_executable(
+        fake,
+        f"import sys\n"
+        f"with open({str(calls_file)!r}, 'a', encoding='utf-8') as handle:\n"
+        "    handle.write(' '.join(sys.argv[1:]) + '\\n')\n"
+        "print('{\"id\":\"x\",\"result\":{}}')\n",
     )
-    fake.chmod(0o755)
 
     board = Path(tmp) / "capture-board.json"
     # Quick capture is seeded from the workspace the board was launched in, so
@@ -3155,11 +3170,10 @@ def check_hardening(check: Checker, tmp: str) -> None:
                 os.environ["KANBAN_CONFIG_FILE"] = saved_config
 
         fake = Path(tmp) / "fake-herdr-error"
-        fake.write_text(
-            '#!/usr/bin/env bash\nprintf \'{"id":"x","error":"boom"}\'\n',
-            encoding="utf-8",
+        _write_python_executable(
+            fake,
+            "print('{\"id\":\"x\",\"error\":\"boom\"}')\n",
         )
-        fake.chmod(0o755)
         result = herdr_module.Herdr(binary=str(fake)).workspaces()[1]
         check.check(
             "a non-dict error payload is still a failure",
@@ -4755,11 +4769,12 @@ async def check_live_loop(check: Checker, tmp: str) -> None:
     board = Path(tmp) / "live-board.json"
     notify_log = Path(tmp) / "live-notify.txt"
     notifier = Path(tmp) / "fake-notifier"
-    notifier.write_text(
-        f'#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "{notify_log}"\n',
-        encoding="utf-8",
+    _write_python_executable(
+        notifier,
+        f"import sys\n"
+        f"with open({str(notify_log)!r}, 'a', encoding='utf-8') as handle:\n"
+        "    handle.write(' '.join(sys.argv[1:]) + '\\n')\n",
     )
-    notifier.chmod(0o755)
     env_keys = (
         "KANBAN_BOARD_FILE",
         "HERDR_WORKSPACE_ID",
