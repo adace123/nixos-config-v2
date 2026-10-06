@@ -74,7 +74,12 @@ class Dialog(ModalScreen):
 
     def compose(self) -> ComposeResult:
         with Vertical(id=self.box_id):
-            yield Static(self.dialog_title(), id="dialog-title")
+            # Card text is free text: a title can carry a `[/tmp/x]`, and a
+            # `Static` parses its content as Textual markup unless told not to —
+            # which took the detail view down with MarkupError. No dialog title
+            # is markup, and the widgets built in `build_body` set the same flag
+            # wherever they show text a human or an agent typed.
+            yield Static(self.dialog_title(), id="dialog-title", markup=False)
             with VerticalScroll(id="dialog-body"):
                 yield from self.build_body()
             hint = self.hint_text()
@@ -513,24 +518,28 @@ class TaskDetailModal(Dialog):
 
     def build_body(self) -> Iterator[object]:
         task = self.subject
-        yield Static(self._facts(), id="detail-facts")
+        # Everything below is the card's own text — title, notes, steps, updates,
+        # history, the agent's pane output — so it is shown literally. `markup=False`
+        # also covers the `update()` calls in `refresh_dynamic`/`_show_tail`: a
+        # widget reuses the flag it was built with.
+        yield Static(self._facts(), id="detail-facts", markup=False)
         if task.notes:
             yield Static("Notes", classes="field-label")
-            yield Static(task.notes, id="detail-notes")
+            yield Static(task.notes, id="detail-notes", markup=False)
         if task.steps:
             yield Static(
                 self._steps_label(), classes="field-label", id="detail-label-steps"
             )
-            yield Static(self._steps(), id="detail-steps")
+            yield Static(self._steps(), id="detail-steps", markup=False)
         if task.progress:
             yield Static("Updates", classes="field-label")
-            yield Static(self._updates(), id="detail-updates")
+            yield Static(self._updates(), id="detail-updates", markup=False)
         if task.history:
             yield Static("History", classes="field-label")
-            yield Static(self._history(), id="detail-history")
+            yield Static(self._history(), id="detail-history", markup=False)
         if self.target:
             yield Static("Agent output", classes="field-label")
-            yield Static("", id="detail-tail")
+            yield Static("", id="detail-tail", markup=False)
         else:
             yield Static(
                 "no agent has been started for this card yet — press s to send it",
@@ -745,12 +754,13 @@ class DispatchModal(Dialog):
     def build_body(self) -> Iterator[object]:
         plan = self.plan
         if self.wip_warning:
-            yield Static(self.wip_warning, id="dispatch-wip")
+            yield Static(self.wip_warning, id="dispatch-wip", markup=False)
         if plan.reuses_running_agent:
             yield Static(
                 f"reusing running agent  {plan.reuse_name or plan.reuse_target}"
                 + (f"  in {plan.reuse_pane}" if plan.reuse_pane else ""),
                 id="dispatch-reuse",
+                markup=False,
             )
         else:
             yield Static("Workspace", classes="field-label")
@@ -779,6 +789,7 @@ class DispatchModal(Dialog):
                 "flags   " + (" ".join(plan.args) or "—"),
                 classes="field-note",
                 id="dispatch-args",
+                markup=False,
             )
             # Fork (or reuse) a checkout for this run, so two cards on one repo
             # never share a working tree. On by default when the card already
@@ -794,6 +805,7 @@ class DispatchModal(Dialog):
                 + (f"   (reusing {plan.worktree_path})" if plan.worktree_path else ""),
                 classes="field-note",
                 id="dispatch-worktree-note",
+                markup=False,
             )
         yield Static("Prompt", classes="field-label")
         yield TextArea(plan.prompt, id="dispatch-prompt")
@@ -905,6 +917,7 @@ class ReviewModal(Dialog):
             f"{agent} is re-prompted in {where} — the run is continued, not"
             " restarted.",
             classes="field-note",
+            markup=False,
         )
         yield Static("What needs changing?", classes="field-label")
         yield TextArea(id="field-comment")
@@ -1092,7 +1105,7 @@ class ConfirmModal(Dialog):
         return self._title
 
     def build_body(self) -> Iterator[object]:
-        yield Static(self.message, id="confirm-message")
+        yield Static(self.message, id="confirm-message", markup=False)
 
     def build_buttons(self) -> Iterator[object]:
         yield Button(

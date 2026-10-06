@@ -5491,6 +5491,165 @@ async def check_detail_tail(check: Checker, tmp: str) -> None:
                 os.environ[key] = value
 
 
+async def check_markup(check: Checker, tmp: str) -> None:
+    """Card text is shown, not parsed: markup-shaped text must not crash a dialog.
+
+    `Static` parses its content as Textual markup unless told otherwise, and the
+    board hands card text to it in a lot of places: the detail view's title,
+    facts, notes, steps, updates and history, the confirm dialog's message, the
+    review and dispatch notes. A card whose title or notes contain `[/tmp/x]`
+    used to take its own detail view down with MarkupError. A toast parses its
+    message too (`App.notify`), so the capture confirmation is driven here as
+    well.
+    """
+    import os
+
+    from textual.widgets import Input, Static
+
+    from .app import KanbanApp
+    from .config import load_config
+    from .dispatch import Plan
+    from .herdr import Herdr
+    from .modals import ConfirmModal, DispatchModal, ReviewModal
+    from .store import Store
+
+    board = Path(tmp) / "markup-board.json"
+    saved = os.environ.get("KANBAN_BOARD_FILE")
+    os.environ["KANBAN_BOARD_FILE"] = str(board)
+    try:
+        store = Store.open(board)
+        task = store.add(
+            title="removed [/tmp/x] earlier",
+            notes="see [b]this[/b] note, then [/tmp/x]",
+            status="queued",
+            workspace_id="w1",
+            workspace_label="a[b]space",
+            agent_kind="pi",
+            labels=["br[ack]et"],
+            title_source="agent",
+            original_title="captured [/tmp/x] title",
+        )
+        store.add_step(task.id, "dropped [/tmp/x]")
+        store.add_progress(task.id, "cleaned [/tmp/x] up")
+        app = KanbanApp(
+            config=load_config(), store=store, herdr=Herdr(binary="/nonexistent-herdr")
+        )
+        async with app.run_test(size=(110, 40)) as pilot:
+            await pilot.pause()
+            app.select_card(task.id)
+            await pilot.press("enter")
+            await pilot.pause()
+            detail = app.screen
+            check.check(
+                "a card whose text looks like markup still opens its detail view",
+                detail.__class__.__name__ == "TaskDetailModal",
+                detail.__class__.__name__,
+            )
+            shown = {
+                widget_id: str(detail.query_one(widget_id, Static).render())
+                for widget_id in (
+                    "#dialog-title",
+                    "#detail-facts",
+                    "#detail-notes",
+                    "#detail-steps",
+                    "#detail-updates",
+                    "#detail-history",
+                )
+            }
+            check.check(
+                "and shows its title, facts, notes, steps and updates literally",
+                "removed [/tmp/x] earlier" in shown["#dialog-title"]
+                and "br[ack]et" in shown["#detail-facts"]
+                and "[b]this[/b]" in shown["#detail-notes"]
+                and "dropped [/tmp/x]" in shown["#detail-steps"]
+                and "cleaned [/tmp/x] up" in shown["#detail-updates"]
+                and "[/tmp/x]" in shown["#detail-history"],
+                " | ".join(f"{key}={value!r}" for key, value in shown.items()),
+            )
+            await pilot.press("escape")
+            await pilot.pause()
+
+            # The confirm dialog puts the same title in its message.
+            confirmed = ConfirmModal(
+                "Delete task",
+                f"Delete {task.id} — {task.title}?\n\n{task.notes}",
+                confirm_label="Delete",
+                danger=True,
+            )
+            app.push_screen(confirmed)
+            await pilot.pause()
+            message = str(confirmed.query_one("#confirm-message", Static).render())
+            check.check(
+                "the confirm dialog shows a markup-shaped message literally",
+                "removed [/tmp/x] earlier" in message,
+                repr(message),
+            )
+            await pilot.press("escape")
+            await pilot.pause()
+
+            # The review and dispatch notes carry the same text.
+            review = ReviewModal(task, workspace_label="a[b]space")
+            app.push_screen(review)
+            await pilot.pause()
+            review_note = str(review.query_one(".field-note", Static).render())
+            check.check(
+                "the review dialog shows a markup-shaped title literally",
+                "removed [/tmp/x] earlier" in review_note,
+                repr(review_note),
+            )
+            await pilot.press("escape")
+            await pilot.pause()
+
+            dispatch = DispatchModal(
+                Plan(
+                    task_id=task.id,
+                    workspace_id="w1",
+                    workspace_label="a[b]space",
+                    kind="pi",
+                    name="pi",
+                    prompt="do it",
+                    args=("--model", "m[1]"),
+                    reuse_target="w1:p9",
+                    reuse_name="agent [x]",
+                    reuse_pane="w1:p9",
+                ),
+                app.config,
+                workspaces=[],
+                icon_mode="unicode",
+            )
+            app.push_screen(dispatch)
+            await pilot.pause()
+            reuse = str(dispatch.query_one("#dispatch-reuse", Static).render())
+            check.check(
+                "the dispatch dialog shows a markup-shaped agent name literally",
+                "agent [x]" in reuse,
+                repr(reuse),
+            )
+            await pilot.press("escape")
+            await pilot.pause()
+
+            # And the capture confirmation, which goes out as a toast.
+            await pilot.press("a")
+            await pilot.pause()
+            form = app.screen
+            form.query_one("#field-title", Input).value = "typed [/tmp/x] title"
+            form.action_save()
+            await pilot.pause()
+            check.check(
+                "a markup-shaped title still saves and confirms",
+                any(
+                    other.title == "typed [/tmp/x] title"
+                    for other in Store.open(board).tasks
+                ),
+                str([other.title for other in Store.open(board).tasks]),
+            )
+    finally:
+        if saved is None:
+            os.environ.pop("KANBAN_BOARD_FILE", None)
+        else:
+            os.environ["KANBAN_BOARD_FILE"] = saved
+
+
 async def check_edit_title(check: Checker, tmp: str) -> None:
     """Saving the edit form must not write back a title the human never typed.
 
@@ -5717,6 +5876,7 @@ async def _run(check: Checker) -> None:
             await check_archive_stops_agent(check, tmp)
             await check_tab_follows_title(check, tmp)
             await check_detail_tail(check, tmp)
+            await check_markup(check, tmp)
             await check_quit(check, tmp)
         finally:
             if saved is None:

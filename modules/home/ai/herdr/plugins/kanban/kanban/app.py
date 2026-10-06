@@ -465,6 +465,7 @@ class KanbanApp(App[None]):
             + (f" · {closed}" if closed else "")
             + (f" · {removed}" if removed else ""),
             title="kanban",
+            markup=False,
         )
 
     def archive_task(self, task: Task) -> None:
@@ -637,6 +638,7 @@ class KanbanApp(App[None]):
         self.notify(
             f"{created.id} · {created.title}\n{workspace} · {agent}",
             title="kanban",
+            markup=False,
         )
         # Quick capture opens in a popup that closes the moment it saves, so
         # leave the confirmation somewhere it will still be seen.
@@ -918,6 +920,7 @@ class KanbanApp(App[None]):
             f"{task.id}: {message or 'no agent to stop'}",
             title="kanban",
             severity="information" if message else "warning",
+            markup=False,
         )
         self._after_change(task.id)
 
@@ -1066,7 +1069,7 @@ class KanbanApp(App[None]):
             return False
         warning = self.wip_warning(task)
         if warning:
-            self.notify(warning, title="kanban", severity="warning")
+            self.notify(warning, title="kanban", severity="warning", markup=False)
         if self.demo_mode:
             self.set_notice(
                 f"demo: would send {plan.task_id} to {plan.name} ({plan.kind})"
@@ -1153,6 +1156,7 @@ class KanbanApp(App[None]):
             self.notify(
                 f"{task_id} sent to {outcome.agent_name or plan.name} in {where}",
                 title="kanban dispatch",
+                markup=False,
             )
             self.set_notice(f"{task_id} {result_summary(outcome)}", timeout=6)
             if target:
@@ -1163,6 +1167,7 @@ class KanbanApp(App[None]):
                 title="kanban dispatch",
                 severity="error",
                 timeout=10,
+                markup=False,
             )
             self.set_notice(f"{task_id} failed: {outcome.detail()}"[:140], timeout=10)
         self.ui.selected_id = task_id
@@ -1189,6 +1194,7 @@ class KanbanApp(App[None]):
                 f"could not focus {description}: {result.error_text()}",
                 severity="warning",
                 title="herdr",
+                markup=False,
             )
 
     def action_focus_agent(self) -> None:
