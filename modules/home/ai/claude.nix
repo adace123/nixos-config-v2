@@ -50,6 +50,7 @@ in
           "Bash(git stash*)"
           "Bash(git restore*)"
           "Bash(git add*)"
+          "Bash(git commit*)"
           "Bash(cat *)"
           "Bash(ls *)"
           "Bash(find *)"
@@ -66,6 +67,7 @@ in
           "Bash(command -v *)"
           "Bash(printenv *)"
           "Bash(readlink *)"
+          "Bash(herdr *)"
           "Read(*)"
           "WebFetch(domain:github.com)"
           "WebFetch(domain:raw.githubusercontent.com)"
@@ -73,14 +75,6 @@ in
           "WebFetch(domain:npmjs.com)"
           "mcp__context7__get-library-docs"
           "mcp__context7__resolve-library-id"
-        ];
-        ask = [
-          "Bash(git commit*)"
-          "Bash(git push*)"
-          "Bash(git merge*)"
-          "Bash(git rebase*)"
-          "Bash(git reset*)"
-          "Write(*)"
         ];
       };
       hooks = {
