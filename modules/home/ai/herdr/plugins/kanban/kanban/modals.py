@@ -193,10 +193,11 @@ class MultilineArea(TextArea):
     chat UI ever trained the hand on accepts `shift+enter` for a new line, and a
     notes box that ignores it reads as a box that cannot take one.
 
-    Both of the board's free-text boxes — the notes field and the dispatch
-    prompt — are this widget, so the key means the same thing in either. Neither
-    box saves on a key of its own: `ctrl+s` saves from anywhere, and `enter`
-    saves only from the title field, the one field that is a single line.
+    Every free-text box on the board — the notes field, the dispatch prompt and
+    the review comment — is this widget, so the key means the same thing in
+    each. None of them saves on a key of its own: `ctrl+s` saves from anywhere,
+    and `enter` saves only from the title field, the one field that is a single
+    line.
     """
 
     BINDINGS = [Binding("shift+enter", "new_line", "new line", show=False)]
@@ -916,9 +917,11 @@ class ReviewModal(Dialog):
     """Ask what a Review card needs before its agent runs again (`b`).
 
     One box, because a bounce is one question: what needs changing. The box is
-    a `TextArea`, so `⏎` starts a new line, and `ctrl+s` sends the card back —
-    the key every other form on the board saves with. The comment reaches the
-    agent verbatim, so nothing here summarises or reformats it.
+    the board's `MultilineArea` — the same box the notes field and the dispatch
+    prompt are — so `⏎` and `shift+⏎` both start a new line, and `ctrl+s` sends
+    the card back, the key every other form on the board saves with. The
+    comment reaches the agent verbatim, so nothing here summarises or reformats
+    it.
     """
 
     BINDINGS = [
@@ -953,22 +956,22 @@ class ReviewModal(Dialog):
             markup=False,
         )
         yield Static("What needs changing?", classes="field-label")
-        yield TextArea(id="field-comment")
+        yield MultilineArea(id="field-comment")
 
     def build_buttons(self) -> Iterator[object]:
         yield Button("Send back", variant="primary", id="send")
         yield Button("Cancel", id="cancel")
 
     def on_mount(self) -> None:
-        self.query_one("#field-comment", TextArea).focus()
+        self.query_one("#field-comment", MultilineArea).focus()
 
     def action_send(self) -> None:
-        text = self.query_one("#field-comment", TextArea).text.strip()
+        text = self.query_one("#field-comment", MultilineArea).text.strip()
         if not text:
             # The modal stays up: a bounce with nothing in it re-prompts the
             # agent with an empty prompt, which is the one thing the key must
             # not do. (A cancel is how you leave without one.)
-            self.query_one("#field-comment", TextArea).focus()
+            self.query_one("#field-comment", MultilineArea).focus()
             self.notify("say what needs changing", severity="warning")
             return
         self.dismiss(text)

@@ -3898,6 +3898,13 @@ async def check_review_bounce(check: Checker, tmp: str) -> None:
             real_key = app.screen.__class__.__name__ == "ReviewModal"
             if real_key:
                 await pilot.press(*"use the retry helper")
+                # `shift+enter` is a newline here the way it is in the notes
+                # box: same widget, and the same hand trained on a chat box.
+                # Driven through the real modal and onto the real record, so a
+                # box that dropped the key would fail the round it wrote, not
+                # just a binding table.
+                await pilot.press("shift+enter")
+                await pilot.press(*"and a test")
                 await pilot.press("ctrl+s")
                 for _ in range(60):
                     await pilot.pause(0.05)
@@ -3905,6 +3912,7 @@ async def check_review_bounce(check: Checker, tmp: str) -> None:
                         break
         bounced = Store.open(board).by_id(key_card.id)
         calls = log.read_text(encoding="utf-8")
+        comment = "use the retry helper\nand a test"
         check.check(
             "the board's b records the round and the dispatch keeps it",
             real_key
@@ -3913,9 +3921,18 @@ async def check_review_bounce(check: Checker, tmp: str) -> None:
             and bounced.review_round == 1
             and bounced.history[-2]["what"] == f"{CHANGES_REQUESTED} (round 1)"
             and "agent prompt w1:p9" in calls
-            and "use the retry helper" in calls,
+            and comment in calls,
             f"{bounced.status if bounced else '-'} / "
             f"{bounced.history[-2:] if bounced else '-'}",
+        )
+        check.check(
+            "and shift+enter in the comment box is the newline the agent is given",
+            bounced is not None
+            and bounced.progress[-1]["text"] == comment
+            and comment in calls,
+            repr(
+                bounced.progress[-1]["text"] if bounced and bounced.progress else None
+            ),
         )
 
         # -- the key ----------------------------------------------------

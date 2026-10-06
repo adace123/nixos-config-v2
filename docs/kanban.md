@@ -239,8 +239,9 @@ every later dispatch still goes through the form.
 new line of its own: `⏎` and `shift+⏎` both start one, and `^s` saves — `⏎`
 saves only from the title field, the one field that is a single line. The lines
 are kept as typed, so a note can be a paragraph or a little list, and the detail
-view shows them as written. The dispatch form's prompt box takes the same two
-keys, because it is the same box.
+view shows them as written. Every other free-text box on the board is the same
+box and takes the same two keys: the dispatch form's prompt, and the review
+comment a bounce asks for.
 
 **The Model field** under Agent is optional and defaults to `default`, which
 means "say nothing about the model": `[agents.<kind>] args` already carries
@@ -317,12 +318,14 @@ for, and the notice says so.
 The comment lands on the card in **Updates**, as yours, and the round itself
 lands in **History** as `changes requested (round N)` — which is what makes
 review rounds readable in `⏎` instead of one more move in a flat list — while
-`review_round` counts them for `herdr-kanban show --json`. The move back to In
-Progress is the dispatch's, the same rule every send follows, so a bounce that
-never reached an agent leaves the card in Review with the round on record rather
-than claiming the work restarted. `herdr-kanban bounce <id> "what to change"` is
-the same round from a shell; the comment is required, and from the card's own
-pane the id can be left out the way every other verb allows.
+`review_round` counts them for `herdr-kanban show --json`. The box is the
+board's multi-line one, so a comment can be a paragraph: `⏎` or `shift+⏎`
+starts a line and `^s` sends it. The move back to In Progress is the dispatch's,
+the same rule every send follows, so a bounce that never reached an agent leaves
+the card in Review with the round on record rather than claiming the work
+restarted. `herdr-kanban bounce <id> "what to change"` is the same round from a
+shell; the comment is required, and from the card's own pane the id can be left
+out the way every other verb allows.
 
 **Stopping an agent.** A card is the record of a run, so `d` (delete) stops the
 agent and closes the tab its dispatch opened, as part of deleting. Set
