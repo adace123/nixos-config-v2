@@ -38,7 +38,7 @@ the work of every workspace at once:
 ```text
 ▦ Kanban  ·  all workspaces                                                8 tasks  ● 2 working  ▲ 1 needs you
 ▎Backlog     2▾ ▸ ▎Queued        2▾ ▎In Progress   2▾ ▎Blocked        0 ▎Review         1 ▎Done           1
-╭ cfg-1 ▲───────╮ ╭ pers-5 ───────╮ ╭ cfg-3 ✎───────╮                   ╭ argo-4 ───────╮ ╭ snow-7 ───────╮
+╭ cfg-1 ▲───────╮ ╭ pers-1 ───────╮ ╭ cfg-3 ✎───────╮                   ╭ argo-1 ───────╮ ╭ snow-1 ───────╮
 │ Fix flake     │ │ Bump the pi   │ │ Add herdr     │                   │ Review the    │ │ Write release │
 │ lock drift a… │ │ package pins  │ │ kanban board… │ ·                 │ tsk board in… │ │ notes for th… │
 │ ▪ nixo… 10m π │ │ ▪ pers… 10m Ʌ │ │ ▪ nixo… 2/3 π │                   │ ▪ argo  10m Λ │ │ ▪ snow… 10m ✦ │
@@ -117,7 +117,7 @@ numbers count per workspace code — and `⏎` has the full id.
 
 **Ids** are `<code>-<number>` — `cfg-8`. The code names the workspace the card
 was *filed* in, which is what makes an id worth reading: `herdr-kanban show
-snow-7` places a card without opening the board, and the dispatch prompt
+snow-1` places a card without opening the board, and the dispatch prompt
 (`this card is cfg-8`) carries the same label into the pane. The number is
 issued per code: each workspace code counts its own cards from one and only ever
 grows, so `cfg-8` and `snow-8` are two cards while every id still names exactly
@@ -186,7 +186,7 @@ workspace, pane, ages), Notes, Steps, **Updates** (what the agent chose to say,
 via `herdr-kanban note`), **History** (what the board recorded — who filed it,
 every column it has been in, every rename, and by whom), and the agent's live
 output on `r`. Two rows connect it to other cards: `found    while working on
-cfg-1` for a card that came out of another one, and `spawned  snow-7 (Backlog)`
+cfg-1` for a card that came out of another one, and `spawned  snow-1 (Backlog)`
 for the cards it produced. History is capped at the last 25 entries on disk and the last
 12 are shown.
 
@@ -368,7 +368,7 @@ is the one state that costs something to ignore — the agent is stopped until y
 answer — and both places that show it require looking at the board. So the board
 puts a card whose agent has stopped to ask you something into **Blocked**,
 wherever it was, and the first time a card *arrives* in that state it raises a
-herdr notification **and** a desktop notification (`work-6 needs you`, with the
+herdr notification **and** a desktop notification (`work-1 needs you`, with the
 title). Answer the question and the agent starts working again, which carries the
 card back to **In Progress**. The trigger is herdr's own `agent_status`, not a
 peek at the pane: the board believes `blocked` when herdr reports it, so the
@@ -508,7 +508,7 @@ an unknown option instead of being silently swallowed.
 out of, and an agent does not even have to say it: the pane an agent works in *is*
 a card, so `herdr-kanban add` from that pane links the new card back to it
 automatically. The detail view then reads both ways — `found  while working on
-cfg-3` on the new card, `spawned  snow-7 (Backlog)` on the old one — and `list`
+cfg-3` on the new card, `spawned  snow-1 (Backlog)` on the old one — and `list`
 shows `· found during cfg-3`. The reason is the one thing a follow-up loses the
 moment it is filed: after the run that produced it is over, "why did I want
 this?" is otherwise unanswerable.
@@ -530,7 +530,7 @@ the board's add form never refuses you. An agent-filed card also raises a deskto
 notification (`notify_on_add`) — a backlog is where work goes to be forgotten, so
 its arrival is worth saying out loud.
 
-**`send`** is the board's `s`, for a script: `herdr-kanban send work-6` dispatches
+**`send`** is the board's `s`, for a script: `herdr-kanban send work-1` dispatches
 from anywhere, `herdr-kanban send` dispatches the card for the pane you are in,
 and `--dry-run` prints the plan it would run (target column, agent name,
 workspace, the flags it would pass, whether it would reuse a running agent)

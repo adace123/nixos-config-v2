@@ -5769,7 +5769,7 @@ async def _run(check: Checker) -> None:
             blocked = [c for c in app.current_view().cards() if c.status == "blocked"]
             check.check(
                 "a blocked agent is reflected on its card",
-                any(c.task.id == "work-6" for c in blocked),
+                any(c.task.id == "work-1" for c in blocked),
                 str([c.task.id for c in blocked]),
             )
 
