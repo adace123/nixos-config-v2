@@ -111,6 +111,11 @@ link only comes from a dispatch), pass the id above. Only I close cards. If you
 find unrelated work, add a card for it instead of doing it here; if the board
 says a card already covers it, note that one instead of filing a second.
 
+When you finish, the last `note` before you move the card is the handoff —
+a short fixed block, not a summary:
+  files changed · tests run and counts · commits (short hashes) or `uncommitted`
+  follow-up cards filed or `none` · anything only I must decide, or `none`
+
 Your turn is not over until the card is moved — `note` records progress, it does
 not move the card, and a turn that only notes leaves the card saying you are
 still working. Move it before your final message:

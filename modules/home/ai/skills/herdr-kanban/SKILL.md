@@ -49,6 +49,12 @@ the card claiming you are still working. Before your final message, decide:
 | you cannot continue without the human | `block` with the question they have to answer |
 | you are still mid-task | leave it; the board keeps it In Progress |
 
+When the move is to review, the last `note` before it is the handoff — one short
+fixed block, not a summary: files changed, tests run with counts, commits (short
+hashes) or `uncommitted`, follow-up cards filed, and anything only the human can
+decide. That is what lets the card be reviewed without opening the run; a prose
+recap is not the same thing.
+
 ## Done is the human's to set
 
 `list --json` and `show --json` report `agent_may_set`: every column an agent may

@@ -459,6 +459,11 @@ link only comes from a dispatch), pass the id above. Only I close cards. If you
 find unrelated work, add a card for it instead of doing it here; if the board
 says a card already covers it, note that one instead of filing a second.
 
+When you finish, the last `note` before you move the card is the handoff —
+a short fixed block, not a summary:
+  files changed · tests run and counts · commits (short hashes) or `uncommitted`
+  follow-up cards filed or `none` · anything only I must decide, or `none`
+
 Your turn is not over until the card is moved — `note` records progress, it does
 not move the card, and a turn that only notes leaves the card saying you are
 still working. Move it before your final message:
@@ -473,6 +478,12 @@ findings and stops leaves the card claiming to be in progress — the failure th
 put a finished card in In Progress behind a green `✓ done` border. The *closing
 offer* case is spelled out because an agent ending its turn with "want me to do
 more?" is finished, not blocked, and would otherwise reach for neither verb.
+
+The handoff block above it is the second requirement: the last `note` before the
+move carries the same five things from every agent — files changed, tests run
+with counts, commits or `uncommitted`, follow-ups filed, and what only you can
+decide — so a card arriving in Review reads the same way whichever run produced
+it, instead of every agent inventing its own report.
 
 **Agents the board did not dispatch get the verbs from a skill.** The protocol
 above is a prompt, so it only reaches a card the board started — an agent

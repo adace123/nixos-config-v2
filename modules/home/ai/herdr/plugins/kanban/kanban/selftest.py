@@ -1195,6 +1195,19 @@ def check_agent_protocol(check: Checker, tmp: str) -> None:
             and "`note` records progress" in prompt
             and "even if you offer to do more" in prompt,
         )
+        # Review was slow because every wave-1 run reported differently (test
+        # counts here, a hash there, nothing about commits). The handoff block
+        # fixes the shape of the last note before the move so a card reads the
+        # same whichever agent produced it.
+        check.check(
+            "the protocol pins the handoff note before the move",
+            "the last `note` before you move the card is the handoff" in prompt
+            and "files changed" in prompt
+            and "tests run and counts" in prompt
+            and "uncommitted" in prompt
+            and "follow-up cards filed" in prompt
+            and "anything only I must decide" in prompt,
+        )
         # The prompt promises the id is never needed, and that promise holds
         # only for a card a dispatch linked to this pane. The block has to say
         # which, and how to get back, or an agent handed it another way has no
