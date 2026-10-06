@@ -196,10 +196,6 @@ def truncate(text: str, width: int) -> str:
     return chop(text, width - 1) + "…"
 
 
-def pad(text: str, width: int) -> str:
-    return text if cell_len(text) >= width else text + " " * (width - cell_len(text))
-
-
 def wrap_title(text: str, width: int, lines: int = TITLE_LINES) -> list[str]:
     """Word-wrap a title into at most `lines` rows, ellipsising the overflow."""
     text = " ".join(text.split())

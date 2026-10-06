@@ -115,10 +115,6 @@ class Pane:
     agent_name: str
     focused: bool
 
-    @property
-    def has_agent(self) -> bool:
-        return bool(self.agent_name)
-
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Pane:
         return cls(
@@ -308,16 +304,6 @@ class Herdr:
             str(lines),
         )
 
-    @staticmethod
-    def agent_target(pane_id: str = "", agent_name: str = "") -> str:
-        """What to hand to an `agent` subcommand.
-
-        herdr accepts a live agent name or the pane hosting it, but the `agent`
-        field of `agent list` is a kind label (an unnamed agent reports "pi"),
-        so the pane ID is the only target that is reliably unique.
-        """
-        return pane_id or agent_name
-
     def context(self) -> dict[str, Any]:
         """The invocation context herdr injected for the action that opened us."""
         raw = os.environ.get("HERDR_PLUGIN_CONTEXT_JSON") or ""
@@ -331,14 +317,6 @@ class Herdr:
             if isinstance(value, str) and value:
                 return value
         return os.environ.get("HERDR_WORKSPACE_ID", "")
-
-    def current_cwd(self) -> str:
-        context = self.context()
-        for key in ("focused_pane_cwd", "workspace_cwd", "cwd"):
-            value = context.get(key)
-            if isinstance(value, str) and value:
-                return value
-        return ""
 
     # -- mutations -------------------------------------------------------
 
@@ -369,19 +347,6 @@ class Herdr:
             args += ["--cwd", cwd]
         for key, value in (env or {}).items():
             args += ["--env", f"{key}={value}"]
-        args.append("--focus" if focus else "--no-focus")
-        return self._run(*args)
-
-    def split_pane(
-        self,
-        pane_id: str,
-        direction: str = "right",
-        cwd: str = "",
-        focus: bool = False,
-    ) -> Result:
-        args = ["pane", "split", "--pane", pane_id, "--direction", direction]
-        if cwd:
-            args += ["--cwd", cwd]
         args.append("--focus" if focus else "--no-focus")
         return self._run(*args)
 
@@ -505,9 +470,6 @@ class Herdr:
 
     def send_keys(self, target: str, *keys: str) -> Result:
         return self._run("agent", "send-keys", target, *keys)
-
-    def close_pane(self, pane_id: str) -> Result:
-        return self._run("pane", "close", pane_id)
 
     def close_tab(self, tab_id: str) -> Result:
         return self._run("tab", "close", tab_id)

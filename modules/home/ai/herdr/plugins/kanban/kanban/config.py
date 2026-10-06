@@ -192,10 +192,6 @@ class Config:
     def column_ids(self) -> list[str]:
         return [c.id for c in self.columns]
 
-    def column_named(self, candidates: tuple[str, ...]) -> str:
-        """The first of `candidates` this board actually has, or ""."""
-        return next((id for id in candidates if id in self.column_ids), "")
-
     def columns_with_role(self, role: str) -> list[str]:
         """The ids of the columns that mean `role`, in board order.
 

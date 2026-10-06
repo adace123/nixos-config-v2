@@ -515,7 +515,6 @@ class Store:
         self.board = Board()
         self.loaded_at: float = 0.0
         self._mtime: float | None = None
-        self._dirty = False
 
     # -- loading ---------------------------------------------------------
 
@@ -592,10 +591,6 @@ class Store:
         self._read()
         return True
 
-    @property
-    def dirty(self) -> bool:
-        return self._dirty
-
     # -- writing ---------------------------------------------------------
 
     def payload(self) -> dict[str, Any]:
@@ -632,7 +627,6 @@ class Store:
             self._mtime = self.path.stat().st_mtime
         except OSError:
             self._mtime = None
-        self._dirty = False
 
     @property
     def backup_path(self) -> Path:
@@ -680,19 +674,6 @@ class Store:
 
     def in_column(self, status: str) -> list[Task]:
         return [task for task in self.board.tasks if task.status == status]
-
-    def columns_with(self, column_ids: list[str]) -> dict[str, list[Task]]:
-        """Column id -> tasks, in board order, for the given columns only."""
-        grouped: dict[str, list[Task]] = {column_id: [] for column_id in column_ids}
-        for task in self.board.tasks:
-            if task.status in grouped:
-                grouped[task.status].append(task)
-        return grouped
-
-    def orphans(self, column_ids: list[str]) -> list[Task]:
-        """Tasks whose status is not a column any more (config changed)."""
-        known = set(column_ids)
-        return [task for task in self.board.tasks if task.status not in known]
 
     # -- mutations -------------------------------------------------------
 
