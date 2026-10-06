@@ -49,8 +49,11 @@ in
     };
   };
 
-  # pi-mcp-adapter reads MCP servers from mcp.json, not Pi's settings.json.
-  # Keep this in the Pi agent directory so the configuration is global for Pi.
+  # pi-mcp-adapter reads MCP servers from mcp-adapter.json in the Pi agent
+  # directory (its highest-precedence global source), not Pi's settings.json.
+  # v3 does not read <agent dir>/mcp.json at all — that name is reserved for
+  # Pi's own built-in MCP, which ignores this extension's `settings`/`imports`
+  # keys anyway.
   #
   # Custom skills. ~/.pi/agent/skills/ is a global pi skill location, so
   # skills placed there are auto-discovered at startup (no settings change
@@ -74,7 +77,7 @@ in
     # `max-age=300`) and keeps updates working.
     ".pi/agent/npm/.npmrc".text = "prefer-offline=false\n";
 
-    ".pi/agent/mcp.json".text = builtins.toJSON {
+    ".pi/agent/mcp-adapter.json".text = builtins.toJSON {
       mcpServers = {
         context7 = {
           url = "https://mcp.context7.com/mcp";

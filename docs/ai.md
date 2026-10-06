@@ -123,7 +123,10 @@ Pi is a Rust-based conversational coding agent.
   stays authoritative even where a stale cache would otherwise win. To diagnose
   a recurrence, `just npm-cache-check` flags the precondition offline, and
   `npm cache verify` clears it (details in `scripts/README.md`).
-- **`~/.pi/agent/mcp.json`** — `context7` + `grep-mcp` (read by `pi-mcp-adapter`).
+- **`~/.pi/agent/mcp-adapter.json`** — `context7` + `grep-mcp` (read by
+  `pi-mcp-adapter` v3 as its highest-precedence global source; the old
+  `~/.pi/agent/mcp.json` name is reserved for Pi's built-in MCP and ignored by
+  the adapter).
 - **`~/.pi/agent/skills/`** — global auto-discovered skill location; populated
   with the shared skills plus the `commit-all` and `herdr-kanban` skills.
 - **`~/.pi/agent/extensions/opencode-session.ts`** — `pi-extensions/opencode-session.ts`
