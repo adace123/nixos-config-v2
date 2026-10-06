@@ -155,12 +155,15 @@ def check_store(check: Checker, tmp: str) -> None:
             os.environ["HERDR_PLUGIN_STATE_DIR"] = injected
 
     # dispatch planning ---------------------------------------------------
+    # Named the way herdr reports it: the name `agent start` was given (the
+    # card's, `k2-pi`), not the kind — which is what the card is verified
+    # against before its pane is trusted.
     running = Agent(
-        "pi", "working", "w1", "w1:p9", "w1:t1", "/tmp", False, "π - w1", ""
+        "k2-pi", "working", "w1", "w1:p9", "w1:t1", "/tmp", False, "π - w1", ""
     )
     live = LiveState(
         workspaces={"w1": Workspace("w1", "nixos-config-v2", 1, "w1:t1", "idle")},
-        agents={"pi": running},
+        agents={"k2-pi": running},
         agents_by_pane={"w1:p9": running},
     )
     store.update(
@@ -3450,6 +3453,26 @@ prompted = os.path.exists(os.environ["FAKE_LOG"]) and any(
     line.startswith("agent prompt") for line in open(os.environ["FAKE_LOG"], encoding="utf-8")
 )
 
+def live_agent_name():
+    # herdr reports the name `agent start` was given (`name`, unique among live
+    # agents) separately from the kind (`agent`, what a screen-detected pane
+    # has). The board matches a card's agent_name against the former, so the
+    # fake has to report one: the last start it logged, or FAKE_AGENT_LIVE_NAME
+    # for a check that acts out a live agent it never started.
+    override = os.environ.get("FAKE_AGENT_LIVE_NAME")
+    if override:
+        return override
+    try:
+        with open(os.environ["FAKE_LOG"], encoding="utf-8") as handle:
+            lines = handle.read().splitlines()
+    except (KeyError, OSError):
+        return ""
+    for line in reversed(lines):
+        parts = line.split()
+        if len(parts) >= 3 and parts[0] == "agent" and parts[1] == "start":
+            return parts[2]
+    return ""
+
 if args[:2] == ["workspace", "list"]:
     workspaces = [
         {"workspace_id": "w1", "label": "probe", "number": 1, "active_tab_id": "w1:t1",
@@ -3465,19 +3488,23 @@ if args[:2] == ["workspace", "list"]:
 if args[:2] == ["agent", "list"]:
     # A live agent, for the checks that need one to re-prompt — a review bounce
     # is only meaningful against the agent that did the work. The pane is the
-    # one the card was dispatched to, and the shape is what herdr reports for
-    # an agent started without a name (the kind, not the name we passed).
+    # one the card was dispatched to, and the name is what herdr reports for
+    # the agent the board started (omitted, so the kind stands in, when there
+    # never was a start).
     agents = []
     pane = os.environ.get("FAKE_AGENT_PANE")
     if pane:
-        agents.append(
-            {"agent": os.environ.get("FAKE_AGENT_NAME", "pi"),
-             "agent_status": os.environ.get("FAKE_AGENT_STATUS", "idle"),
-             "workspace_id": "w1",
-             "pane_id": pane,
-             "tab_id": "w1:t1",
-             "cwd": os.environ.get("FAKE_CWD", "/tmp"),
-             "terminal_title_stripped": "pi - probe"})
+        agent = {"agent": os.environ.get("FAKE_AGENT_NAME", "pi"),
+                 "agent_status": os.environ.get("FAKE_AGENT_STATUS", "idle"),
+                 "workspace_id": "w1",
+                 "pane_id": pane,
+                 "tab_id": "w1:t1",
+                 "cwd": os.environ.get("FAKE_CWD", "/tmp"),
+                 "terminal_title_stripped": "pi - probe"}
+        name = live_agent_name()
+        if name:
+            agent["name"] = name
+        agents.append(agent)
     emit({"type": "agent_list", "agents": agents})
 if args[:2] == ["pane", "list"]:
     emit({"type": "pane_list", "panes": [{"pane_id": "w1:p1", "workspace_id": "w1",
@@ -3764,6 +3791,7 @@ async def check_review_bounce(check: Checker, tmp: str) -> None:
         "FAKE_AGENT_PANE",
         "FAKE_AGENT_NAME",
         "FAKE_AGENT_STATUS",
+        "FAKE_AGENT_LIVE_NAME",
     )
     saved = {key: os.environ.get(key) for key in env_keys}
     for key in env_keys:
@@ -3868,6 +3896,9 @@ async def check_review_bounce(check: Checker, tmp: str) -> None:
 
         # -- refusals ---------------------------------------------------
         os.environ["FAKE_AGENT_PANE"] = "w1:p7"
+        # The agent the dispatch started: herdr answers to that name, which is
+        # what the board verifies the pane against before re-prompting it.
+        os.environ["FAKE_AGENT_LIVE_NAME"] = f"{card.id}-pi"
         code, out = cli("bounce", card.id)
         check.check(
             "bounce needs a comment: a lone card id is not sent as one",
@@ -3960,6 +3991,7 @@ async def check_review_bounce(check: Checker, tmp: str) -> None:
             dispatched_at=time.time(),
         )
         os.environ["FAKE_AGENT_PANE"] = "w1:p9"
+        os.environ["FAKE_AGENT_LIVE_NAME"] = f"{key_card.id}-pi"
         log.write_text("", encoding="utf-8")
         app = KanbanApp(
             config=config, store=Store.open(board), herdr=Herdr(binary=str(fake))
@@ -4788,6 +4820,191 @@ def check_settle_columns(check: Checker, tmp: str) -> None:
             "auto_move does not undo a card blocked by hand",
             status_of(auto) == "blocked",
             status_of(auto),
+        )
+    finally:
+        if saved is None:
+            os.environ.pop("KANBAN_BOARD_FILE", None)
+        else:
+            os.environ["KANBAN_BOARD_FILE"] = saved
+
+
+def check_pane_identity(check: Checker, tmp: str) -> None:
+    """A pane is believed only when the agent in it is this card's agent.
+
+    herdr never reuses a closed pane number inside one session, and carries the
+    numbering across a normal restart — but a card's pane link lives in
+    `board.json`, which outlives the session. A replaced session (a lost
+    `session.json`, a legacy snapshot renumbered on restore) starts its counters
+    at `w1`/`p1` again, so a recorded pane id can name a live stranger: the card
+    would show that stranger's state and `settle_columns` would carry it into
+    Blocked on it. The pane is therefore verified against the name the dispatch
+    started the agent under, and that name — or the card's slug — heals a link
+    that was cleared, without re-dispatching.
+    """
+    import os
+    from dataclasses import replace
+
+    from .config import load_config
+    from .herdr import Agent
+    from .model import LiveState
+    from .store import Store
+    from .sync import store_syncer
+
+    board = Path(tmp) / "pane-identity-board.json"
+    saved = os.environ.get("KANBAN_BOARD_FILE")
+    os.environ["KANBAN_BOARD_FILE"] = str(board)
+    try:
+        store = Store.open(board)
+        config = replace(
+            load_config(_pin_config(tmp, "pane-identity.toml")), notify_on_block=False
+        )
+
+        def card(title: str, status: str, pane: str, agent_name: str = "") -> Task:
+            task = store.add(
+                title=title, status=status, workspace_id="w1", agent_kind="pi"
+            )
+            fields: dict[str, object] = {
+                "pane_id": pane,
+                "dispatched_at": time.time(),
+            }
+            if agent_name:
+                fields["agent_name"] = agent_name
+            store.hand_over(task.id, status, **fields)
+            return task
+
+        def agent(name: str, pane: str, workspace: str = "w1") -> Agent:
+            return Agent(
+                name=name,
+                status="blocked",
+                workspace_id=workspace,
+                pane_id=pane,
+                tab_id="w1:t9",
+                cwd="",
+                focused=False,
+                title="",
+                logo="",
+            )
+
+        stranger = card("a card whose pane was taken", "doing", "w1:p4", "cfg-1-pi")
+        ours = card("a card whose agent is there", "doing", "w1:p5", "cfg-2-pi")
+        lost = card("a card whose pane link went", "doing", "w1:p404", "cfg-3-pi")
+        by_slug = card("a card with no agent name", "doing", "w1:p404")
+        detected = card(
+            "a card whose pane holds a detected agent", "doing", "w1:p11", "cfg-7-pi"
+        )
+        # No recorded name, so the pane is the only link and the workspace is
+        # the only thing left to check it with.
+        stray = card(
+            "a card whose pane is in a workspace it does not claim",
+            "doing",
+            "w9:p4",
+        )
+        worktree = store.add(
+            title="a card running in a worktree",
+            status="doing",
+            workspace_id="w1",
+            workspace_label="probe",
+            agent_kind="pi",
+        )
+        store.hand_over(
+            worktree.id,
+            "doing",
+            pane_id="w9:p3",
+            agent_name="cfg-5-pi",
+            worktree_path="/tmp/fake-worktree",
+            worktree_workspace_id="w9",
+            dispatched_at=time.time(),
+        )
+
+        by_pane = {
+            "w1:p4": agent("cfg-9-pi", "w1:p4"),  # a stranger took the pane
+            "w1:p5": agent("cfg-2-pi", "w1:p5"),  # ours, in the pane it recorded
+            "w1:p7": agent("cfg-3-pi", "w1:p7"),  # ours, its pane link gone
+            "w1:p8": agent(by_slug.slug, "w1:p8"),  # ours, found by slug
+            "w1:p11": agent("", "w1:p11"),  # a detected stranger
+            "w9:p3": agent("cfg-5-pi", "w9:p3", "w9"),  # ours, worktree
+            "w9:p4": agent("cfg-6-pi", "w9:p4", "w9"),  # name right, place wrong
+        }
+        live = LiveState(
+            workspaces={},
+            agents={item.name: item for item in by_pane.values()},
+            agents_by_pane=by_pane,
+        )
+
+        check.check(
+            "a pane id whose agent is somebody else is not the card's agent",
+            live.lookup(stranger) is None
+            and live.for_task(stranger) == ("exited", False),
+            str(live.for_task(stranger)),
+        )
+        check.check(
+            "nor is a pane holding an agent herdr only detected",
+            live.lookup(detected) is None,
+            str(live.lookup(detected)),
+        )
+        check.check(
+            "and one in a workspace the card does not claim",
+            live.lookup(stray) is None,
+            str(live.lookup(stray)),
+        )
+        check.check(
+            "the card's own agent in its own pane is still found",
+            live.lookup(ours) is not None
+            and live.lookup(ours).name == "cfg-2-pi"  # type: ignore[union-attr]
+            and live.for_task(ours) == ("blocked", True),
+            str(live.for_task(ours)),
+        )
+        check.check(
+            "a worktree run is still the card's, in the workspace it opened",
+            live.lookup(worktree) is not None
+            and live.lookup(worktree).workspace_id == "w9"  # type: ignore[union-attr]
+            and live.for_task(worktree) == ("blocked", True),
+            str(live.for_task(worktree)),
+        )
+        check.check(
+            "a card whose pane link went is found by the agent name it recorded",
+            live.lookup(lost) is not None
+            and live.lookup(lost).pane_id == "w1:p7"  # type: ignore[union-attr]
+            and live.for_task(lost) == ("blocked", True),
+            str(live.for_task(lost)),
+        )
+        check.check(
+            "and a card with no recorded name is found by its slug",
+            live.lookup(by_slug) is not None
+            and live.lookup(by_slug).pane_id == "w1:p8"  # type: ignore[union-attr]
+            and live.for_task(by_slug) == ("blocked", True),
+            str(live.for_task(by_slug)),
+        )
+
+        # The column rule runs on the same snapshot, so it must reach the same
+        # verdict: a stranger's Blocked is not this card's news. More than one
+        # pass because moving a card rewrites the stored list order while the
+        # reconciler iterates it, so a card it moves can be skipped for a tick
+        # (`kanban: settle_columns iterates the list it mutates`). The daemon's
+        # next tick does this for free; a check that wants one verdict asks
+        # again.
+        syncer = store_syncer(config, store, Herdr(binary="/nonexistent-herdr"))
+        syncer.live = live
+        for _ in range(3):
+            syncer.settle_columns()
+
+        def status_of(task: Task) -> str:
+            found = Store.open(board).by_id(task.id)
+            return found.status if found else "-"
+
+        check.check(
+            "a stranger's blocked state does not move the card to Blocked",
+            status_of(stranger) == "doing"
+            and status_of(detected) == "doing"
+            and status_of(stray) == "doing",
+            f"{status_of(stranger)}/{status_of(detected)}/{status_of(stray)}",
+        )
+        check.check(
+            "while a healed link follows the agent it found",
+            status_of(lost) == "blocked"
+            and status_of(by_slug) == "blocked"
+            and status_of(ours) == "blocked",
+            f"{status_of(lost)}/{status_of(by_slug)}/{status_of(ours)}",
         )
     finally:
         if saved is None:
@@ -5679,7 +5896,7 @@ async def check_detail_tail(check: Checker, tmp: str) -> None:
         async with app.run_test(size=(110, 40)) as pilot:
             await pilot.pause()
             agent = Agent(
-                name="pi",
+                name="k1",
                 status="working",
                 workspace_id="w1",
                 pane_id="w1:p9",
@@ -6125,6 +6342,7 @@ async def _run(check: Checker) -> None:
             await check_edit_title(check, tmp)
             await check_live_loop(check, tmp)
             check_settle_columns(check, tmp)
+            check_pane_identity(check, tmp)
             check_sync_daemon(check, tmp)
             check_prompt_delivery(check, tmp)
             check_send_records_unconfirmed(check, tmp)
@@ -6175,12 +6393,13 @@ async def _run(check: Checker) -> None:
             )
             check.check("a card is selected on open", bool(app.ui.selected_id))
 
-            # A card must follow its agent by pane ID: herdr reports the kind
-            # ("pi") as the agent label, not the name we started it with.
+            # A card follows the agent its dispatch started: the pane it
+            # recorded, confirmed against the name herdr reports for it (the
+            # kind label, `pi`, is what a pane without a name falls back to).
             k3 = app.task("cfg-3")
             status, online = app.live.for_task(k3) if k3 else ("", False)
             check.check(
-                "a card follows its agent by pane, not by label",
+                "a card follows the agent its dispatch started, by pane and name",
                 k3 is not None and online and status == "working",
                 f"{k3.agent_name if k3 else '-'} -> {status}",
             )

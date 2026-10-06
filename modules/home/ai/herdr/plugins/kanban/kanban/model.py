@@ -34,19 +34,76 @@ class LiveState:
     error: str = ""
 
     def lookup(self, task: Task) -> Agent | None:
-        """The live agent for a task.
+        """The live agent for a task, or None when nothing can be confirmed.
 
-        Looked up by pane first: herdr's `agent` field is a kind label for an
-        agent started without a name (it reports "pi"), so the recorded pane is
-        the dependable link between a card and a running agent.
+        A card is linked to a run by two things, and neither is enough alone:
+
+          - the pane the dispatch opened (`task.pane_id`), which is what the
+            board re-prompts, focuses and closes; and
+          - the name the dispatch started the agent under (`task.agent_name`,
+            the card's slug), which herdr keeps unique among live agents.
+
+        The pane is tried first, because it keeps working after the agent is
+        renamed, but it is only trusted once `owns` confirms the agent in it is
+        this card's. herdr's own guarantee is that a *closed* pane number is not
+        reused (`src/workspace.rs`: "Closed pane numbers are not reused") and
+        that numbering survives a normal restart — but that guarantee belongs to
+        one herdr session, and the card's pane link lives in `board.json`, which
+        does not. A replaced session (a lost `session.json`, a legacy snapshot
+        renumbered on restore, a board pointed at another named session) starts
+        its counters at `w1`/`p1` again, so a recorded pane id can name a live
+        stranger. Trusting it there is not a cosmetic error: `settle_columns`
+        would carry the card into Blocked on the stranger's state.
+
+        The name is the identity because it cannot collide — `agent start`
+        refuses a duplicate — so a live agent answering to `task.agent_name` is
+        the agent this card started, wherever it now sits. `task.slug` is the
+        same name for a card whose `agent_name` was never written (an older
+        record, or one whose link was cleared): the dispatch names the agent
+        after the card, so a lost pane link heals here without re-dispatching.
+
+        Not compared: the tab label, which is the strongest check the board
+        makes before *closing* a tab (`KanbanApp.agent_tab`), because it is not
+        in the `agent list` snapshot and a third herdr read per tick to
+        duplicate what the name already proves is not worth it; and
+        `dispatched_at` against the agent's start, because herdr reports no
+        start time for an agent at all.
         """
         if task.pane_id:
             agent = self.agents_by_pane.get(task.pane_id)
+            if agent is not None and self.owns(task, agent):
+                return agent
+        if task.agent_name and task.agent_name != task.slug:
+            agent = self.agents.get(task.agent_name)
             if agent is not None:
                 return agent
-        if task.agent_name:
-            return self.agents.get(task.agent_name)
-        return None
+        return self.agents.get(task.slug)
+
+    def owns(self, task: Task, agent: Agent) -> bool:
+        """Whether the agent herdr reports in `task.pane_id` is this card's.
+
+        Only what `agent list` gives can be checked: the name the agent was
+        started under, and the workspace it is in. A card that recorded no name
+        (an old record, or one whose link was cleared) has nothing to compare,
+        so its pane is trusted the way it always was — the alternative would be
+        to disown every dispatch whose record the board did not write, which is
+        worse than the reuse this guards against.
+        """
+        # Strict, including a live agent with no name at all: a card that says
+        # its agent was started under one is not answered by a pane holding a
+        # screen-detected stranger (`Agent.name` is then the kind label, or "").
+        if task.agent_name and agent.name != task.agent_name:
+            return False
+        if task.workspace_id and agent.workspace_id:
+            # A worktree dispatch is the exception: the card's `workspace_id`
+            # stays the repo the checkout was forked from, while the agent runs
+            # in the workspace `herdr worktree create` opened for it.
+            allowed = {task.workspace_id}
+            if task.worktree_workspace_id:
+                allowed.add(task.worktree_workspace_id)
+            if agent.workspace_id not in allowed:
+                return False
+        return True
 
     def for_task(self, task: Task) -> tuple[str, bool]:
         """(live status, agent online) for a task."""

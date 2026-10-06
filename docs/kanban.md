@@ -374,10 +374,22 @@ there is no reason to ask on every tick. From that, the rule at the bottom of
 each card spells out `⣷ working`, `▲ needs you`, `○ idle`, `✓ done`, or
 `∅ no agent`; the id badge is tinted for the states the border has no colour for;
 a task whose workspace is no longer open gets a red `⚠` in front of its label
-instead of the dot. `✎` in a card's border means the agent named it. Cards are
-matched to agents **by pane ID**: herdr reports the *kind* (`pi`) as an agent's
-label when it was started without a name, so the pane is the only dependable
-link between a card and its agent.
+instead of the dot. `✎` in a card's border means the agent named it. A card is matched to its agent
+by **the pane the dispatch opened, confirmed against the name it started the
+agent under**. `agent list` reports both: `name`, the name `agent start` was
+given, unique among live agents and what the board compares the card's
+`agent_name` with; and `agent`, the *kind* (`pi`), which is all a pane herdr
+only detected from its screen has. The pane alone is not proof — herdr never
+reuses a *closed* pane number, and carries the numbering across a normal
+restart, but the card's link lives in `board.json`, which outlives the session:
+a replaced session (a lost `session.json`, a snapshot restored without pane
+numbers) starts at `w1`/`p1` again, and the recorded pane can name a live
+stranger, whose state would then be shown on the card and reconciled into
+Blocked. When the pane does not hold the card's own agent, the card is found by
+that agent name instead, and by the card's slug when no name was ever recorded
+(a dispatch names the agent after its card), so a link that went missing heals
+rather than needing a re-dispatch. A card with neither to check against — an old
+record — is believed by its pane as it always was.
 
 **When an agent blocks, the card moves to Blocked and herdr says so.** Blocked
 is the one state that costs something to ignore — the agent is stopped until you
@@ -628,7 +640,7 @@ follow it (`found during infra-8`), its history records `renamed from cfg-8`,
 and a dispatched card's tab is relabelled. It is refused from a herdr pane
 without `--force`, like `archive`: the prompt an agent was given names the old
 id. A running agent keeps the name it was started with — the board finds it by
-pane, not by name, so nothing is lost.
+that name as well as by its pane, so nothing is lost.
 
 **Title policy.** The agent's title applies only while the card still carries
 its capture title. The moment you rename a card by hand (in the form, or with

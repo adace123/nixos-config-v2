@@ -69,7 +69,15 @@ class Workspace:
 
 @dataclass(frozen=True)
 class Agent:
-    """A live agent in a pane. `name` is herdr's unique live agent name."""
+    """A live agent in a pane. `name` is herdr's unique live agent name.
+
+    herdr reports two labels for an agent (`AgentInfo`): `name`, the name it was
+    started with, which is unique among live agents and is what `agent start`
+    refuses to duplicate; and `agent`, the *kind* (`pi`, `claude`), which is all
+    a pane herdr only detected from its screen has. `name` is the one that
+    identifies a run, so it is what the board matches a card's `agent_name`
+    against; `agent` is the fallback for an agent the board did not start.
+    """
 
     name: str
     status: str
@@ -92,7 +100,10 @@ class Agent:
             or ""
         )
         return cls(
-            name=str(data.get("agent") or ""),
+            # `name` first: herdr's assigned name for a managed agent, unique
+            # while it lives. `agent` is the kind label every pane reports, and
+            # is all there is for an agent herdr only detected (`pi`).
+            name=str(data.get("name") or data.get("agent") or ""),
             status=str(data.get("agent_status") or "unknown"),
             workspace_id=str(data.get("workspace_id") or ""),
             pane_id=str(data.get("pane_id") or ""),

@@ -187,10 +187,10 @@ def demo_tasks() -> list[Task]:
 def demo_live() -> LiveState:
     """Sample herdr state.
 
-    Agent labels are what herdr actually reports for an agent that was started
-    without a name — the kind ("pi"), not the name we passed to
-    `agent start`. The board must therefore match cards to agents by pane ID;
-    this data is what keeps that honest in `--demo` and the selftest.
+    Each agent carries the name its dispatch started it under — herdr's `name`,
+    which is what the board matches a card's `agent_name` against — and a pane
+    the card points at. Both have to agree for the live state to show, so this
+    data keeps that check honest in `--demo` and the selftest.
     """
     workspaces = [
         Workspace("w1", "nixos-config-v2", 1, "w1:t4", "working"),
@@ -202,7 +202,7 @@ def demo_live() -> LiveState:
     ]
     agents = [
         Agent(
-            "pi",
+            "cfg-3-pi",
             "working",
             "w1",
             "w1:p9",
@@ -213,7 +213,7 @@ def demo_live() -> LiveState:
             "",
         ),
         Agent(
-            "codex",
+            "argo-1-codex",
             "idle",
             "w8",
             "w8:p3",
@@ -224,7 +224,7 @@ def demo_live() -> LiveState:
             "",
         ),
         Agent(
-            "opencode",
+            "jupy-1-opencode",
             "working",
             "w9",
             "w9:p2",
@@ -235,7 +235,7 @@ def demo_live() -> LiveState:
             "",
         ),
         Agent(
-            "claude",
+            "reviewer",
             "blocked",
             "w4",
             "w4:p1",
