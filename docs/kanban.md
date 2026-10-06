@@ -27,8 +27,11 @@ left to show a toast.
 
 Quick capture's geometry is its own (`quick_add_placement` / `quick_add_width` /
 `quick_add_height`, defaulting to a `popup` at 80%×75%) so it stays a popup even
-if you make the board an overlay; the board's `placement` is unset by default,
-which leaves the manifest's `overlay` in charge.
+if you make the board an overlay; the board defaults to `overlay`, the placement
+the manifest declares. The launcher asks the board's own config module for every
+one of these (`kanban --pane-open-args`, one flag per line) rather than reading
+`config.toml` in shell, so sections, quoting and inline comments are parsed
+once, by `tomllib`.
 
 Every card carries **the workspace it belongs to, the agent that should do it,
 and what that agent is doing right now** — the agent's own mark and kind on the

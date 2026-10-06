@@ -5,4 +5,4 @@ state from the herdr CLI (`herdr`), and draws everything as a Textual app
 (`app` + `render`). See ../herdr-plugin.toml for the plugin manifest.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

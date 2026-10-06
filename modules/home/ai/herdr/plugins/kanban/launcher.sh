@@ -21,53 +21,48 @@ APPDIR="@APPDIR@"
 
 PLUGIN_ID="herdr-kanban"
 HERDR="${HERDR_BIN_PATH:-herdr}"
-CONFIG_HOME="${HERDR_CONFIG_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}/herdr}"
-PLUGIN_CONFIG_DIR="${HERDR_PLUGIN_CONFIG_DIR:-$CONFIG_HOME/plugins/config/$PLUGIN_ID}"
-CONFIG_FILE="$PLUGIN_CONFIG_DIR/config.toml"
 
-# Popup geometry lives in the plugin config so the manifest's pane entrypoint
-# stays static. Overlay is the manifest default and ignores width/height.
-read_ui_placement() {
-	local prefix="${1:-}"
-	UI_PLACEMENT=""
-	UI_WIDTH=""
-	UI_HEIGHT=""
-	[ -f "$CONFIG_FILE" ] || return 0
-	# The key *name* is matched, not just its value, so `width` and
-	# `quick_add_width` cannot shadow each other.
-	UI_PLACEMENT="$(awk -F= -v key="${prefix}placement" '$1 ~ "^[[:space:]]*" key "[[:space:]]*$" {gsub(/[[:space:]\"]/,"",$2); print $2; exit}' "$CONFIG_FILE")"
-	UI_WIDTH="$(awk -F= -v key="${prefix}width" '$1 ~ "^[[:space:]]*" key "[[:space:]]*$" {gsub(/[[:space:]\"]/,"",$2); print $2; exit}' "$CONFIG_FILE")"
-	UI_HEIGHT="$(awk -F= -v key="${prefix}height" '$1 ~ "^[[:space:]]*" key "[[:space:]]*$" {gsub(/[[:space:]\"]/,"",$2); print $2; exit}' "$CONFIG_FILE")"
+# The interpreter and package the launcher runs. Resolved in one place so the
+# board and the pane-geometry call below cannot drift; an unsubstituted
+# placeholder (a plain checkout, `kanban …` by hand) falls back to the script's
+# own directory and the `python3` on PATH.
+RUN_PYTHON=""
+RUN_APPDIR=""
+resolve_runner() {
+	RUN_PYTHON="$PYTHON"
+	RUN_APPDIR="$APPDIR"
+	case "$RUN_APPDIR" in @*) RUN_APPDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" ;; esac
+	case "$RUN_PYTHON" in @*) RUN_PYTHON="python3" ;; esac
+}
+
+kanban_module() {
+	resolve_runner
+	PYTHONPATH="$RUN_APPDIR${PYTHONPATH:+:$PYTHONPATH}" "$RUN_PYTHON" -m kanban "$@"
 }
 
 open_board() {
-	local quick="${1:-}" args=()
+	local quick="${1:-}" out="" arg args=()
+	# Popup geometry lives in the plugin config so the manifest's pane entrypoint
+	# stays static. Python owns that file's parsing (`--pane-open-args`), so the
+	# shell never re-reads a TOML key with awk; it only reads the flags back, one
+	# per line, which cannot be split mid-value.
 	if [ "$quick" = "quick" ]; then
-		read_ui_placement quick_add_
-		args+=(
-			--placement "${UI_PLACEMENT:-popup}"
-			--width "${UI_WIDTH:-80%}"
-			--height "${UI_HEIGHT:-75%}"
-			--env "KANBAN_QUICK_ADD=1"
-		)
+		out="$(kanban_module --pane-open-args --quick-add)" || return 1
 	else
-		read_ui_placement
-		if [ -n "$UI_PLACEMENT" ]; then
-			args+=(--placement "$UI_PLACEMENT")
-			if [ "$UI_PLACEMENT" = "popup" ]; then
-				args+=(--width "${UI_WIDTH:-95%}" --height "${UI_HEIGHT:-90%}")
-			fi
-		fi
+		out="$(kanban_module --pane-open-args)" || return 1
 	fi
+	while IFS= read -r arg; do
+		if [ -n "$arg" ]; then
+			args+=("$arg")
+		fi
+	done <<<"$out"
 	"$HERDR" plugin pane open --plugin "$PLUGIN_ID" --entrypoint board "${args[@]}"
 }
 
 run_board() {
-	local appdir="$APPDIR" python="$PYTHON"
-	case "$appdir" in @*) appdir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" ;; esac
-	case "$python" in @*) python="python3" ;; esac
-	export PYTHONPATH="$appdir${PYTHONPATH:+:$PYTHONPATH}"
-	exec "$python" -m kanban "$@"
+	resolve_runner
+	export PYTHONPATH="$RUN_APPDIR${PYTHONPATH:+:$PYTHONPATH}"
+	exec "$RUN_PYTHON" -m kanban "$@"
 }
 
 case "${1:-open}" in

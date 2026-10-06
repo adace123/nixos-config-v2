@@ -73,6 +73,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="open the board with the add-task form already up",
     )
     parser.add_argument(
+        "--pane-open-args",
+        action="store_true",
+        help=(
+            "print the `herdr plugin pane open` flags the plugin config asks "
+            "for, one per line, and exit (the launcher reads these instead of "
+            "parsing config.toml itself)"
+        ),
+    )
+    parser.add_argument(
         "--sync",
         action="store_true",
         help=(
@@ -107,6 +116,20 @@ def quick_add_requested(args: argparse.Namespace) -> bool:
         "true",
         "yes",
     )
+
+
+def run_pane_args(args: argparse.Namespace) -> int:
+    """Print the pane-open flags this config asks for, one argument per line.
+
+    One per line, not space-separated: the launcher reads them into an array
+    without word-splitting, so a value that ever contains a space still arrives
+    whole. The launcher calls this instead of re-reading `config.toml`.
+    """
+    from .config import pane_open_args
+
+    for arg in pane_open_args(load_config(), quick_add=quick_add_requested(args)):
+        print(arg)
+    return 0
 
 
 def _terminal_size() -> tuple[int, int]:
@@ -309,6 +332,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.version:
         print(f"herdr-kanban {__version__}")
         return 0
+    if args.pane_open_args:
+        return run_pane_args(args)
     if args.snapshot:
         return run_snapshot(args)
     if args.screen:

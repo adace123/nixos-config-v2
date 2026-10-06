@@ -101,6 +101,13 @@ class Config:
     placement: str = "overlay"
     width: str = "95%"
     height: str = "90%"
+    # Quick capture's own geometry: the `herdr-kanban.quick-add` action opens a
+    # popup whatever `placement` says, because capture costs nothing that way.
+    # Defaults mirror config.toml, so a bare checkout and a Nix-managed install
+    # open the add form at the same size.
+    quick_add_placement: str = "popup"
+    quick_add_width: str = "80%"
+    quick_add_height: str = "75%"
     animate: bool = True
     icon_mode: str = "brand"
     sync_seconds: float = 2.0
@@ -270,6 +277,37 @@ class Config:
         return limit if isinstance(limit, int) and limit > 0 else None
 
 
+def pane_open_args(config: Config, *, quick_add: bool = False) -> list[str]:
+    """The `herdr plugin pane open` flags this config asks for, in order.
+
+    The launcher runs `kanban --pane-open-args` instead of reading `config.toml`
+    with awk: this module already parses the file (`tomllib` — sections, inline
+    comments, quoting), and a second reader in the shell is a second parser of
+    the same keys, waiting to disagree with the first.
+
+    `quick_add` selects the capture shortcut's own geometry. An empty placement
+    passes no flag, leaving the manifest's `placement` in charge; width and
+    height are sent only for a popup, the one placement that is sized. The shell
+    reader this replaced sent the quick-capture sizes whatever its placement
+    said — that only mattered for a non-popup `quick_add_placement`, whose size
+    herdr ignores anyway.
+    """
+    placement = config.quick_add_placement if quick_add else config.placement
+    width = config.quick_add_width if quick_add else config.width
+    height = config.quick_add_height if quick_add else config.height
+
+    args: list[str] = []
+    if placement:
+        args += ["--placement", placement]
+    if placement == "popup":
+        args += ["--width", width, "--height", height]
+    if quick_add:
+        # The pane entrypoint is static in the manifest, so the marker env var
+        # is how the board learns to open with the add form already up.
+        args += ["--env", "KANBAN_QUICK_ADD=1"]
+    return args
+
+
 def config_dir() -> Path:
     """Where herdr puts this plugin's config (`plugin config-dir herdr-kanban`)."""
     env = os.environ.get("HERDR_PLUGIN_CONFIG_DIR")
@@ -354,9 +392,14 @@ def load_config(path: Path | None = None) -> Config:
             if isinstance(value, (int, float)) and not isinstance(value, bool)
         }
 
-    if isinstance(ui.get("placement"), str):
-        config.placement = ui["placement"]
-    for key in ("width", "height"):
+    # Geometry, board and quick capture alike: first the placements, which must
+    # be strings (a bool would reach herdr as a placement verbatim), then the
+    # sizes, which may be ints (`width = 120` reaches herdr as "120").
+    for key in ("placement", "quick_add_placement"):
+        value = ui.get(key)
+        if isinstance(value, str):
+            setattr(config, key, value)
+    for key in ("width", "height", "quick_add_width", "quick_add_height"):
         value = ui.get(key)
         # bool is an int, so `width = true` would otherwise become the string
         # "True" and reach herdr as a popup size.

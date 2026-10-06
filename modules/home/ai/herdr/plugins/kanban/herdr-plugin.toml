@@ -23,7 +23,7 @@
 
 id = "herdr-kanban"
 name = "Herdr Kanban"
-version = "0.1.0"
+version = "0.2.0"
 min_herdr_version = "0.9.0"
 description = "Kanban board for agent work: plan tasks per workspace and agent, dispatch them into live panes, and watch their state."
 platforms = ["linux", "macos"]

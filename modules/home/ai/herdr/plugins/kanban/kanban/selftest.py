@@ -1743,6 +1743,72 @@ def _pin_config(
     return path
 
 
+def check_pane_args(check: Checker, tmp: str) -> None:
+    """The pane-open flags come from the config module, not a shell re-reader.
+
+    `launcher.sh` used to pull `placement`/`width`/`height` out of config.toml
+    with awk, which matched the key in *any* section and could not strip an
+    inline comment. The flags now come from `pane_open_args` over the same
+    `load_config` the board uses, and this pins the shape the launcher reads
+    back: one flag per line, quick capture's own popup geometry, the env marker,
+    and nothing but a placement for an overlay.
+    """
+    from dataclasses import replace
+
+    from .config import load_config, pane_open_args
+
+    path = Path(tmp) / "pane-args-config.toml"
+    path.write_text(
+        "[board]\n"
+        # Same key name in another section: the section-blind awk took this one.
+        'placement = "split"\n'
+        "[ui]\n"
+        # Inline comment the awk kept as part of the value.
+        'placement = "popup" # sized below\n'
+        "width = 120\n"
+        'height = "70%"\n'
+        'quick_add_placement = "popup"\n'
+        'quick_add_width = "55%"\n'
+        'quick_add_height = "45%"\n',
+        encoding="utf-8",
+    )
+    config = load_config(path)
+    flags = pane_open_args(config)
+    check.check(
+        "pane flags read only [ui], ignoring a same-named key elsewhere",
+        flags == ["--placement", "popup", "--width", "120", "--height", "70%"],
+        f"{flags}",
+    )
+    quick = pane_open_args(config, quick_add=True)
+    check.check(
+        "quick capture gets its own popup geometry and the marker",
+        quick
+        == [
+            "--placement",
+            "popup",
+            "--width",
+            "55%",
+            "--height",
+            "45%",
+            "--env",
+            "KANBAN_QUICK_ADD=1",
+        ],
+        f"{quick}",
+    )
+    overlay = pane_open_args(replace(config, placement="overlay"))
+    check.check(
+        "an overlay board passes no size flags",
+        overlay == ["--placement", "overlay"],
+        f"{overlay}",
+    )
+    manifest_default = pane_open_args(replace(config, placement=""))
+    check.check(
+        "an empty placement leaves the manifest's choice alone",
+        manifest_default == [],
+        f"{manifest_default}",
+    )
+
+
 async def check_quick_capture(check: Checker, tmp: str) -> None:
     """Quick capture writes for real, and confirms itself in herdr's session.
 
@@ -5849,6 +5915,7 @@ async def _run(check: Checker) -> None:
         os.environ["KANBAN_NOTIFY_CMD"] = "true"
         try:
             check_store(check, tmp)
+            check_pane_args(check, tmp)
             check_ids(check, tmp)
             check_counters(check, tmp)
             check_archive(check, tmp)
