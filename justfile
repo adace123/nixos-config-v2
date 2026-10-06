@@ -676,7 +676,7 @@ rollback:
 # Update flake inputs
 [group('workflow')]
 update:
-    nix flake update
+    nix flake update --commit-lock-file --accept-flake-config
 
 # Update a specific input (e.g., just update-input nixpkgs)
 [group('workflow')]

@@ -76,3 +76,4 @@ infra/crash.*.log
 
 # Temporary sops plaintext
 secrets/*-plaintext.*
+.empryo
