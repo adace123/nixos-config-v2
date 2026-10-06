@@ -54,7 +54,9 @@ USAGE_COMMANDS = """  {cli} status [<task>] <column>   move a card
                                     changes requested (the board's `b`)
   {cli} reply  [<task>] <answer>   answer a Blocked card's agent and carry the
                                     card back to In Progress
-  {cli} archive   [<task>]         archive a card, keeping its record
+  {cli} archive   [<task>] [--remove-worktree]
+                                    archive a card, keeping its record (and, when
+                                    the checkout is safe to remove, its worktree)
   {cli} unarchive [<task>]         restore an archived card to the board
   {cli} rename <task> <code|id>    change a card's id code (cfg-8 -> infra-8,
                                     or infra-9 when infra has used 8)
@@ -916,7 +918,14 @@ def _send(args: list[str], store: Store, config: Config) -> int:
     if dry_run:
         where = plan.workspace_label or plan.workspace_id
         if plan.worktree:
-            where = f"a worktree of {where}" if where else "a worktree"
+            if plan.worktree_path:
+                where = f"the card's worktree {plan.worktree_path}"
+            elif where:
+                where = f"a worktree of {where}"
+                if plan.worktree_new_branch:
+                    where += f" (new branch {plan.worktree_new_branch})"
+            else:
+                where = "a worktree"
         print(
             f"would send {plan.task_id} to {plan.name} ({plan.kind}) in {where}\n"
             f"     {task.status} -> {target or task.status}"
@@ -935,6 +944,7 @@ def _send(args: list[str], store: Store, config: Config) -> int:
                         "workspace": plan.workspace_id,
                         "worktree": plan.worktree,
                         "worktree_path": plan.worktree_path,
+                        "worktree_new_branch": plan.worktree_new_branch,
                         "column": target or task.status,
                         "reuses_agent": plan.reuses_running_agent,
                         "dry_run": True,
@@ -1183,9 +1193,16 @@ def _archive(args: list[str], store: Store, config: Config) -> int:
     *after* the record is written and the messages are printed, because the
     caller may be that agent's own pane (`--force`) and closing it first would
     kill the process before it could say what it did.
+
+    `--remove-worktree` also removes the card's checkout and branch, and only
+    removes them when nothing uncommitted or unmerged is in the way — the same
+    git check the board's archive offer makes, and it never forces. Without the
+    flag a safe checkout is *offered*: the notice names the command that removes
+    it. The board's `A` asks the question interactively; a script says yes.
     """
     force = "--force" in args
-    args = [arg for arg in args if arg != "--force"]
+    remove_worktree = "--remove-worktree" in args
+    args = [arg for arg in args if arg not in ("--force", "--remove-worktree")]
     reference, rest = _split_task(args)
     if rest:
         print(f"unexpected argument {rest[0]!r}", file=sys.stderr)
@@ -1216,6 +1233,31 @@ def _archive(args: list[str], store: Store, config: Config) -> int:
         stopped = close_agent_tab(store, task)
         if stopped:
             print(stopped)
+    if task.worktree_path and remove_worktree:
+        from .dispatch import remove_worktree as remove_card_worktree
+        from .herdr import Herdr
+
+        # The checkout is the agent's workspace, so it waits for the agent: with
+        # `auto_archive_agent` off and a live agent, removing it would pull the
+        # ground out from under a run the board deliberately left going.
+        if not config.auto_archive_agent and _live_now().lookup(task) is not None:
+            print(
+                f"  worktree {task.worktree_path} kept — its agent is still"
+                " running (auto_archive_agent is off)"
+            )
+        else:
+            print("  " + remove_card_worktree(Herdr(), task))
+    elif task.worktree_path:
+        from .dispatch import worktree_removable
+
+        removable, why = worktree_removable(task)
+        if removable:
+            print(
+                f"  worktree {task.worktree_path} kept — remove it with:"
+                f" {CLI} archive {task.id} --remove-worktree"
+            )
+        elif why:
+            print(f"  worktree {task.worktree_path} kept — {why}")
     return 0
 
 

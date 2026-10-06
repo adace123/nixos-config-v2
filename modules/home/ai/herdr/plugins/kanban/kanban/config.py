@@ -155,12 +155,15 @@ class Config:
     # by its first capture. `--force` on one `herdr-kanban title` call means the
     # same thing for that call alone.
     agent_title_overrides: bool = False
-    # Whether the dispatch form's **Git worktree** option is on to begin with.
-    # Off by default: a worktree changes where the agent runs (a fresh checkout
-    # instead of the workspace you are in), which is worth a deliberate click.
-    # A card that already owns a worktree always defaults to reusing it, whatever
-    # this says — the checkout is where its work lives.
-    worktree: bool = False
+    # Fork a git worktree for a dispatch by default. On by default: the board
+    # is where several agents run at once and a repo has one index, so a card
+    # whose workspace is a plain git checkout gets a checkout of its own unless
+    # this is turned off. A card that already owns a worktree always reuses it,
+    # whatever this says — the checkout is where its work lives — and a
+    # workspace that is not a git checkout is never forked. `[dispatch]
+    # worktree = false` turns the default off; the form's checkbox and
+    # `send --no-worktree` override it for one run.
+    worktree: bool = True
     # Extra flags per agent kind, handed to `herdr agent start … -- <args>`.
     # Without these a dispatched agent runs with none of the flags you use
     # interactively (no --model, no --permission-mode).
@@ -373,6 +376,7 @@ def load_config(path: Path | None = None) -> Config:
 
     ui = _section(data, "ui")
     board = _section(data, "board")
+    dispatch = _section(data, "dispatch")
     behavior = _section(data, "behavior")
 
     config.columns = _columns(board.get("columns"))
@@ -487,7 +491,12 @@ def load_config(path: Path | None = None) -> Config:
         config.announce_protocol = behavior["announce_protocol"]
     if isinstance(behavior.get("agent_title_overrides"), bool):
         config.agent_title_overrides = behavior["agent_title_overrides"]
-    if isinstance(behavior.get("worktree"), bool):
+    # `[dispatch] worktree` is the key; `[behavior] worktree` is a deprecated
+    # alias read only when the newer one is absent, so a hand-edited file from
+    # before the move keeps working. The repo's own config.toml uses `[dispatch]`.
+    if isinstance(dispatch.get("worktree"), bool):
+        config.worktree = dispatch["worktree"]
+    elif isinstance(behavior.get("worktree"), bool):
         config.worktree = behavior["worktree"]
 
     return config

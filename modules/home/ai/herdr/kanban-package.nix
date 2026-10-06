@@ -31,6 +31,7 @@ let
     "config"
     "demo"
     "dispatch"
+    "git"
     "herdr"
     "icons"
     "modals"

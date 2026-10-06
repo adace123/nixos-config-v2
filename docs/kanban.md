@@ -269,9 +269,25 @@ the card sits in into a checkout of its own — `herdr worktree create`, which a
 opens it as a herdr workspace — and starts the agent there instead of in the
 shared checkout. Two cards on one repo then cannot step on each other's working
 tree, which is the whole reason it exists: the board is where several agents run
-at once, and a repo has one index. `worktree` in `[behavior]` only decides
-whether the option starts ticked; a card that already owns a checkout always
-offers it ticked, because the checkout is where its work lives.
+at once, and a repo has one index.
+
+It is **on by default** for a card whose workspace is a plain git checkout
+(`[dispatch] worktree = true`): running several cards on one repo in one checkout
+is exactly what tangled their edits together, so isolation is the default rather
+than an opt-in. The board reads git-ness from herdr's own `workspace list` — a
+workspace that is a checkout reports a `worktree` object — and never shells out
+to `git` to guess. Three cases fork nothing: a card that already owns a checkout
+reuses it (the checkout is where its work lives), a workspace that is not a git
+checkout has nothing to fork, and a workspace that is *itself* a linked worktree
+is already somebody's isolation. `herdr-kanban send --no-worktree` and unticking
+the box send into the card's own workspace for one run; `[dispatch] worktree =
+false` turns the default off board-wide.
+
+The branch a fresh fork gets is descriptive — `feature/<slug>` by default, or
+`fix/<slug>` when the card title starts with a fix marker (`fix:`, `fix(`, `bug:`,
+`hotfix:`) — instead of herdr's generated `worktree/<name>`. The slug is the
+card's title, lowercased, cut to about forty characters on a word boundary, so
+`git branch` and a worktree listing name the work rather than a colour.
 
 The card records the checkout (`worktree_path`), its branch (`worktree_branch`)
 and the workspace herdr opened for it (`worktree_workspace_id`), while its
@@ -282,16 +298,32 @@ than forking a second one: one card, one working tree. The detail view shows the
 path and branch, and so do `show` and `list --json` (`worktree_path`,
 `worktree_branch`, `worktree_workspace`).
 
-Deleting a card that has a checkout asks a second time, after the delete
-confirmation: *Also remove the worktree for cfg-8?* Removal closes the workspace
-herdr opened for it (`herdr worktree remove --workspace`), so a workspace you
-closed by hand first cannot be removed this way — the board says so and names
-the `git worktree remove <path>` that will. The question is a second
-confirmation rather than a config key because the checkout is the only thing
-that remembers where a card's uncommitted work is, and once the card is gone
-nothing in herdr points at it. If the card's agent is kept
-(`auto_delete_agent = false`) the checkout stays with it, because it *is* the
-agent's workspace.
+**Removing a card's worktree.** Deleting a card that has a checkout asks a
+second time, after the delete confirmation: *Also remove the worktree for
+cfg-8?* Archiving one asks the same question when the checkout is safe to
+remove. Removing closes the workspace herdr opened for it (`herdr worktree
+remove --workspace`), so a workspace you closed by hand first cannot be removed
+this way — the board says so and names the `git worktree remove <path>` that
+will. The branch herdr made goes too, deleted from the main checkout with `git
+branch -d`; the safe delete, so git itself refuses an unmerged branch.
+
+The offer is **never made when it could lose work**, and the board never
+`--force`s anything. Before asking, it reads the checkout with git: uncommitted
+or untracked changes, or commits on the branch that the base branch (`origin`'s
+default, else `main`, else `master`) does not have, keep the checkout and the
+notice says why. A branch the board cannot compare against a base — no remote
+and no local main/master — is treated as unmerged, because the whole point is
+to keep what the board is unsure about. A path that is not there, or is not a
+repository, has nothing to protect, so it does not block removal.
+
+The question is a second confirmation rather than a config key because the
+checkout is the only thing that remembers where a card's uncommitted work is,
+and once the card is gone nothing in herdr points at it. If the card's agent is
+kept (`auto_delete_agent = false` for delete, `auto_archive_agent = false` for
+archive) the checkout stays with it, because it *is* the agent's workspace. From
+a shell, `herdr-kanban archive <id> --remove-worktree` says yes without the
+question; without the flag a safe checkout is named with the command that
+removes it, so a script is told what it could do rather than doing it.
 
 `agent prompt` reports success once the text *and* the Enter have been written,
 which is not the same as the agent acting on them: prompt an agent in the moment
@@ -351,8 +383,8 @@ without deleting the card, which is what you want for a runaway run. Both
 confirm first, and both leave a tab alone if its label is no longer the one the
 board last wrote to it — that pane is yours now, not the card's. `A` (archive)
 can stop the agent too, under its own switch: `auto_archive_agent`, off by
-default. It asks nothing either way; the notice names the tab it closed, or says
-the run is still going.
+default. It asks nothing about the agent either way; the notice names the tab it
+closed, or says the run is still going.
 
 **Delete vs archive.** `d` deletes: the card and its record go. `A` archives:
 the card leaves the board and joins an `archived` list in `board.json`, keeping
@@ -363,15 +395,16 @@ place on the board. With `auto_archive_agent` on the tab is closed with the
 card, exactly as `d` closes it (the same label check, so a tab you have since
 taken for something else is left where it is); the notice then names the tab
 that went, and the card forgets the pane and tab it was dispatched to. A
-worktree stays either way: a checkout is only ever offered for removal when the
-card is deleted.
+worktree is offered for removal too, when the checkout is safe — the archive
+notice names the checkout it kept and why when it is not.
 `herdr-kanban unarchive cfg-8` puts it back
 in the column it came from — last in that column's list order, which is what
 `sort = "manual"` draws, and first under the default `sort = "updated"` because
 the restore touches the card — and `herdr-kanban list --archived` shows what is in
 there; an archived card is still `show`-able and still answers to its id or its
-number. `A` asks nothing first — unlike `d`, nothing is lost — and the footer
-names the `unarchive` that undoes it.
+number. `A` asks nothing first — unlike `d`, nothing is lost — except for a safe
+checkout, which gets the same second question `d` asks; the footer names the
+`unarchive` that undoes the archive.
 
 Press `v` to draw the archive as a column at the right edge, and `v` again to
 put it away: it is off by default, because the board is for the work in it. In
@@ -557,7 +590,7 @@ that could have meant it):
 | `herdr-kanban send [<task>] [--agent <kind>] [--workspace <id>] [--model <name>] [--worktree\|--no-worktree] [--dry-run]` | start an agent for a card, without the board |
 | `herdr-kanban list [--mine] [--archived] [--json]` | the board (or just this pane's card), or the archive |
 | `herdr-kanban show [<task>] [--json]` | one card in full, history included (an archived card too) |
-| `herdr-kanban archive [<task>]` | take a card off the board, keeping its record (stopping its agent when `auto_archive_agent` is on) |
+| `herdr-kanban archive [<task>] [--remove-worktree]` | take a card off the board, keeping its record (stopping its agent when `auto_archive_agent` is on; removing a safe checkout with the flag) |
 | `herdr-kanban unarchive [<task>]` | put an archived card back in the column it left |
 | `herdr-kanban rename <task> <code\|id>` | change a card's id code, and its number when the target code has spent that number |
 | `herdr-kanban renumber` | compact every code's numbers to `1..n` (yours, not an agent's) |
@@ -607,7 +640,8 @@ without touching anything — which is how you check what an automation is about
 do. `--model` and `--workspace` override the card for that one run and are
 recorded on it, so a later re-send does not quietly go back to the default;
 `--worktree` and `--no-worktree` do the same for the checkout (unset follows the
-card). It is the same `Executor.run` the board uses, prompt-confirmation and all,
+card and the board's `[dispatch] worktree` default — `--no-worktree` is the way
+to send into the shared checkout once). It is the same `Executor.run` the board uses, prompt-confirmation and all,
 and the same bookkeeping: the card records its pane, tab and agent name, and
 moves to the column `send_column` picks. A send that delivered the prompt but
 never confirmed still records the link — the agent is findable and re-sendable
@@ -883,8 +917,13 @@ agent_title_overrides = true
                         # typed (on the card and its tab); the replaced title is
                         # kept in the card's history. false: your title wins and
                         # an agent's name lands under Updates as a suggestion
-worktree = false        # the send form's Git worktree option starts ticked;
-                        # a card that owns a checkout always offers it ticked
+
+[dispatch]
+worktree = true         # fork a git worktree for a card whose workspace is a
+                        # plain git checkout (the default): two cards on one repo
+                        # then cannot share a working tree. A card that owns a
+                        # checkout always reuses it; a non-git workspace is never
+                        # forked. false sends into the card's own workspace.
 
 # Flags handed to an agent the board starts — the same ones you would type after
 # `herdr agent start … --`. Without these, a dispatched agent runs with none of

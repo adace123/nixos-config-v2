@@ -31,6 +31,7 @@ from .dispatch import (
     result_summary,
     retitle_tab,
     review_prompt,
+    worktree_removable,
 )
 from .herdr import Herdr
 from .modals import (
@@ -468,7 +469,7 @@ class KanbanApp(App[None]):
             markup=False,
         )
 
-    def archive_task(self, task: Task) -> None:
+    def archive_task(self, task: Task, remove_worktree: bool = False) -> None:
         """Take a card off the board, keeping its record (`unarchive` restores).
 
         Archive is about the board, not the run: unlike `delete`, it does not
@@ -478,8 +479,20 @@ class KanbanApp(App[None]):
         with it on, the notice names the tab that was closed instead — or the
         error that left it open, since a card leaving the board must not report
         a stop that did not happen.
+
+        `remove_worktree` is the second question `action_archive_task` asks when
+        the checkout is safe to remove. It is the caller's decision: this method
+        still runs the git check before anything is removed, and never forces.
         """
         closed = self.close_agent(task) if self.config.auto_archive_agent else ""
+        # After the agent that might be using it is stopped (or none was), and
+        # only when nothing uncommitted or unmerged would be lost — the check
+        # is inside `dispatch.remove_worktree`.
+        removed = (
+            dispatch.remove_worktree(self.herdr, task, demo=self.demo_mode)
+            if remove_worktree
+            else ""
+        )
         if self.demo_mode:
             task.archived_from = task.status
             task.archived_at = time.time()
@@ -500,8 +513,16 @@ class KanbanApp(App[None]):
             stopped = " · its agent is still running"
         else:
             stopped = ""
+        # A checkout that is staying says so, and why, rather than leaving the
+        # card silently pointing at a working tree nobody will clean up.
+        kept = ""
+        if task.worktree_path and not removed:
+            _, why = worktree_removable(task)
+            kept = " · worktree kept" + (f" — {why}" if why else "")
+        tail = f" · {removed}" if removed else ""
         self.set_notice(
-            f"{task.id} archived{stopped} — {CLI} unarchive {task.id} to restore"
+            f"{task.id} archived{stopped}{kept}{tail}"
+            f" — {CLI} unarchive {task.id} to restore"
         )
 
     def unarchive_task(self, task: Task) -> None:
@@ -518,35 +539,34 @@ class KanbanApp(App[None]):
         self._after_change()
         self.set_notice(f"{task.id} restored to {self.config.label_for(task.status)}")
 
-    def may_remove_worktree(self, task: Task) -> bool:
-        """Whether deleting `task` could remove its checkout.
+    def may_remove_worktree(self, task: Task, keep_agent: bool | None = None) -> bool:
+        """Whether removing `task`'s checkout could be offered.
 
         A worktree is removed by closing the workspace herdr opened for it, so
-        there is nothing to remove without one. And if the card's agent is being
-        kept (`auto_delete_agent = false`) while it is still running, the
-        checkout is that agent's workspace and has to stay with it.
+        there is nothing to remove without one. If the card's agent is being
+        kept while it still runs, the checkout is that agent's workspace and has
+        to stay with it — `keep_agent` is the caller's answer (delete reads
+        `auto_delete_agent`, archive reads `auto_archive_agent`). And the
+        checkout must hold no uncommitted or unmerged work: `worktree_removable`
+        is the git half, so the board never offers a removal that would lose
+        something. Never forces, by construction.
         """
         if not task.worktree_path or not task.worktree_workspace_id:
             return False
-        if not self.config.auto_delete_agent and self.agent_tab(task)[0]:
+        if keep_agent is None:
+            keep_agent = not self.config.auto_delete_agent
+        if keep_agent and self.agent_tab(task)[0]:
             return False
-        return True
+        removable, _ = worktree_removable(task)
+        return removable
 
     def remove_worktree(self, task: Task) -> str:
-        """Remove `task`'s checkout; return a phrase for the delete notice."""
-        if not task.worktree_workspace_id:
-            return "worktree kept (its workspace is already gone)"
-        if self.demo_mode:
-            return f"demo: would remove worktree {task.worktree_path}"
-        result = self.herdr.remove_worktree(task.worktree_workspace_id)
-        if result.ok:
-            return f"worktree removed ({task.worktree_path})"
-        # The workspace was closed by hand: herdr's `worktree remove` takes only
-        # a workspace id, so the checkout is left for `git worktree remove`.
-        return (
-            f"worktree kept — {result.error_text()}; remove it with:"
-            f" git worktree remove {task.worktree_path}"
-        )
+        """Remove `task`'s checkout and branch; return a phrase for the notice.
+
+        The safety check and the branch deletion live in `dispatch`, because the
+        CLI's `archive` asks the same question and must get the same answer.
+        """
+        return dispatch.remove_worktree(self.herdr, task, demo=self.demo_mode)
 
     # -- screens ---------------------------------------------------------
 
@@ -774,10 +794,13 @@ class KanbanApp(App[None]):
                 "— `auto_delete_agent` is off."
             )
         if task.worktree_path:
+            _, why = worktree_removable(task)
             if self.may_remove_worktree(task):
                 closing += (
                     f"\n\nIts worktree {task.worktree_path} is offered for removal next."
                 )
+            elif why:
+                closing += f"\n\nIts worktree {task.worktree_path} is kept — {why}."
             else:
                 closing += f"\n\nIts worktree {task.worktree_path} is kept."
         self.push_screen(
@@ -798,8 +821,29 @@ class KanbanApp(App[None]):
         if task.archived_at:
             self.set_notice(f"{task.id} is already archived — press u to restore it")
             return
-        # No confirmation: unlike `d`, archiving keeps the card and the notice
-        # names the one command that brings it back.
+        # No confirmation for the archive itself: unlike `d`, it keeps the card
+        # and the notice names the one command that brings it back. A checkout
+        # is the exception — it is a real loss and the card is the only thing
+        # that remembers where it is — so a safe, unused one is a second
+        # question, exactly as delete asks it. An unsafe one is never offered.
+        keep_agent = not self.config.auto_archive_agent
+        if self.may_remove_worktree(task, keep_agent=keep_agent):
+            branch = (
+                f"\n\nbranch {task.worktree_branch}" if task.worktree_branch else ""
+            )
+            self.push_screen(
+                ConfirmModal(
+                    "Remove worktree",
+                    f"Archive {task.id} and remove its worktree?\n\n"
+                    f"{task.worktree_path}{branch}",
+                    confirm_label="Archive + remove",
+                    danger=True,
+                ),
+                lambda remove, task=task: self.archive_task(
+                    task, remove_worktree=bool(remove)
+                ),
+            )
+            return
         self.archive_task(task)
 
     def action_unarchive_task(self) -> None:

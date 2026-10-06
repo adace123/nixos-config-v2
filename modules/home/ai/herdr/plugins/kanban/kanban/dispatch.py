@@ -10,10 +10,12 @@ workspace lookup.
 
 from __future__ import annotations
 
+import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 
+from . import git
 from .config import Config
 from .herdr import Herdr, Result, Workspace, Worktree
 from .model import LiveState
@@ -46,6 +48,12 @@ class Plan:
     worktree_path: str = ""
     worktree_branch: str = ""
     worktree_workspace_id: str = ""
+    # The branch a *fresh* fork would get (`feature/<slug>` / `fix/<slug>`).
+    # The card's own `worktree_branch` above is the branch it already has; this
+    # is read only by the two calls that create a checkout (a first fork, or a
+    # reopen that fell back to forking), and is filled in whether or not this
+    # plan forks so the send form can tick the box after the plan is built.
+    worktree_new_branch: str = ""
 
     @property
     def reuses_running_agent(self) -> bool:
@@ -98,6 +106,11 @@ DISPATCH_ENV: dict[str, str] = {"HERDR_KANBAN_DISPATCH": "1"}
 PROMPT_CONFIRM_SECONDS = 6.0
 PROMPT_POLL_SECONDS = 0.35
 
+# The repo's worktree rule asks for `feature/<slug>` or `fix/<slug>`; a title
+# that opens with one of these markers is the fix, everything else is a feature.
+FIX_MARKERS: tuple[str, ...] = ("fix:", "fix(", "bug:", "bugfix:", "hotfix:")
+BRANCH_SLUG_LIMIT = 40
+
 PROTOCOL_TEMPLATE = """---
 herdr kanban: this card is {task_id}. Keep it current as you work:
   finished?        {cli} status {review}
@@ -132,6 +145,31 @@ def protocol_block(task_id: str, cli: str = CLI, review: str = "review") -> str:
     rather than a literal `review` that a rename would make fail.
     """
     return PROTOCOL_TEMPLATE.format(task_id=task_id, cli=cli, review=review)
+
+
+def _branch_slug(title: str, limit: int = BRANCH_SLUG_LIMIT) -> str:
+    """A branch-safe slug out of a card title, cut on a word boundary."""
+    slug = re.sub(r"[^a-z0-9]+", "-", (title or "").lower()).strip("-")
+    if limit > 0 and len(slug) > limit:
+        slug = slug[:limit].rsplit("-", 1)[0]
+    return slug.strip("-")
+
+
+def worktree_branch_name(task: Task) -> str:
+    """`feature/<slug>` or `fix/<slug>` for a worktree forked for `task`.
+
+    Not herdr's generated `worktree/<name>`: a branch outlives the run and is
+    read months later, and `feature/dispatch-into-a-worktree-by-default` says
+    what it is about where `worktree/quiet-cloud-0ecd` says only that herdr
+    made it. The card's title is the slug, and a title that opens with a fix
+    marker gets the `fix/` prefix (the repo's worktree rule names both shapes);
+    everything else is a `feature/`. The slug falls back to the card id when a
+    title is all punctuation.
+    """
+    lowered = (task.title or "").strip().lower()
+    prefix = "fix" if lowered.startswith(FIX_MARKERS) else "feature"
+    slug = _branch_slug(task.title) or task.slug
+    return f"{prefix}/{slug}"
 
 
 def tab_label_for(task: Task) -> str:
@@ -317,11 +355,38 @@ def plan_for(
 
     kind = task.agent_kind or fallback_kind or config.default_agent
     workspace_id = task.workspace_id or fallback_workspace
+    workspace = live.workspaces.get(workspace_id)
     workspace_label = (
-        live.workspaces[workspace_id].label
-        if workspace_id in live.workspaces
+        workspace.label
+        if workspace is not None
         else task.workspace_label or workspace_id
     )
+
+    # The worktree decision, resolved here and nowhere else so the send form,
+    # `send` and its `--dry-run` cannot disagree about what a run will do. Two
+    # cases fork nothing:
+    #   * the card already owns a checkout — that checkout is where its work
+    #     lives, so a re-send reuses it rather than scattering one card's work
+    #     across two checkouts;
+    #   * the workspace is not a plain git checkout. A linked worktree is
+    #     already somebody else's isolation, and a workspace herdr cannot see
+    #     must not be assumed to be a repo (`workspace_ok` keeps the same
+    #     "cannot tell, do not act" rule).
+    # `--no-worktree` and an unticked box override this for one run.
+    owns_checkout = bool(task.worktree_path)
+    fork_by_default = bool(
+        config.worktree
+        and workspace is not None
+        and workspace.checkout_path
+        and not workspace.is_linked_worktree
+    )
+    worktree = owns_checkout or fork_by_default
+    # A card being reused keeps the branch it has; a fresh fork gets a
+    # descriptive one rather than herdr's generated default. Computed whether
+    # or not this plan forks: the send form can tick the box after the plan was
+    # built (a non-git workspace that owns no checkout), and the branch has to
+    # be there when it does instead of empty.
+    worktree_new_branch = task.worktree_branch or worktree_branch_name(task)
 
     # No collision check here: herdr rejects a duplicate live name itself and
     # the executor reports that as a step. The names herdr *reports* are kind
@@ -346,15 +411,63 @@ def plan_for(
         reuse_name=agent.name if agent else "",
         reuse_pane=agent.pane_id if agent else "",
         reuse_tab=agent.tab_id if agent else "",
-        # A card that already has a checkout defaults to using it: the checkout
-        # is where its work lives, so a re-send that dropped it would scatter
-        # one card's work across two checkouts. The form and `send --worktree`
-        # can still turn it off for the run.
-        worktree=bool(task.worktree_path),
+        worktree=worktree,
         worktree_path=task.worktree_path,
         worktree_branch=task.worktree_branch,
         worktree_workspace_id=task.worktree_workspace_id,
+        worktree_new_branch=worktree_new_branch,
     )
+
+
+def worktree_removable(task: Task) -> tuple[bool, str]:
+    """Whether the board may offer to remove `task`'s checkout, and why not.
+
+    Only the git half of the question: whether the card's agent still needs the
+    checkout is the caller's, because delete and archive answer it from
+    different config keys. "Why not" is empty when the card simply has no
+    checkout to remove, so a caller can tell "nothing to remove" from "there is
+    something here worth keeping".
+    """
+    if not task.worktree_path or not task.worktree_workspace_id:
+        return False, ""
+    state = git.inspect(task.worktree_path, task.worktree_branch)
+    return state.removable, state.reason
+
+
+def remove_worktree(herdr: Herdr, task: Task, demo: bool = False) -> str:
+    """Remove `task`'s checkout and branch when that cannot lose work.
+
+    Returns a phrase for the delete/archive notice. Never forces: a checkout
+    with uncommitted or unmerged work is kept, with the reason, and one herdr
+    cannot remove (its workspace was closed by hand) names the git command that
+    will. The branch is deleted only after the checkout is really gone and only
+    with `git branch -d` — git's own safe delete refuses an unmerged branch, so
+    there is a second lock behind `worktree_removable`.
+    """
+    state = git.inspect(task.worktree_path, task.worktree_branch)
+    if not state.removable:
+        return f"worktree kept — {state.reason}"
+    if not task.worktree_workspace_id:
+        return "worktree kept (its workspace is already gone)"
+    if demo:
+        return f"demo: would remove worktree {task.worktree_path}"
+    result = herdr.remove_worktree(task.worktree_workspace_id)
+    if not result.ok:
+        # `worktree remove` takes only a workspace id, so a workspace closed by
+        # hand leaves the checkout for `git worktree remove` to take.
+        return (
+            f"worktree kept — {result.error_text()}; remove it with:"
+            f" git worktree remove {task.worktree_path}"
+        )
+    phrase = f"worktree removed ({task.worktree_path})"
+    if state.repo_root and state.branch:
+        deleted, detail = git.delete_branch(state.repo_root, state.branch)
+        phrase += (
+            f" · branch {detail} removed"
+            if deleted
+            else f" · branch kept — {detail}"
+        )
+    return phrase
 
 
 def worktree_from_result(result: Result) -> Worktree:
@@ -617,12 +730,16 @@ class Executor:
             if not result.ok:
                 step("worktree", f"{result.error_text()} — forking a new checkout")
                 result = self.herdr.create_worktree(
-                    workspace_id=plan.workspace_id, label=plan.tab_label
+                    workspace_id=plan.workspace_id,
+                    label=plan.tab_label,
+                    branch=plan.worktree_new_branch,
                 )
                 action = "created"
         else:
             result = self.herdr.create_worktree(
-                workspace_id=plan.workspace_id, label=plan.tab_label
+                workspace_id=plan.workspace_id,
+                label=plan.tab_label,
+                branch=plan.worktree_new_branch,
             )
             action = "created"
 
@@ -725,5 +842,8 @@ __all__ = [
     "result_summary",
     "retitle_tab",
     "review_prompt",
+    "remove_worktree",
+    "worktree_branch_name",
     "worktree_from_result",
+    "worktree_removable",
 ]

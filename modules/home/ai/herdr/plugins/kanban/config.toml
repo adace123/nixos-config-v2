@@ -169,12 +169,20 @@ announce_protocol = true
 # name is recorded under Updates as a suggestion instead. `--force` on one
 # `herdr-kanban title` call does the same as on, for that call alone.
 agent_title_overrides = true
-# Whether the send form's **Git worktree** option is already ticked when it
-# opens. Off by default: a worktree changes where the agent runs — a fresh
-# checkout instead of the workspace you are in — which is worth a deliberate
-# click. A card that already owns a worktree always opens with the option on,
-# because the checkout is where its work lives.
-worktree = false
+
+[dispatch]
+# Fork a git worktree for a dispatch by default, when the card's workspace is a
+# plain git checkout. On by default: the board is where several agents run at
+# once and a repo has one index, so two cards on one repo would otherwise share
+# (and tangle) one working tree — which is exactly what happened the first time
+# three cards ran together. A card that already owns a checkout always reuses
+# it, a workspace that is not a git checkout is never forked, and a workspace
+# that is itself a linked worktree is already isolated. The send form's **Git
+# worktree** checkbox and `herdr-kanban send --no-worktree` override it for one
+# run. Set this to false to send into the card's own workspace by default.
+# (`worktree` under `[behavior]` is the old spelling, still read when this key
+# is absent.)
+worktree = true
 
 # Flags handed to the agent when the board starts it — the same ones you would
 # type after `herdr agent start … --`. Without these a dispatched agent runs

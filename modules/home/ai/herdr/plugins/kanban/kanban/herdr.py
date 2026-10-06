@@ -53,10 +53,22 @@ class Workspace:
     active_tab_id: str
     agent_status: str
     tokens: dict[str, str] = field(default_factory=dict)
+    # Where this workspace's git checkout lives, when it has one. herdr reports
+    # a `worktree` object for a checkout-backed workspace and omits it for the
+    # rest, so `checkout_path` non-empty is the git-ness signal a dispatch
+    # reads before it forks a worktree of its own (see `dispatch.plan_for`).
+    # `is_linked_worktree` is true when the workspace *is* a worktree somebody
+    # forked — which is already that run's isolation, so it is never auto-forked
+    # again.
+    checkout_path: str = ""
+    repo_root: str = ""
+    is_linked_worktree: bool = False
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Workspace:
         tokens = data.get("tokens")
+        worktree = data.get("worktree")
+        worktree = worktree if isinstance(worktree, dict) else {}
         return cls(
             id=str(data.get("workspace_id") or ""),
             label=str(data.get("label") or data.get("workspace_id") or ""),
@@ -64,6 +76,9 @@ class Workspace:
             active_tab_id=str(data.get("active_tab_id") or ""),
             agent_status=str(data.get("agent_status") or "unknown"),
             tokens=tokens if isinstance(tokens, dict) else {},
+            checkout_path=str(worktree.get("checkout_path") or ""),
+            repo_root=str(worktree.get("repo_root") or ""),
+            is_linked_worktree=bool(worktree.get("is_linked_worktree")),
         )
 
 

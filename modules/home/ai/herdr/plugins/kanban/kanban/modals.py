@@ -824,17 +824,23 @@ class DispatchModal(Dialog):
                 markup=False,
             )
             # Fork (or reuse) a checkout for this run, so two cards on one repo
-            # never share a working tree. On by default when the card already
-            # owns a worktree — its work lives there — or when the board is
-            # configured to fork one for every dispatch.
+            # never share a working tree. The value is the plan's, not a second
+            # decision: `plan_for` already resolved "the card owns one" and "the
+            # board forks one by default for a git checkout" into a single
+            # `worktree`, and re-deriving it here would let the form and the run
+            # disagree.
             yield Checkbox(
                 "Git worktree",
-                value=plan.worktree or self.config.worktree,
+                value=plan.worktree,
                 id="dispatch-worktree",
             )
+            note = "run in a checkout forked for this card"
+            if plan.worktree_path:
+                note += f"   (reusing {plan.worktree_path})"
+            elif plan.worktree_new_branch:
+                note += f"   (new branch {plan.worktree_new_branch})"
             yield Static(
-                "run in a checkout forked for this card"
-                + (f"   (reusing {plan.worktree_path})" if plan.worktree_path else ""),
+                note,
                 classes="field-note",
                 id="dispatch-worktree-note",
                 markup=False,

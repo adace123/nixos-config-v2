@@ -3487,9 +3487,18 @@ def live_agent_name():
     return ""
 
 if args[:2] == ["workspace", "list"]:
-    workspaces = [
-        {"workspace_id": "w1", "label": "probe", "number": 1, "active_tab_id": "w1:t1",
-         "agent_status": "idle"}]
+    probe = {"workspace_id": "w1", "label": "probe", "number": 1,
+             "active_tab_id": "w1:t1", "agent_status": "idle"}
+    # herdr reports a `worktree` object for a checkout-backed workspace and omits
+    # it otherwise; the dispatch planner reads that as "this is a git checkout".
+    # Gated so the same fake can act out a plain workspace and a repo.
+    if os.environ.get("FAKE_GIT_WORKSPACE") == "1":
+        probe["worktree"] = {
+            "checkout_path": os.environ.get("FAKE_CWD", "/tmp"),
+            "repo_root": os.environ.get("FAKE_CWD", "/tmp"),
+            "is_linked_worktree": False,
+        }
+    workspaces = [probe]
     # A worktree workspace, once one has been forked (or reopened): set by the
     # checks that act out a card which already owns a checkout.
     if os.environ.get("FAKE_WORKTREE_OPEN") == "1":
@@ -3570,11 +3579,17 @@ if args[:2] == ["agent", "start"]:
 if args[:2] in (["worktree", "create"], ["worktree", "open"]):
     if os.environ.get("FAKE_WORKTREE_FAIL"):
         fail("repository_not_trusted", os.environ["FAKE_WORKTREE_FAIL"])
+    # A real herdr uses the `--branch` it is handed; the fake must too, or a
+    # check that a dispatch forks onto `feature/<slug>` would pass against a
+    # name the board never sent.
+    branch = os.environ.get("FAKE_WORKTREE_BRANCH", "worktree/fake")
+    if "--branch" in args:
+        branch = args[args.index("--branch") + 1]
     emit({"type": "worktree_created",
           "workspace": {"workspace_id": "w9",
                         "label": os.environ.get("FAKE_WORKTREE_LABEL", "probe-wt")},
           "worktree": {"path": os.environ.get("FAKE_WORKTREE_PATH", "/tmp/fake-worktree"),
-                       "branch": os.environ.get("FAKE_WORKTREE_BRANCH", "worktree/fake"),
+                       "branch": branch,
                        "open_workspace_id": "w9", "is_linked_worktree": True}})
 if args[:2] == ["worktree", "remove"]:
     if os.environ.get("FAKE_WORKTREE_REMOVE_FAIL"):
@@ -4370,6 +4385,7 @@ async def check_worktree_dispatch(check: Checker, tmp: str) -> None:
     from .config import load_config
     from .dispatch import Executor, plan_for, tab_label_for
     from .herdr import Herdr, Workspace
+    from .modals import ConfirmModal
     from .model import LiveState
     from .store import Store
 
@@ -4379,12 +4395,15 @@ async def check_worktree_dispatch(check: Checker, tmp: str) -> None:
     worktree_path = str(Path(tmp) / "checkout")
     env_keys = (
         "KANBAN_BOARD_FILE",
+        "KANBAN_CONFIG_FILE",
         "HERDR_WORKSPACE_ID",
+        "HERDR_PANE_ID",
         "HERDR_PLUGIN_CONTEXT_JSON",
         "HERDR_BIN_PATH",
         "FAKE_LOG",
         "FAKE_REACT",
         "FAKE_CWD",
+        "FAKE_GIT_WORKSPACE",
         "FAKE_WORKTREE_PATH",
         "FAKE_WORKTREE_BRANCH",
         "FAKE_WORKTREE_OPEN",
@@ -4397,8 +4416,12 @@ async def check_worktree_dispatch(check: Checker, tmp: str) -> None:
     log.write_text("", encoding="utf-8")
     os.environ.update(
         {
+            # Pinned: the default worktree policy (and every other key) must be
+            # this check's, not whatever config.toml the machine happens to have.
+            "KANBAN_CONFIG_FILE": str(_pin_config(tmp, "worktree-config.toml")),
             "KANBAN_BOARD_FILE": str(board),
             "HERDR_WORKSPACE_ID": "w1",
+            "HERDR_PANE_ID": "",
             "HERDR_BIN_PATH": str(fake),
             "FAKE_LOG": str(log),
             "FAKE_REACT": "1",
@@ -4479,15 +4502,131 @@ async def check_worktree_dispatch(check: Checker, tmp: str) -> None:
             "the card records the checkout its run lives in",
             updated is not None
             and updated.worktree_path == worktree_path
-            and updated.worktree_branch == "worktree/cfg-1"
+            # The descriptive branch the board asked herdr for, not herdr's own
+            # generated name (the fake echoes the `--branch` it was handed).
+            and updated.worktree_branch == "feature/fork-a-checkout-for-this-card"
             and updated.worktree_workspace_id == "w9",
             f"{updated.worktree_path if updated else '-'}"
+            f" / {updated.worktree_branch if updated else '-'}"
             f" / {updated.worktree_workspace_id if updated else '-'}",
         )
         check.check(
             "and keeps the repo it forked from as the card's workspace",
             updated is not None and updated.workspace_id == "w1",
             updated.workspace_id if updated else "-",
+        )
+
+        # The default: a card whose workspace is a plain git checkout forks one
+        # without the box being touched. "plain" matters — the same fake acts
+        # out the checkout by reporting herdr's `worktree` object for w1.
+        os.environ["FAKE_GIT_WORKSPACE"] = "1"
+        log.write_text("", encoding="utf-8")
+        git_card = Store.open(board).add(
+            title="Fork me by default",
+            workspace_id="w1",
+            workspace_label="probe",
+            agent_kind="pi",
+        )
+        app_git = KanbanApp(
+            config=config, store=Store.open(board), herdr=Herdr(binary=str(fake))
+        )
+        async with app_git.run_test(size=(120, 36)) as pilot:
+            # The auto decision reads the live workspace list, so wait for the
+            # board to have it before the form builds its plan — one `pause` is
+            # not long enough for the sync worker.
+            for _ in range(60):
+                await pilot.pause(0.05)
+                if "w1" in app_git.live.workspaces:
+                    break
+            app_git.ui.selected_id = git_card.id
+            await pilot.press("s")
+            await pilot.pause()
+            default_on = app_git.screen.query_one("#dispatch-worktree").value is True
+            await pilot.press("ctrl+s")
+            for _ in range(60):
+                await pilot.pause(0.05)
+                if app_git.workers_running() == []:
+                    break
+        recorded = calls()
+        git_updated = Store.open(board).by_id(git_card.id)
+        check.check(
+            "a git-checkout workspace forks a checkout by default",
+            default_on
+            and any(call[:2] == ["worktree", "create"] for call in recorded)
+            and any(
+                "--branch" in call
+                and call[call.index("--branch") + 1] == "feature/fork-me-by-default"
+                for call in recorded
+            ),
+            f"default_on={default_on} | "
+            + " | ".join(" ".join(call) for call in recorded),
+        )
+        check.check(
+            "and the card records the branch the dispatch asked for",
+            git_updated is not None
+            and git_updated.worktree_branch == "feature/fork-me-by-default",
+            git_updated.worktree_branch if git_updated else "-",
+        )
+
+        # Unticking the box on the same git workspace sends into the card's own
+        # checkout instead — the escape hatch the default has to leave open.
+        log.write_text("", encoding="utf-8")
+        own_card = Store.open(board).add(
+            title="Stay in the shared checkout",
+            workspace_id="w1",
+            workspace_label="probe",
+            agent_kind="pi",
+        )
+        app_own = KanbanApp(
+            config=config, store=Store.open(board), herdr=Herdr(binary=str(fake))
+        )
+        async with app_own.run_test(size=(120, 36)) as pilot:
+            await pilot.pause()
+            app_own.ui.selected_id = own_card.id
+            await pilot.press("s")
+            await pilot.pause()
+            app_own.screen.query_one("#dispatch-worktree").value = False
+            await pilot.press("ctrl+s")
+            for _ in range(60):
+                await pilot.pause(0.05)
+                if app_own.workers_running() == []:
+                    break
+        recorded = calls()
+        own_updated = Store.open(board).by_id(own_card.id)
+        check.check(
+            "unticking the box sends into the card's own workspace",
+            not any(call[:2] == ["worktree", "create"] for call in recorded)
+            and any(
+                call[:2] == ["tab", "create"]
+                and call[call.index("--workspace") + 1] == "w1"
+                for call in recorded
+            )
+            and own_updated is not None
+            and not own_updated.worktree_path,
+            " | ".join(" ".join(call) for call in recorded),
+        )
+
+        # `send --dry-run` reports the same decision, and the branch a fresh
+        # fork would use, so an automation can see what it is about to do.
+        dry_card = Store.open(board).add(
+            title="Dry run the fork",
+            workspace_id="w1",
+            workspace_label="probe",
+            agent_kind="pi",
+        )
+        import contextlib
+        import io
+
+        from .cli import run_agent_command
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
+            code = run_agent_command(["send", dry_card.id, "--dry-run"])
+        text = out.getvalue()
+        check.check(
+            "dry-run reflects the default fork and names the branch",
+            code == 0 and "feature/dry-run-the-fork" in text,
+            text.strip(),
         )
 
         # A re-dispatch reuses the checkout the card already owns instead of
@@ -4535,6 +4674,41 @@ async def check_worktree_dispatch(check: Checker, tmp: str) -> None:
                 call.startswith("worktree remove --workspace w9") for call in recorded
             ),
             " | ".join(recorded),
+        )
+
+        # Archiving asks the same second question when the checkout is safe, and
+        # removes it on confirm — a fresh card, because the delete above took
+        # the first one off the board.
+        log.write_text("", encoding="utf-8")
+        arch_card = Store.open(board).add(
+            title="Archive with a checkout",
+            workspace_id="w1",
+            worktree_path=worktree_path,
+            worktree_branch="feature/archive-with-a-checkout",
+            worktree_workspace_id="w9",
+            agent_kind="pi",
+        )
+        app_arch = KanbanApp(
+            config=config, store=Store.open(board), herdr=Herdr(binary=str(fake))
+        )
+        async with app_arch.run_test(size=(110, 30)) as pilot:
+            await pilot.pause()
+            app_arch.ui.selected_id = arch_card.id
+            app_arch.action_archive_task()
+            await pilot.pause()
+            archive_offered = isinstance(app_arch.screen, ConfirmModal)
+            await pilot.press("ctrl+s")
+            await pilot.pause()
+        archived = Store.open(board).archived_by_id(arch_card.id)
+        recorded = log.read_text(encoding="utf-8").splitlines()
+        check.check(
+            "archiving a card with a safe checkout offers and then removes it",
+            archive_offered
+            and archived is not None
+            and any(
+                call.startswith("worktree remove --workspace w9") for call in recorded
+            ),
+            f"offered={archive_offered} | " + " | ".join(recorded),
         )
 
         # A workspace closed by hand cannot be removed by herdr (`worktree
@@ -6767,6 +6941,148 @@ async def check_quit(check: Checker, tmp: str) -> None:
     await quitting(["a", "ctrl+c"], "a dialog", "quit-dialog")
 
 
+def check_worktree_git(check: Checker, tmp: str) -> None:
+    """Run the git checks with the hook-set `GIT_*` variables out of the way.
+
+    git exports `GIT_INDEX_FILE` (and friends) to a hook, and a nested `git`
+    in a throwaway repo then looks for that index relative to its own cwd: the
+    checks passed from a shell and failed under pre-commit.
+    """
+    scrub = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_PREFIX")
+    saved = {key: os.environ.pop(key) for key in scrub if key in os.environ}
+    try:
+        _check_worktree_git(check, tmp)
+    finally:
+        os.environ.update(saved)
+
+
+def _check_worktree_git(check: Checker, tmp: str) -> None:
+    """The git check behind removal: never offer to lose work, never force.
+
+    Runs against a real throwaway repository, because the whole point is what
+    git itself says about a checkout — a fake would only prove the fake works.
+    A machine without git skips rather than fails: the board reaches git
+    through a subprocess it guards, and this check exists to pin the rules, not
+    to add a dependency.
+    """
+    import subprocess
+
+    from .dispatch import remove_worktree, worktree_removable
+    from .git import inspect
+    from .herdr import Result
+    from .store import Task
+
+    repo = Path(tmp) / "git-working" / "repo"
+    repo.mkdir(parents=True)
+    checkout = Path(tmp) / "git-working" / "checkout"
+
+    def git(*args: str, cwd: Path | None = None) -> tuple[int, str]:
+        try:
+            proc = subprocess.run(
+                ["git", *args],
+                cwd=str(cwd or repo),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except FileNotFoundError:
+            return 127, "git not found"
+        return proc.returncode, (proc.stdout + proc.stderr).strip()
+
+    code, out = git("init", "-q", "-b", "main")
+    if code != 0:
+        check.check("git is available for the worktree safety checks", True, out)
+        return
+    git("config", "user.email", "selftest@example.com")
+    git("config", "user.name", "selftest")
+    (repo / "file.txt").write_text("one\n", encoding="utf-8")
+    git("add", "file.txt")
+    git("commit", "-q", "-m", "initial")
+    code, out = git("worktree", "add", "-q", "-b", "feature/thing", str(checkout))
+    check.check("a real git worktree is set up for the safety checks", code == 0, out)
+
+    branch = "feature/thing"
+    card = Task(
+        id="cfg-2",
+        title="a card with a checkout",
+        worktree_path=str(checkout),
+        worktree_branch=branch,
+        worktree_workspace_id="w9",
+    )
+
+    state = inspect(str(checkout), branch)
+    check.check(
+        "a clean, merged checkout is removable",
+        state.exists
+        and state.removable
+        and state.repo_root == os.path.realpath(str(repo)),
+        f"{state}",
+    )
+    removable, why = worktree_removable(card)
+    check.check("worktree_removable agrees on a clean checkout", removable, why)
+
+    # Uncommitted work keeps it.
+    (checkout / "scratch.txt").write_text("draft\n", encoding="utf-8")
+    state = inspect(str(checkout), branch)
+    check.check(
+        "an uncommitted change keeps the checkout",
+        state.dirty and not state.removable and "uncommitted" in state.reason,
+        state.reason,
+    )
+
+    # A committed-but-unmerged change keeps it too, and removal refuses without
+    # ever calling herdr or reaching for a force flag.
+    (checkout / "file.txt").write_text("two\n", encoding="utf-8")
+    (checkout / "scratch.txt").unlink()
+    git("add", "file.txt", cwd=checkout)
+    git("commit", "-q", "-m", "unmerged work", cwd=checkout)
+    state = inspect(str(checkout), branch)
+    check.check(
+        "a commit not on the base branch keeps the checkout",
+        state.unmerged and not state.removable and "not in" in state.reason,
+        state.reason,
+    )
+
+    class StubHerdr:
+        """Records the call and does herdr's part: deletes the checkout.
+
+        `herdr worktree remove` removes the directory, which is what frees the
+        branch for `git branch -d`; a stub that only recorded would leave the
+        branch checked out and make the deletion look like a bug.
+        """
+
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, bool]] = []
+
+        def remove_worktree(self, workspace_id: str, force: bool = False) -> Result:
+            self.calls.append((workspace_id, force))
+            git("worktree", "remove", str(checkout))
+            return Result(True, payload={"result": {}})
+
+    stub = StubHerdr()
+    phrase = remove_worktree(stub, card)
+    _, listed = git("branch", "--list", branch)
+    check.check(
+        "an unmerged checkout is kept and herdr is never asked to force it",
+        "kept" in phrase and stub.calls == [] and branch in listed,
+        f"{phrase} | calls={stub.calls} | {listed}",
+    )
+
+    # Merge it into main: removal is now allowed, and the branch goes with the
+    # checkout via `git branch -d`.
+    git("merge", "-q", "--no-edit", branch)
+    stub = StubHerdr()
+    phrase = remove_worktree(stub, card)
+    _, listed = git("branch", "--list", branch)
+    check.check(
+        "a merged checkout is removed and its branch deleted without --force",
+        f"branch {branch} removed" in phrase
+        and stub.calls == [("w9", False)]
+        and branch not in listed,
+        f"{phrase} | calls={stub.calls} | {listed}",
+    )
+
+
 async def _run(check: Checker) -> None:
     with TemporaryDirectory() as tmp:
         # A check must not inherit the pane it was run from. `herdr-kanban add`
@@ -6811,6 +7127,7 @@ async def _run(check: Checker) -> None:
             await check_review_bounce(check, tmp)
             check_reply(check, tmp)
             await check_worktree_dispatch(check, tmp)
+            check_worktree_git(check, tmp)
             await check_edit_title(check, tmp)
             await check_live_loop(check, tmp)
             check_settle_columns(check, tmp)
