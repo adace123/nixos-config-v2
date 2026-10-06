@@ -330,6 +330,19 @@ restarted. `herdr-kanban bounce <id> "what to change"` is the same round from a
 shell; the comment is required, and from the card's own pane the id can be left
 out the way every other verb allows.
 
+**Answering a block.** A card in Blocked is waiting on you, and
+`herdr-kanban reply <id> "the answer"` is how a script hands the answer back:
+the text is recorded on the card in **Updates** — as `note` does, because this
+is not a review round — and then handed to the agent that asked, re-prompted in
+the pane it already runs in, the same lookup and the same dispatch a bounce
+uses. The card is carried back to In Progress once the agent takes the turn, so
+a reply that never reached an agent leaves the answer on the record with the
+card still Blocked, rather than claiming the work restarted. Only a card
+actually sitting in Blocked can be replied to (anything else is what `note` or
+`bounce` is for), and only while its agent is still running — a card whose run
+has ended needs `send`. The answer is required, and from the card's own pane the
+id can be left out.
+
 **Stopping an agent.** A card is the record of a run, so `d` (delete) stops the
 agent and closes the tab its dispatch opened, as part of deleting. Set
 `auto_delete_agent = false` to delete the card and keep the agent — the board
@@ -535,6 +548,7 @@ that could have meant it):
 | --- | --- |
 | `herdr-kanban status [<task>] <column>` | move a card (id, number, or this pane) |
 | `herdr-kanban block [<task>] [why]` | park it in Blocked and record why |
+| `herdr-kanban reply [<task>] <answer>` | answer a Blocked card's agent and carry the card back to In Progress |
 | `herdr-kanban note [<task>] <text>` | append to the card's **Updates** (shown in `⏎`) |
 | `herdr-kanban title [<task>] <text>` | name the card, within the policy below |
 | `herdr-kanban step [<task>]` | the card's checklist |

@@ -4132,6 +4132,230 @@ async def check_review_bounce(check: Checker, tmp: str) -> None:
                 os.environ[key] = value
 
 
+def check_reply(check: Checker, tmp: str) -> None:
+    """The reply verb: answer a Blocked card's agent and carry it back to In Progress.
+
+    The whole round is exercised — the record, the refusals, and the column the
+    card ends up in — because `reply` is only different from `note` if the
+    answer reaches the agent that asked *and* the card stops claiming to be
+    blocked. The agent is held to account by the fake herdr's log: a reply that
+    started a fresh agent instead of re-prompting the pane the card already
+    owned would pass a weaker test while breaking the one promise the verb
+    makes. The board UI half is nixos-95, so only the CLI is checked here.
+    """
+    import contextlib
+    import io
+    import os
+    import time
+    from dataclasses import replace
+
+    from .cli import run_agent_command
+    from .config import load_config
+    from .dispatch import reply_prompt
+    from .store import Store
+
+    log = Path(tmp) / "reply-calls.txt"
+    board = Path(tmp) / "reply-board.json"
+    fake = _fake_herdr(tmp, "fake-herdr-reply")
+    env_keys = (
+        "KANBAN_BOARD_FILE",
+        "HERDR_PANE_ID",
+        "HERDR_WORKSPACE_ID",
+        "HERDR_BIN_PATH",
+        "FAKE_LOG",
+        "FAKE_REACT",
+        "FAKE_CWD",
+        "FAKE_AGENT_PANE",
+        "FAKE_AGENT_NAME",
+        "FAKE_AGENT_STATUS",
+        "FAKE_AGENT_LIVE_NAME",
+    )
+    saved = {key: os.environ.get(key) for key in env_keys}
+    for key in env_keys:
+        os.environ.pop(key, None)
+
+    def cli(*argv: str) -> tuple[int, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = run_agent_command(list(argv))
+        return code, (out.getvalue() + err.getvalue()).strip()
+
+    def card_now(task_id: str):
+        return Store.open(board).by_id(task_id)
+
+    try:
+        config = replace(load_config(), announce_protocol=True)
+        os.environ.update(
+            {
+                "KANBAN_BOARD_FILE": str(board),
+                "HERDR_WORKSPACE_ID": "w1",
+                # The CLI builds its own `Herdr`, which takes the binary here.
+                "HERDR_BIN_PATH": str(fake),
+                "FAKE_LOG": str(log),
+                "FAKE_REACT": "1",
+                "FAKE_CWD": tmp,
+            }
+        )
+        log.write_text("", encoding="utf-8")
+        seed = Store.open(board)
+        card = seed.add(
+            title="Answer me",
+            workspace_id="w1",
+            workspace_label="nixos-config-v2",
+            agent_kind="pi",
+            status="blocked",
+        )
+        seed.hand_over(
+            card.id,
+            "blocked",
+            pane_id="w1:p7",
+            agent_name=f"{card.id}-pi",
+            dispatched_at=time.time(),
+        )
+
+        # -- the prompt -------------------------------------------------
+        prompt = reply_prompt(card_now(card.id), "the DSN is in secrets.md", config)
+        check.check(
+            "a reply prompt names the answer, quotes it, keeps the protocol",
+            f"Answer on {card.id}" in prompt
+            and prompt.index("the DSN is in secrets.md") < prompt.index("herdr kanban:")
+            and "The card is back in In Progress" in prompt
+            and "herdr-kanban status review" in prompt,
+            prompt.replace(chr(10), " | ")[:120],
+        )
+        quiet = reply_prompt(
+            card_now(card.id), "x", replace(config, announce_protocol=False)
+        )
+        check.check(
+            "announce_protocol = false keeps the protocol out of a reply too",
+            "herdr-kanban" not in quiet
+            and quiet.startswith(f"Answer on {card.id}"),
+            repr(quiet[:60]),
+        )
+
+        # -- refusals ---------------------------------------------------
+        # Not Blocked: the premise, refused before anything is written, even
+        # though an agent is there to answer.
+        os.environ["FAKE_AGENT_PANE"] = "w1:p7"
+        elsewhere = Store.open(board).add(
+            title="Already running", workspace_id="w1", status="doing"
+        )
+        Store.open(board).hand_over(
+            elsewhere.id,
+            "doing",
+            pane_id="w1:p7",
+            agent_name=f"{elsewhere.id}-pi",
+            dispatched_at=time.time(),
+        )
+        log.write_text("", encoding="utf-8")
+        code, out = cli("reply", elsewhere.id, "a late answer")
+        stray = Store.open(board).by_id(elsewhere.id)
+        check.check(
+            "a card that is not Blocked is refused before anything is written",
+            code == 1
+            and "reply answers a card sitting in Blocked" in out
+            and stray is not None
+            and stray.status == "doing"
+            and stray.progress == []
+            and "agent prompt" not in log.read_text(encoding="utf-8"),
+            f"{code} {out[:70]}",
+        )
+
+        # No live agent: the card is Blocked, but nothing is running to answer.
+        os.environ["FAKE_AGENT_PANE"] = "w1:p404"
+        log.write_text("", encoding="utf-8")
+        code, out = cli("reply", card.id, "the DSN is in secrets.md")
+        unsent = Store.open(board).by_id(card.id)
+        check.check(
+            "a Blocked card with no agent running is refused, and records nothing",
+            code == 1
+            and "no agent running" in out
+            and unsent is not None
+            and unsent.status == "blocked"
+            and unsent.progress == []
+            and "agent prompt" not in log.read_text(encoding="utf-8"),
+            f"{code} {out[:70]}",
+        )
+
+        code, out = cli("reply", card.id)
+        check.check(
+            "reply needs an answer: a lone card id is not sent as one",
+            code == 2 and "usage" in out and card_now(card.id).progress == [],
+            f"{code} {out[:60]}",
+        )
+        code, out = cli("reply", "cfg-99")
+        check.check(
+            "an id the board does not know is not taken for an answer either",
+            code == 2 and "looks like a card id" in out,
+            f"{code} {out[:60]}",
+        )
+
+        # -- the answer --------------------------------------------------
+        os.environ["FAKE_AGENT_PANE"] = "w1:p7"
+        # The agent the dispatch started: herdr answers to that name, so the
+        # board can confirm the pane is this card's before it re-prompts it.
+        os.environ["FAKE_AGENT_LIVE_NAME"] = f"{card.id}-pi"
+        log.write_text("", encoding="utf-8")
+        code, out = cli("reply", card.id, "the DSN is in secrets.md")
+        answered = Store.open(board).by_id(card.id)
+        calls = log.read_text(encoding="utf-8")
+        check.check(
+            "a reply re-prompts the agent in its own pane and lands In Progress",
+            code == 0
+            and answered is not None
+            and answered.status == "doing"
+            and "agent prompt w1:p7" in calls
+            and "agent start" not in calls,
+            f"{code} {answered.status if answered else '-'} {out[:50]}",
+        )
+        check.check(
+            "and the answer it recorded is the one the agent was given",
+            answered is not None
+            and answered.progress[-1]["text"] == "the DSN is in secrets.md"
+            and answered.progress[-1]["by"] == "user"
+            and answered.history[-1]["what"] == "blocked -> doing"
+            and "the DSN is in secrets.md" in calls,
+            f"{answered.progress[-1:] if answered else '-'} "
+            f"{answered.history[-1:] if answered else '-'}",
+        )
+
+        # A card parked by hand keeps its hold until it leaves Blocked; the move
+        # is what releases it, so the board's own reconciler agrees.
+        held = Store.open(board).add(
+            title="Parked by hand",
+            workspace_id="w1",
+            agent_kind="pi",
+            status="blocked",
+        )
+        Store.open(board).set_status(held.id, "blocked", hold=True)
+        Store.open(board).hand_over(
+            held.id,
+            "blocked",
+            pane_id="w1:p7",
+            agent_name=f"{held.id}-pi",
+            dispatched_at=time.time(),
+        )
+        log.write_text("", encoding="utf-8")
+        os.environ["FAKE_AGENT_LIVE_NAME"] = f"{held.id}-pi"
+        code, out = cli("reply", held.id, "answered the park too")
+        released = Store.open(board).by_id(held.id)
+        check.check(
+            "replying to a hand-parked card releases the hold as it moves",
+            code == 0
+            and released is not None
+            and released.status == "doing"
+            and released.blocked_hold is False,
+            f"{code} {released.status if released else '-'} "
+            f"{released.blocked_hold if released else '-'}",
+        )
+    finally:
+        for key, value in saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
 async def check_worktree_dispatch(check: Checker, tmp: str) -> None:
     """A dispatch with the worktree option: fork a checkout and run the agent there.
 
@@ -6585,6 +6809,7 @@ async def _run(check: Checker) -> None:
             await check_dialogs(check, tmp)
             await check_send_now(check, tmp)
             await check_review_bounce(check, tmp)
+            check_reply(check, tmp)
             await check_worktree_dispatch(check, tmp)
             await check_edit_title(check, tmp)
             await check_live_loop(check, tmp)

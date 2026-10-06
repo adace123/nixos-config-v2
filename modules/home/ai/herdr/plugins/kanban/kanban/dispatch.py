@@ -243,6 +243,32 @@ def review_prompt(task: Task, comment: str, config: Config | None = None) -> str
     return "\n".join(lines)
 
 
+def reply_prompt(task: Task, text: str, config: Config | None = None) -> str:
+    """The prompt that answers a Blocked card's question: the answer, then the protocol.
+
+    A reply is a second round like a bounce, but the card was parked because
+    the agent asked for something rather than because the work was wrong, so
+    the first line says "answer" where `review_prompt` says "changes
+    requested". The column line names where the same dispatch is about to put
+    the card, and the protocol is appended exactly as a first send appends it,
+    so the agent still knows how to move its card. The board's UI answer box
+    (nixos-95) reuses this prompt, so the two ways into a blocked agent's pane
+    hand over the same text.
+    """
+    where = (config.send_column(task.status) if config else "") or "In Progress"
+    lines = [
+        f"Answer on {task.id} — {task.title}",
+        f"The card is back in {config.label_for(where) if config else where} —"
+        " carry on with the task.",
+        "",
+        (text or "").strip(),
+    ]
+    if config is None or config.announce_protocol:
+        review = config.review_column if config is not None else "review"
+        lines += ["", protocol_block(task.id, review=review or "review")]
+    return "\n".join(lines)
+
+
 def agent_args(config: Config, kind: str, model: str = "") -> tuple[str, ...]:
     """The flags `agent start` gets for `kind`, with the card's `model` applied.
 
@@ -695,6 +721,7 @@ __all__ = [
     "close_agent_tab",
     "plan_for",
     "protocol_block",
+    "reply_prompt",
     "result_summary",
     "retitle_tab",
     "review_prompt",

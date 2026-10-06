@@ -52,6 +52,8 @@ USAGE_COMMANDS = """  {cli} status [<task>] <column>   move a card
                        [--worktree|--no-worktree] [--dry-run]
   {cli} bounce [<task>] <comment>  send the card back to its running agent with
                                     changes requested (the board's `b`)
+  {cli} reply  [<task>] <answer>   answer a Blocked card's agent and carry the
+                                    card back to In Progress
   {cli} archive   [<task>]         archive a card, keeping its record
   {cli} unarchive [<task>]         restore an archived card to the board
   {cli} rename <task> <code|id>    change a card's id code (cfg-8 -> infra-8,
@@ -87,6 +89,7 @@ AGENT_COMMANDS = (
     "add",
     "send",
     "bounce",
+    "reply",
     "archive",
     "unarchive",
     "rename",
@@ -1071,6 +1074,107 @@ def _bounce(args: list[str], store: Store, config: Config) -> int:
     return 0
 
 
+def _reply(args: list[str], store: Store, config: Config) -> int:
+    """Answer a Blocked card's agent and carry the card back to In Progress.
+
+    `herdr-kanban reply nixos-102 "signed the installer, retry"` is the board's
+    way into a blocked agent's pane: the text is recorded on the card as an
+    update, handed to the agent that asked for it (the pane it already runs in,
+    the checkout it already owns — the same `plan_for`/`LiveState` lookup a
+    bounce uses), and the card moves out of Blocked once the agent takes it.
+    Unlike a bounce this is not a review round: no round is counted and no
+    changes are requested, so the answer lands in Updates rather than History.
+    Only a card sitting in Blocked has a question to answer, so anything else
+    is refused before a word is written.
+    """
+    from .dispatch import Executor, Outcome, plan_for, record_outcome, reply_prompt
+    from .herdr import Herdr
+
+    reference = ""
+    words = list(args)
+    # The answer is free text, so a first word that names a card already on the
+    # board is the card and everything else is the answer; a word that merely
+    # *looks* like one (`eslint-9` is a shape a workspace code makes ordinary)
+    # stays in the answer. The same rule `bounce` uses.
+    if words and looks_like_id(words[0]) and store.resolve(words[0]) is not None:
+        reference, words = words[0], words[1:]
+    text = " ".join(words).strip()
+    if not text:
+        print(f"usage: {CLI} reply [<task>] <answer>", file=sys.stderr)
+        return 2
+    if not reference and " " not in text and looks_like_id(text):
+        # Nothing but an id-shaped word, and not one the board knows: the card
+        # was meant and its answer was forgotten, or the id was mistyped.
+        print(
+            f"usage: {CLI} reply [<task>] <answer> — {text!r} looks like a"
+            " card id; pass the id, then the answer",
+            file=sys.stderr,
+        )
+        return 2
+
+    task, error = _find(store, reference)
+    if task is None:
+        print(error, file=sys.stderr)
+        return 1
+
+    # The verb's premise, checked before the agent so the refusal is always the
+    # true one: only a card parked in Blocked is waiting on an answer. A card
+    # already in progress is what `note` is for, and one whose work was wrong is
+    # what `bounce` is for.
+    if task.status != config.blocked_column:
+        print(
+            f"{task.id} is in {config.label_for(task.status)} — reply answers a"
+            f" card sitting in Blocked; use {CLI} bounce to send changes"
+            f" requested, or {CLI} note to record it",
+            file=sys.stderr,
+        )
+        return 1
+
+    live = _live_now()
+    plan = plan_for(
+        task,
+        config,
+        live,
+        fallback_workspace=os.environ.get("HERDR_WORKSPACE_ID", ""),
+        fallback_kind=config.default_agent,
+        prompt=reply_prompt(task, text, config),
+    )
+    if not plan.reuses_running_agent:
+        print(
+            f"{task.id} has no agent running to answer — reply prompts the agent"
+            f" that asked for it. Start one again with: {CLI} send {task.id}",
+            file=sys.stderr,
+        )
+        return 1
+
+    target = config.send_column(task.status)
+    _, recorded = store.add_progress(
+        task.id, text, by="agent" if _from_agent() else "user"
+    )
+    print(recorded)
+
+    def record(outcome: Outcome) -> Task | None:
+        # The hook `_send` uses: the card's link is written the moment the agent
+        # is prompted, so a `reply` killed inside the confirmation wait leaves a
+        # card that is still findable (and re-sendable).
+        return record_outcome(store, task.id, plan, outcome, target)
+
+    outcome = Executor(Herdr()).run(plan, on_record=record)
+    record(outcome)
+    if not outcome.ok:
+        print(
+            f"{task.id} not answered — {outcome.error or outcome.detail()}",
+            file=sys.stderr,
+        )
+        return 1
+    print(
+        f"{task.id}  {task.title}\n"
+        f"     answered — back to {outcome.agent_name or plan.name} in"
+        f" {config.label_for(target or task.status)}"
+    )
+    return 0
+
+
 def _archive(args: list[str], store: Store, config: Config) -> int:
     """Take a card off the board, keeping its record (`unarchive` puts it back).
 
@@ -1319,6 +1423,7 @@ def run_agent_command(argv: list[str]) -> int:
         "add": _add,
         "send": _send,
         "bounce": _bounce,
+        "reply": _reply,
         "archive": _archive,
         "unarchive": _unarchive,
         "rename": _rename,
