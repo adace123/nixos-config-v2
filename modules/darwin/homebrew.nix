@@ -78,6 +78,9 @@ _: {
       # Utilities
       "balenaetcher" # usb flashing
       "betterdisplay" # Display management
+
+      # Media
+      "spotify"
     ];
 
     # Mac App Store apps (requires mas-cli)
