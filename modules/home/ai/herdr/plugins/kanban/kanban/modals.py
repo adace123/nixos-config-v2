@@ -183,6 +183,37 @@ def model_options(
     return options
 
 
+class MultilineArea(TextArea):
+    """A text box where a new line is a new line, on `enter` and on `shift+enter`.
+
+    `TextArea` inserts a newline on `enter` only. Textual asks the terminal for
+    the kitty keyboard protocol, so a terminal that speaks it (Ghostty does)
+    reports `shift+enter` as a key of its own — and one nothing is bound to, so
+    it falls through to the screen and does nothing at all. Every dialog box a
+    chat UI ever trained the hand on accepts `shift+enter` for a new line, and a
+    notes box that ignores it reads as a box that cannot take one.
+
+    Both of the board's free-text boxes — the notes field and the dispatch
+    prompt — are this widget, so the key means the same thing in either. Neither
+    box saves on a key of its own: `ctrl+s` saves from anywhere, and `enter`
+    saves only from the title field, the one field that is a single line.
+    """
+
+    BINDINGS = [Binding("shift+enter", "new_line", "new line", show=False)]
+
+    def action_new_line(self) -> None:
+        """Insert the newline `enter` would, replacing the selection the same way.
+
+        `TextArea.insert` drops text at the cursor without touching the
+        selection; `enter` goes through `replace`, so a new line typed over a
+        selection has to take that selection with it or it would land beside
+        text the user meant to replace.
+        """
+        if self.read_only:
+            return
+        self.replace("\n", *self.selection, maintain_selection_offset=False)
+
+
 class TaskFormModal(Dialog):
     """Add a task, or edit an existing one. Both fields and defaults are shared."""
 
@@ -240,7 +271,7 @@ class TaskFormModal(Dialog):
             id="field-title",
         )
         yield Static("Notes", classes="field-label")
-        yield TextArea(task.notes if task else "", id="field-notes")
+        yield MultilineArea(task.notes if task else "", id="field-notes")
 
         yield Static("Workspace", classes="field-label")
         options = workspace_options(
@@ -385,7 +416,7 @@ class TaskFormModal(Dialog):
         self.dismiss(
             TaskDraft(
                 title=title,
-                notes=self.query_one("#field-notes", TextArea).text.strip(),
+                notes=self.query_one("#field-notes", MultilineArea).text.strip(),
                 status=str(self.query_one("#field-status", Select).value),
                 workspace_id=workspace_id,
                 workspace_label=label,
@@ -808,14 +839,16 @@ class DispatchModal(Dialog):
                 markup=False,
             )
         yield Static("Prompt", classes="field-label")
-        yield TextArea(plan.prompt, id="dispatch-prompt")
+        # Same multiline box as the notes field: the prompt is edited by hand
+        # here, and a new line has to be as cheap to type in one as the other.
+        yield MultilineArea(plan.prompt, id="dispatch-prompt")
 
     def build_buttons(self) -> Iterator[object]:
         yield Button("Send", variant="primary", id="send")
         yield Button("Cancel", id="cancel")
 
     def on_mount(self) -> None:
-        self.query_one("#dispatch-prompt", TextArea).focus()
+        self.query_one("#dispatch-prompt", MultilineArea).focus()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "send":
@@ -848,7 +881,7 @@ class DispatchModal(Dialog):
 
     def action_send(self) -> None:
         plan = self.plan
-        prompt = self.query_one("#dispatch-prompt", TextArea).text.strip()
+        prompt = self.query_one("#dispatch-prompt", MultilineArea).text.strip()
         if not self.plan.reuses_running_agent:
             workspace = self.query_one("#dispatch-workspace", Select).value
             workspace_id = (

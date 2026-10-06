@@ -1915,6 +1915,98 @@ async def check_quick_capture(check: Checker, tmp: str) -> None:
                 os.environ[key] = value
 
 
+async def check_multiline_notes(check: Checker, tmp: str) -> None:
+    """Notes are free text, and a new line is a new line in the box that holds them.
+
+    `TextArea` inserts a newline on `enter` only, and Textual asks the terminal
+    for the kitty keyboard protocol — so on a terminal that speaks it (Ghostty
+    does) `shift+enter` arrives as a key of its own, falls through to the
+    screen, and does nothing. That reads as a notes field which cannot hold
+    more than one line, which is what it was reported as. Driven through the
+    real form and into the real store: the complaint was about typing into the
+    box, not about a binding table.
+    """
+    from textual.widgets import Static
+
+    from .app import KanbanApp
+    from .config import load_config
+    from .herdr import Herdr
+    from .modals import MultilineArea
+
+    board = Path(tmp) / "notes-board.json"
+    saved = os.environ.get("KANBAN_BOARD_FILE")
+    os.environ["KANBAN_BOARD_FILE"] = str(board)
+    try:
+        app = KanbanApp(
+            config=load_config(),
+            store=Store.open(board),
+            herdr=Herdr(binary="/nonexistent-herdr"),
+        )
+        async with app.run_test(size=(140, 44)) as pilot:
+            await pilot.pause()
+            await pilot.press("a")
+            await pilot.pause()
+            form = app.screen
+            await pilot.press(*"three lines")
+            notes = form.query_one("#field-notes", MultilineArea)
+            notes.focus()
+            await pilot.pause()
+            await pilot.press(*"one")
+            await pilot.press("enter")
+            await pilot.press(*"two")
+            await pilot.press("shift+enter")
+            await pilot.press(*"three")
+            typed = notes.text
+            check.check(
+                "shift+enter starts a new line in the notes box",
+                typed == "one\ntwo\nthree",
+                repr(typed),
+            )
+            await pilot.press("ctrl+s")
+            await pilot.pause()
+
+        card = next(
+            (task for task in Store.open(board).tasks if task.title == "three lines"),
+            None,
+        )
+        check.check(
+            "and the form saves the lines as they were typed",
+            card is not None and card.notes == "one\ntwo\nthree",
+            repr(card.notes) if card is not None else "no such card",
+        )
+
+        # Notes are read back in one place, so a note that survives the store
+        # and is flattened by the view has not survived at all.
+        if card is None:
+            check.check(
+                "and the detail view shows them on their own lines",
+                False,
+                "the card was never saved",
+            )
+            return
+        app = KanbanApp(
+            config=load_config(),
+            store=Store.open(board),
+            herdr=Herdr(binary="/nonexistent-herdr"),
+        )
+        async with app.run_test(size=(140, 44)) as pilot:
+            await pilot.pause()
+            app.select_card(card.id)
+            await pilot.press("enter")
+            await pilot.pause()
+            shown = str(app.screen.query_one("#detail-notes", Static).render())
+            check.check(
+                "and the detail view shows them on their own lines",
+                shown == "one\ntwo\nthree",
+                repr(shown),
+            )
+    finally:
+        if saved is None:
+            os.environ.pop("KANBAN_BOARD_FILE", None)
+        else:
+            os.environ["KANBAN_BOARD_FILE"] = saved
+
+
 async def check_extras(check: Checker, tmp: str) -> None:
     """Steps, the board-file backup, `add`, agent args, and the card meta row."""
     import contextlib
@@ -5925,6 +6017,7 @@ async def _run(check: Checker) -> None:
             check_add_notification(check, tmp)
             check_status_rights(check, tmp)
             await check_quick_capture(check, tmp)
+            await check_multiline_notes(check, tmp)
             await check_extras(check, tmp)
             check_hardening(check, tmp)
             await check_dialogs(check, tmp)

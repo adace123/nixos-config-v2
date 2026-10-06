@@ -235,6 +235,13 @@ running agent is the board's `s`). It is the same dispatch under the hood, so th
 card lands in the column the rule above picks, records its pane and tab, and
 every later dispatch still goes through the form.
 
+**Notes are multi-line.** The notes box in the add/edit form is free text with a
+new line of its own: `⏎` and `shift+⏎` both start one, and `^s` saves — `⏎`
+saves only from the title field, the one field that is a single line. The lines
+are kept as typed, so a note can be a paragraph or a little list, and the detail
+view shows them as written. The dispatch form's prompt box takes the same two
+keys, because it is the same box.
+
 **The Model field** under Agent is optional and defaults to `default`, which
 means "say nothing about the model": `[agents.<kind>] args` already carries
 whatever you run that CLI with interactively, and a card should not have to
