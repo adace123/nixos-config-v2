@@ -118,6 +118,7 @@ See [docs/nixos.md](docs/nixos.md) for the full provisioning walkthrough,
 | Init age key | `just init-sops` |
 | Back up age key to 1Password | `just backup-key` |
 | Update all flake inputs | `just update` |
+| Cut a release (CalVer) | `just release` |
 | Garbage-collect | `just clean` |
 
 ## Secrets

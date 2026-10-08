@@ -355,8 +355,8 @@ it is missing:
 - **Release by promoting `[Unreleased]`.** When the accumulated entries ship
   (merged to `main`, or activated on a host), rename that section to
   `## [YYYY.MM.DD] - YYYY-MM-DD` — with `.N` if that day already has a version —
-  and put a fresh empty `## [Unreleased]` above it. The promotion commit itself
-  needs no entry.
+  and put a fresh empty `## [Unreleased]` above it. `just release` does exactly
+  this and prints the version it cut; the promotion commit itself needs no entry.
 - **Guidance, not a gate.** No pre-commit hook enforces this; a missing entry
   shows up in review, not in `just check`.
 

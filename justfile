@@ -73,6 +73,68 @@ check:
     nix flake check
     {{ DARWIN_CHECK }}
 
+# Cut a release: promote the CHANGELOG's [Unreleased] entries to a CalVer heading
+# Version is YYYY.MM.DD, plus .1, .2, ... for further releases on the same day
+# See "Changelog & Versioning" in AGENTS.md for the rules.
+[group('workflow')]
+release:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    CHANGELOG="CHANGELOG.md"
+    if [[ ! -f "$CHANGELOG" ]]; then
+        echo "❌ $CHANGELOG not found - run this from the repo root."
+        exit 1
+    fi
+
+    UNRELEASED_LINE="$(grep -n '^## \[Unreleased\]' "$CHANGELOG" | head -1 | cut -d: -f1 || true)"
+    if [[ -z "$UNRELEASED_LINE" ]]; then
+        echo "❌ No '## [Unreleased]' heading in $CHANGELOG."
+        exit 1
+    fi
+
+    # Entries are anything between [Unreleased] and the next '## [' heading
+    ENTRIES="$(awk -v start="$UNRELEASED_LINE" '
+        NR <= start { next }
+        /^## \[/ { exit }
+        { line = $0; if (line ~ /^[[:space:]]*$/) next; print line }
+    ' "$CHANGELOG")"
+    if [[ -z "$ENTRIES" ]]; then
+        echo "Nothing to release: the [Unreleased] section has no entries."
+        echo "Add an entry to $CHANGELOG first (AGENTS.md -> Changelog & Versioning)."
+        exit 1
+    fi
+
+    TODAY="$(date +%Y.%m.%d)"
+    ISO_TODAY="$(date +%Y-%m-%d)"
+    TODAY_ESC="${TODAY//./\\.}"
+    VERSION="$TODAY"
+    if grep -q "^## \[$TODAY_ESC\]" "$CHANGELOG"; then
+        N=1
+        while grep -q "^## \[$TODAY_ESC\.$N\]" "$CHANGELOG"; do
+            N=$((N + 1))
+        done
+        VERSION="$TODAY.$N"
+    fi
+
+    # The released entries stay put; only the heading above them changes
+    awk -v line="$UNRELEASED_LINE" -v version="$VERSION" -v iso="$ISO_TODAY" '
+        NR == line {
+            print "## [Unreleased]"
+            print ""
+            print "## [" version "] - " iso
+            next
+        }
+        { print }
+    ' "$CHANGELOG" > "$CHANGELOG.new"
+    mv "$CHANGELOG.new" "$CHANGELOG"
+
+    echo "✅ Released $VERSION"
+    echo ""
+    grep -n '^## \[' "$CHANGELOG" | head -4
+    echo ""
+    echo "Commit $CHANGELOG - the promotion commit itself needs no entry."
+
 # Build the Darwin configuration without activating
 [group('darwin')]
 build:

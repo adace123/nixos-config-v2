@@ -9,7 +9,11 @@ commit kinds that are exempt, live in
 
 ## [Unreleased]
 
-<!-- New entries go here, grouped under ### Added / Changed / Fixed / Removed. -->
+## [2026.10.07.1] - 2026-10-07
+
+### Added
+
+- feat(just): add a release recipe
 
 ## [2026.10.07] - 2026-10-07
 
