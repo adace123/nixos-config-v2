@@ -276,7 +276,7 @@ These are the repo's living docs — keep them in sync with the code:
 
 Transient agent planning artifacts (implementation plans, design scratch notes)
 belong in **`.pi/plans/`**. That directory is globally gitignored, so plan files
-stay out of `git status` in every repo — including this one, where `.pi/mcp-adapter.json`
+stay out of `git status` in every repo — including this one, where `.pi/mcp.json`
 is the only tracked file under `.pi/`.
 
 Do **not** put plans in `docs/`. Everything under `docs/` is a living doc listed

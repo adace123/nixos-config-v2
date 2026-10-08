@@ -99,6 +99,12 @@ Add a skill by appending its `skills/<path>` to `commonSkills` in `skills.nix`.
 Pi is a Rust-based conversational coding agent.
 
 - Default provider `opencode-go` / model `deepseek-v4-flash`, thinking `high`.
+- **Package** — the `pi` flake input is upstream's own flake
+  (`github:earendil-works/pi`, branch `main`), so `pi.nix` installs
+  `inputs.pi.packages.<system>.pi` built from `nix/package.nix` in that repo;
+  `just update` moves it. The `llm-agents` input no longer provides Pi (it still
+  provides Claude Code, OpenCode and Herdr). The `programs.pi-coding-agent`
+  module itself comes from home-manager.
 - Ships many Pi packages/extensions (subagents, context-mode, todo, web-access,
   powerline footer, fff, background-tasks, etc.). Where a version is pinned, the
   reason is a comment in `pi.nix`; git and npm sources are mixed on purpose
@@ -123,10 +129,12 @@ Pi is a Rust-based conversational coding agent.
   stays authoritative even where a stale cache would otherwise win. To diagnose
   a recurrence, `just npm-cache-check` flags the precondition offline, and
   `npm cache verify` clears it (details in `scripts/README.md`).
-- **`~/.pi/agent/mcp-adapter.json`** — `context7` + `grep-mcp` (read by
-  `pi-mcp-adapter` v3 as its highest-precedence global source; the old
-  `~/.pi/agent/mcp.json` name is reserved for Pi's built-in MCP and ignored by
-  the adapter).
+- **`~/.pi/agent/mcp.json`** — `context7` + `grep-mcp`, written by `home.file`
+  and read by Pi's **built-in** MCP client. Project-scoped servers live in the
+  tracked `.pi/mcp.json` at the repo root (`nixos` via `uvx mcp-nixos`), so that
+  file is the one to edit for repo-local MCP. The `pi-mcp-adapter` extension and
+  its separate `mcp-adapter.json`/`settings`-JSON format are gone; native tools
+  surface as `mcp__<server>__<tool>`, and `/mcp` manages connections at runtime.
 - **`~/.pi/agent/skills/`** — global auto-discovered skill location; populated
   with the shared skills plus the `commit-all` and `herdr-kanban` skills.
 - **`~/.pi/agent/extensions/opencode-session.ts`** — `pi-extensions/opencode-session.ts`

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "nixos": {
+      "command": "uvx",
+      "args": [
+        "mcp-nixos"
+      ],
+      "description": "NixOS, nixpkgs and Home Manager options and packages"
+    }
+  }
+}

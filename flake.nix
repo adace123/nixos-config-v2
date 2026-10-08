@@ -56,6 +56,17 @@
       url = "github:NousResearch/hermes-agent";
     };
 
+    # Pi itself comes from the official flake, not llm-agents: it is upstream's
+    # own build (nix/package.nix), so it tracks the same release the `pi update`
+    # channel does. `main` is deliberate — upstream also keeps a `stable` branch
+    # pinned to the last release. nixpkgs follows ours so the lock keeps a
+    # single nixpkgs (upstream's own pin stays lower in the lock but is only
+    # used for its x86_64-darwin package, which this flake never evaluates).
+    pi = {
+      url = "github:earendil-works/pi/main";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Plain source input (no flake.nix in the repo) — skills are referenced
     # from inputs.mattpocock-skills so they stay in sync with upstream.
     mattpocock-skills = {

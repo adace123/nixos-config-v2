@@ -6,7 +6,11 @@
 }:
 
 let
-  llmAgents = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system};
+  # The official Pi flake (github:earendil-works/pi) builds upstream's own
+  # nix/package.nix, so the binary matches the release the installer and
+  # `pi update` ship. The home-manager `programs.pi-coding-agent` module below
+  # comes from home-manager itself — only the package is taken from the input.
+  piPackage = inputs.pi.packages.${pkgs.stdenv.hostPlatform.system}.pi;
   # Skills shared with other agents (sourced from the mattpocock-skills input)
   commonSkills = import ./skills.nix { inherit inputs; };
 in
@@ -14,7 +18,7 @@ in
 {
   programs.pi-coding-agent = {
     enable = true;
-    package = llmAgents.pi;
+    package = piPackage;
     extraPackages = [
       pkgs.git
       pkgs.nodejs
@@ -30,7 +34,6 @@ in
         "git:github.com/otahontas/pi-coding-agent-catppuccin"
         "npm:pi-tool-display"
         "npm:pi-powerline-footer"
-        "npm:pi-mcp-adapter"
         "npm:pi-subagents"
         "git:github.com/nicobailon/pi-web-access"
         "npm:context-mode"
@@ -49,11 +52,12 @@ in
     };
   };
 
-  # pi-mcp-adapter reads MCP servers from mcp-adapter.json in the Pi agent
-  # directory (its highest-precedence global source), not Pi's settings.json.
-  # v3 does not read <agent dir>/mcp.json at all — that name is reserved for
-  # Pi's own built-in MCP, which ignores this extension's `settings`/`imports`
-  # keys anyway.
+  # MCP servers are configured for Pi's own client: user-level servers live in
+  # ~/.pi/agent/mcp.json (written below), project servers in .pi/mcp.json.
+  # https://pi.dev/docs/latest/mcp documents the format. The pi-mcp-adapter
+  # extension that used to own this file (with its own mcp-adapter.json name,
+  # since <agent dir>/mcp.json was reserved for the built-in client) is gone —
+  # there is now only the built-in client, and no `settings.json` key involved.
   #
   # Custom skills. ~/.pi/agent/skills/ is a global pi skill location, so
   # skills placed there are auto-discovered at startup (no settings change
@@ -77,13 +81,18 @@ in
     # `max-age=300`) and keeps updates working.
     ".pi/agent/npm/.npmrc".text = "prefer-offline=false\n";
 
-    ".pi/agent/mcp-adapter.json".text = builtins.toJSON {
+    # `description` is what the client lists the server as in the system prompt
+    # and what tool search ranks its tools by; without it the first line of the
+    # server's instructions is used after it connects.
+    ".pi/agent/mcp.json".text = builtins.toJSON {
       mcpServers = {
         context7 = {
           url = "https://mcp.context7.com/mcp";
+          description = "Up-to-date library and framework documentation for a given version";
         };
         grep-mcp = {
           url = "https://mcp.grep.app";
+          description = "Search real-world code across millions of public GitHub repositories";
         };
       };
     };
