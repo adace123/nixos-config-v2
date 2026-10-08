@@ -78,6 +78,12 @@ nix build .#darwinConfigurations.endor.system
 The shell alias `update` (configured in home-manager) is a shortcut for
 `just switch`.
 
+`just switch` sends a macOS notification when activation needs sudo auth
+(Touch ID or a YubiKey touch), so you know to act when the prompt appears.
+When the lid is closed it also blocks until a YubiKey is plugged in. The
+YubiKey hook needs `~/.config/Yubico/u2f_keys` (see
+`scripts/setup-yubikey-sudo.sh`); see `scripts/yubikey-sudo-shim.sh`.
+
 ## Adding Packages
 
 ### System packages (available to all users)

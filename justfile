@@ -151,25 +151,30 @@ switch:
         just install-brew
     fi
 
-    # YubiKey touch heads-up at the nh→sudo boundary.
+    # Sudo auth heads-up at the nh→sudo boundary (Touch ID or YubiKey).
     # nh resolves `sudo` via PATH (which::which in nh-core), so a shim dir
-    # prepended here fires a notification at the exact moment nh elevates
-    # (right before the key blinks), then execs the real sudo. The terminal
-    # password prompt is untouched. See scripts/yubikey-sudo-shim.sh.
+    # prepended here fires a notification at the exact moment nh elevates,
+    # then execs the real sudo. The terminal password prompt is untouched.
+    # See scripts/yubikey-sudo-shim.sh.
     #
-    # Only install the shim when the laptop lid is closed (headless / remote
-    # via SSH): nobody is at the keyboard, so the shim's YubiKey
-    # presence-wait is the only way nh's elevation can succeed. With the lid
-    # open the user is at the machine — Touch ID or password auth works, and
-    # blocking on the key would just get in the way. AppleClamshellState =
-    # Yes means the lid is closed (clamshell mode).
-    if [ -f "$HOME/.config/Yubico/u2f_keys" ] &&
-        ioreg -r -k AppleClamshellState -d 4 2>/dev/null | grep -q '"AppleClamshellState" = Yes'; then
+    # Install the shim whenever a YubiKey is registered for sudo: with the lid
+    # open, Touch ID usually wins but the YubiKey is the fallback, so a prompt
+    # can still need a touch and should always notify.
+    #
+    # The shim only blocks for the YubiKey (YUBIKEY_SUDO_BLOCK=1) when the
+    # laptop lid is closed (headless / remote via SSH): nobody is at the
+    # keyboard, so the presence-wait is the only way nh's elevation can succeed.
+    # With the lid open the user is at the machine and blocking on the key would
+    # just get in the way. AppleClamshellState = Yes means the lid is closed.
+    if [ -f "$HOME/.config/Yubico/u2f_keys" ]; then
         SHIM_DIR="$(mktemp -d)"
         trap 'rm -rf "$SHIM_DIR"' EXIT
         cp scripts/yubikey-sudo-shim.sh "$SHIM_DIR/sudo"
         chmod +x "$SHIM_DIR/sudo"
         export PATH="$SHIM_DIR:$PATH"
+        if ioreg -r -k AppleClamshellState -d 4 2>/dev/null | grep -q '"AppleClamshellState" = Yes'; then
+            export YUBIKEY_SUDO_BLOCK=1
+        fi
     fi
 
     {{ DARWIN_SWITCH }}
