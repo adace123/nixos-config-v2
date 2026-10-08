@@ -31,23 +31,6 @@ DARWIN_ROLLBACK := "if command -v nh >/dev/null 2>&1; then nh darwin rollback; e
 CLEAN_30D := "if command -v nh >/dev/null 2>&1; then nh clean all --keep-since 30d; else sudo nix-collect-garbage --delete-older-than 30d; fi"
 CLEAN_ALL := "if command -v nh >/dev/null 2>&1; then nh clean all --optimise; else sudo nix-collect-garbage -d && nix-store --optimize; fi"
 
-# One-time bootstrap (hidden from `just --list`)
-[private]
-install-nix:
-    curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
-
-# Install pre-commit hooks
-[group('workflow')]
-[private]
-install-hooks:
-    pre-commit install
-
-# Uninstall pre-commit hooks
-[group('workflow')]
-[private]
-uninstall-hooks:
-    pre-commit uninstall
-
 # Run pre-commit hooks on all files
 [group('workflow')]
 pre-commit:
@@ -57,11 +40,6 @@ pre-commit:
 [group('workflow')]
 fmt:
     nix fmt
-
-# Find dead/unused code in Nix files
-[group('workflow')]
-deadnix:
-    deadnix .
 
 # Run pre-commit, flake check, and validate the Darwin configuration
 # (deep evaluation, catches type errors in home-manager)
@@ -74,11 +52,11 @@ check:
     {{ DARWIN_CHECK }}
 
 # Cut a release: promote the CHANGELOG's [Unreleased] entries to a CalVer heading
-# Version is YYYY.MM.DD, plus .1, .2, ... for further releases on the same day
-# See "Changelog & Versioning" in AGENTS.md for the rules.
 [group('workflow')]
 release:
     #!/usr/bin/env bash
+    # Versions are YYYY.MM.DD, plus .1, .2, ... for further releases on the same
+    # day. The rules live under "Changelog & Versioning" in AGENTS.md.
     set -euo pipefail
 
     CHANGELOG="CHANGELOG.md"
@@ -743,7 +721,7 @@ update:
 # Update a specific input (e.g., just update-input nixpkgs)
 [group('workflow')]
 update-input INPUT:
-    nix flake update {{ INPUT }}
+    nix flake update {{ INPUT }} --commit-lock-file --accept-flake-config
 
 # Show flake info
 [group('workflow')]

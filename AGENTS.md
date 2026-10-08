@@ -42,7 +42,7 @@ This is a Nix flake-based configuration for managing macOS systems using nix-dar
 - `nix develop` - Enter development shell
 - `just dev` - Enter dev shell via justfile
 - `just update` - Update flake inputs
-- `just update-input <input>` - Update specific input
+- `just update-input <input>` - Update a specific flake input (commits the lockfile, like `just update`)
 
 ### Testing
 

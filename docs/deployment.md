@@ -230,6 +230,9 @@ just update                     # update all inputs
 just update-input nixpkgs       # update a single input
 ```
 
+Both commit the updated `flake.lock` (`--commit-lock-file`), so updating leaves
+a commit on your branch rather than a dirty lockfile.
+
 After updating, deploy to both hosts:
 
 ```bash

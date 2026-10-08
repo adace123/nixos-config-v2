@@ -9,6 +9,12 @@ commit kinds that are exempt, live in
 
 ## [Unreleased]
 
+## [2026.10.07.3] - 2026-10-07
+
+### Changed
+
+- refactor(just): drop dead recipes and align update-input
+
 ## [2026.10.07.2] - 2026-10-07
 
 ### Fixed
