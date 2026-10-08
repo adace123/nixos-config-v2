@@ -56,7 +56,9 @@ input so they stay in sync with upstream. The list currently includes
 Add a skill by appending its `skills/<path>` to `commonSkills` in `skills.nix`.
 
 - Pi-only skill: `commit-all` (a Nix-declared skill, not from upstream) is
-  installed via `home.file` in `pi.nix`.
+  installed via `home.file` in `pi.nix`. It stages an explicit, filtered path
+  list rather than `git add -A`, so scratch files and unrelated pending work
+  stay out of the commit.
 - Pi-only skill: `post-deploy-test` (`modules/home/ai/skills/post-deploy-test/`)
   — deterministic post-deploy checks for the NixOS hosts (HA logs, HA container,
   Caddy, Beszel). It lived under `.opencode/skills/` for the OpenCode CLI and

@@ -9,6 +9,12 @@ commit kinds that are exempt, live in
 
 ## [Unreleased]
 
+## [2026.10.07.2] - 2026-10-07
+
+### Fixed
+
+- fix(commit-all): stop staging irrelevant files
+
 ## [2026.10.07.1] - 2026-10-07
 
 ### Added
