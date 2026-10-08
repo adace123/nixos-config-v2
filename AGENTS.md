@@ -239,7 +239,8 @@ nix build .#darwinConfigurations.endor.system
 3. Run `just fmt` to format Nix files (required before committing)
 4. Run `just check` to validate changes
 5. **Update the documentation to match your changes (required before committing).** Any change that affects how the repo is used — new/removed modules, new/changed host(s), new workflows or commands, services, infrastructure, secrets, CI, or architecture — must be reflected in the docs. See [Documentation Map](#documentation-map) below for what lives where. When in doubt, update the docs.
-6. Build with `nh darwin build` (user must run `just switch` to activate)
+6. **Add the `CHANGELOG.md` entry in the same commit (required before committing).** Every commit that changes behaviour gets an entry under `## [Unreleased]`, and a CalVer version heading when the change is released. See [Changelog & Versioning](#changelog--versioning) for the rules and the exemptions.
+7. Build with `nh darwin build` (user must run `just switch` to activate)
 
 ### Documentation Map
 
@@ -247,6 +248,7 @@ These are the repo's living docs — keep them in sync with the code:
 
 - `README.md` — overview, architecture, quick start, common commands, doc index
 - `AGENTS.md` — agent-specific guidelines (this file)
+- `CHANGELOG.md` — release log: CalVer version headings plus the `Unreleased` section (see [Changelog & Versioning](#changelog--versioning))
 - `docs/darwin.md` — macOS: setup, packages, customisation, `modules/home/` inventory
 - `docs/nixos.md` — Pi/NixOS: provisioning, services, `modules/nixos/` inventory, `nixos-files/`
 - `docs/home-assistant.md` — HA layout, integrations, automations, backups link
@@ -269,6 +271,7 @@ These are the repo's living docs — keep them in sync with the code:
   protocol block is checked against `PROTOCOL_TEMPLATE` by a pre-commit hook
   (`scripts/check-kanban-protocol-sync.sh`), so change both or the commit fails.
 - **Backup/restore/retention changes** → update `docs/backups.md`.
+- **Any commit that changes behaviour** → add its `CHANGELOG.md` entry (and cut the CalVer heading when releasing) in the same commit. See [Changelog & Versioning](#changelog--versioning).
 - **Transient plan/design artifacts** → write them to `.pi/plans/`, never `docs/`. See [Plan Artifacts](#plan-artifacts).
 - Keep the doc's table of contents / file trees accurate; prune dead references. Docs are linted by `markdownlint` in pre-commit.
 
@@ -290,11 +293,68 @@ card (`nixos-*` / `kanban-*`) in the plan itself, not in a doc index.
 - **Scope commits precisely.** Only stage files that are part of the current session's changes — never stage unrelated pending work from the working tree. Use `git diff --name-only` to verify you're only committing what was just discussed or modified.
 - **Pre-commit hooks run on all staged files.** If an unrelated file has a hook failure (e.g. deadnix unused variable), the entire commit is blocked. Check `git diff --cached` for other staged changes and either fix or unstage them before committing.
 - **Include the doc updates in the same commit as the code they describe.** If a change touches behaviour/workflow, its documentation update commits together with it — don't leave docs trailing in a later commit.
+- **Include the `CHANGELOG.md` entry in the same commit as the change it describes**, and cut the CalVer version heading when the change is released. A handful of commit kinds are exempt — see [Changelog & Versioning](#changelog--versioning).
 - After a failed commit, pre-commit stashes unstaged files and restores them. The commit is not created — fix the issue and retry.
 
 > **Important:** Always run `just fmt` after editing Nix files. The pre-commit hooks will fail without proper formatting.
 >
 > **Important:** If you changed behaviour, also update the relevant docs (see [Documentation Map](#documentation-map)) **before** committing.
+>
+> **Important:** If you changed behaviour, also add the `CHANGELOG.md` entry **in the same commit** (see [Changelog & Versioning](#changelog--versioning)).
+
+### Changelog & Versioning
+
+`CHANGELOG.md` at the repo root is the release log, in
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) form. Versions are
+**CalVer**: `YYYY.MM.DD`, plus a `.N` suffix for a second release on the same day
+(`2026.10.07.1`). There is deliberately **no** `version` attribute in `flake.nix`
+and no version file — the changelog heading *is* the version, and each version
+corresponds to one commit on `main`.
+
+**Every commit that changes behaviour adds an entry.** Append it under the
+`## [Unreleased]` heading, grouped by change kind; add a group heading only when
+it is missing:
+
+```markdown
+## [Unreleased]
+
+### Fixed
+
+- fix(kanban): only trust a pane link when the live agent in it is the card's own
+```
+
+- **The bullet is the commit subject verbatim.** Don't rewrite it into prose —
+  the changelog and `git log` should read the same.
+- **Same commit, always.** An entry that trails in a later commit has already
+  shipped unlogged.
+- **Append, never reorder or rewrite.** Add the bullet at the end of its group
+  under `## [Unreleased]`; older version headings are history and stay untouched.
+- **Release by promoting `[Unreleased]`.** When the accumulated entries ship
+  (merged to `main`, or activated on a host), rename that section to
+  `## [YYYY.MM.DD] - YYYY-MM-DD` — with `.N` if that day already has a version —
+  and put a fresh empty `## [Unreleased]` above it. The promotion commit itself
+  needs no entry.
+- **Guidance, not a gate.** No pre-commit hook enforces this; a missing entry
+  shows up in review, not in `just check`.
+
+**Exempt — no entry and no version bump:**
+
+- Merge commits (`Merge branch ...`, `Merge origin/main: ...`).
+- Dependabot `flake.lock: Update` commits — `dependabot-auto-merge.yml`
+  squash-merges them, and they are bot churn.
+- Docs-only commits: `docs/**`, `README.md`, `AGENTS.md`, `infra/README.md`,
+  `scripts/README.md`.
+- CI-only commits: `.github/workflows/**`.
+- Format/lint-only commits: `nixfmt`, `statix`, `deadnix`, `markdownlint`,
+  `shfmt`, `yamlfmt` reflows and fixes that change no behaviour.
+- The `[Unreleased]` promotion commit itself.
+- Local scratch that nothing consumes: `math_paper_titles.txt`, and everything
+  under `.pi/` except the tracked `.pi/mcp.json`.
+
+Everything else — `feat`, `fix`, `refactor`, `perf`, `revert`, and the bare
+`scope: description` subjects this repo also uses — gets an entry. When one
+commit spans both exempt and non-exempt changes, the non-exempt part wins: add
+the entry.
 
 ### Building for Remote NixOS Hosts
 
@@ -380,6 +440,7 @@ manually (with a `host` input) or by path-filtered pushes. Key lessons:
 - `statix.toml` (repo root) configures statix and is picked up automatically via statix's default `-c .`
 - The statix hook is git-hooks.nix's **built-in check**: entry `statix check --format errfmt` with `pass_filenames = false`, so it checks the whole tree (honouring `.gitignore`) instead of the staged files. Do not add `args = [ "fix" ]` to it — pre-commit appends args as extra argv after the entry, so statix reads `fix` as its TARGET path, prints `config error: path error: file not found: fix`, and still exits **0**, checking nothing. There is no fix mode in the built-in hook; run `statix fix` by hand instead.
 - Because the hook checks the whole tree, `nix flake check` (via `checks.pre-commit`) fails on *any* statix finding in the repo, not only on the files a commit touches.
+- `markdownlint` lints every `*.md` including `CHANGELOG.md`. `.markdownlint.json` sets `MD024.siblings_only`, because repeating `### Added` / `### Fixed` under *different* version headings is the whole point of a changelog; without it the second version's group headings fail the hook.
 
 ## Research Tools
 

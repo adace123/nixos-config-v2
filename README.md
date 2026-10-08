@@ -144,6 +144,7 @@ editing, rotating keys, recovering access, adding a new machine, and backups.
 | [docs/secrets.md](docs/secrets.md) | Full secrets workflow |
 | [docs/deployment.md](docs/deployment.md) | All deployment commands, auto-update, GC, CI |
 | [infra/README.md](infra/README.md) | OpenTofu workspace reference |
+| [CHANGELOG.md](CHANGELOG.md) | Release log: CalVer versions and unreleased changes |
 
 ## Repository Structure
 
@@ -151,6 +152,7 @@ editing, rotating keys, recovering access, adding a new machine, and backups.
 .
 ├── flake.nix                 # Inputs and flake-parts wiring
 ├── flake.lock                # Locked dependency versions
+├── CHANGELOG.md              # Release log (CalVer versions + Unreleased)
 ├── flake-parts/
 │   ├── darwin.nix            # Darwin outputs built from hosts/ metadata
 │   ├── nixos.nix             # NixOS outputs built from hosts/ metadata
