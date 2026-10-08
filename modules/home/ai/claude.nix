@@ -1,5 +1,6 @@
 {
   config,
+  lib,
   pkgs,
   inputs,
   ...
@@ -54,13 +55,7 @@ in
       };
       statusLine = {
         type = "command";
-        command = "bash -c 'basename $(dirname $(pwd))/$(basename $(pwd)); git branch --show-current 2>/dev/null | xargs -I{} echo \" ({})\" || true; echo -n \" | \"; npx ccusage@latest statusline' | tr -d '\\n'";
-      };
-      mcpServers = {
-        context7 = {
-          type = "http";
-          url = "https://mcp.context7.com/mcp";
-        };
+        command = "bash -c 'basename $(dirname $(pwd))/$(basename $(pwd)); git branch --show-current 2>/dev/null | xargs -I{} echo \" ({})\" || true; echo -n \" | \"; ${llmAgents.ccusage}/bin/ccusage statusline' | tr -d '\\n'";
       };
       permissions = {
         allow = [
@@ -112,7 +107,9 @@ in
                   #!/usr/bin/env bash
                   set -euo pipefail
 
-                  file=$(jq -r '.tool_input.file_path // .file_path // empty' <<< "$CLAUDE_TOOL_INPUT" 2>/dev/null || echo "")
+                  # Claude Code passes hook input as JSON on stdin, not in an env var.
+                  INPUT=$(cat)
+                  file=$(jq -r '.tool_input.file_path // empty' <<< "$INPUT" 2>/dev/null || echo "")
 
                   case "$file" in
                     *.nix)
@@ -218,10 +215,20 @@ in
     file."${config.home.homeDirectory}/.claude/settings.json".force = true;
 
     sessionVariables = {
-      CLAUDE_CODE_CONFIG = "${config.home.homeDirectory}/.config/claude-code";
       FORCE_COLOR = "1";
     };
   };
+
+  # context7 is registered at user scope in ~/.claude.json, the file a standalone
+  # Claude Code reads user MCP servers from. programs.claude-code.mcpServers is
+  # not used: it only applies through the Nix-wrapped binary's --plugin-dir, and
+  # the self-updated ~/.local/bin/claude shadows that binary on PATH. Idempotent:
+  # the server is added only when `claude mcp get` does not find it.
+  home.activation.claudeCodeMcp = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    if ! ${llmAgents.claude-code}/bin/claude mcp get context7 >/dev/null 2>&1; then
+      $DRY_RUN_CMD ${llmAgents.claude-code}/bin/claude mcp add --scope user --transport http context7 https://mcp.context7.com/mcp
+    fi
+  '';
 
   programs.zsh.shellAliases = {
     cc = "claude --permission-mode=auto";

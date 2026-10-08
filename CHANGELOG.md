@@ -17,6 +17,10 @@ commit kinds that are exempt, live in
 
 - refactor(kanban): move the board into its own repo and consume it as a flake input
 
+### Fixed
+
+- fix(claude): read auto-format hook input from stdin, register context7 at user scope, drop dead settings
+
 ## [2026.10.07.3] - 2026-10-07
 
 ### Changed

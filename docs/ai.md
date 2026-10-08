@@ -97,7 +97,8 @@ Add a skill by appending its `skills/<path>` to `commonSkills` in `skills.nix`.
   require `claude-code` ≥ 2.1.293 (Haiku 5.5; Opus 5.5 needs 2.1.280 and Sonnet
   5.5 needs 2.1.284), so keep the `llm-agents` input current.
 - **Status line** — running directory + git branch + `ccusage` usage.
-- **MCP:** `context7` (HTTP).
+- **MCP:** `context7` (HTTP), registered at user scope by an activation step
+  (`claude mcp add --scope user`, skipped when `claude mcp get` already finds it).
 - **Permissions** — whitelists common read/git commands, asks on writes/pushes.
 - **PostToolUse hook** — auto-formats edited files by extension (`nix fmt`,
   `ruff format`, `dprint`/`prettier`, `markdownlint`, `yamlfmt`).
