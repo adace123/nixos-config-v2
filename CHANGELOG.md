@@ -9,6 +9,10 @@ commit kinds that are exempt, live in
 
 ## [Unreleased]
 
+### Changed
+
+- refactor(kanban): move the board into its own repo and consume it as a flake input
+
 ## [2026.10.07.3] - 2026-10-07
 
 ### Changed

@@ -12,12 +12,11 @@ modules/home/ai/
 ├── hermes.nix      # Hermes (a Pi-compatible agent)
 ├── herdr/          # Herdr terminal multiplexer
 │   ├── herdr.nix   #   config.toml + plugin/extension/skill deployment
-│   ├── kanban-package.nix # packaging for the kanban board (Textual TUI)
+│   ├── kanban-config.toml # our herdr-kanban settings (workspace codes, models)
 │   ├── pi-extensions/ #  pi-side hooks (the pane state bridge)
-│   └── plugins/    #   installed herdr plugins
+│   └── plugins/    #   in-repo herdr plugins; herdr-kanban is the flake input
 │       ├── picker/ #   herdr-picker (generic fuzzy picker)
-│       ├── automations/ # herdr-automations (cron-scheduled agent runs)
-│       └── kanban/ #   herdr-kanban (board: workspace + agent tasks)
+│       └── automations/ # herdr-automations (cron-scheduled agent runs)
 ├── shared.nix      # Shared rules / code-reviewer / commands across agents
 ├── skills/         # Nix-declared skills (commit-all, herdr-kanban, post-deploy-test)
 └── skills.nix      # Skills synced from the mattpocock/skills flake input
@@ -67,8 +66,8 @@ Add a skill by appending its `skills/<path>` to `commonSkills` in `skills.nix`.
 - Local skill for both: `herdr-kanban`
   (`modules/home/ai/skills/herdr-kanban/`) is the board's judgement layer for
   agents the board did not dispatch. Pi gets it via `home.file` in `pi.nix`,
-  Claude Code via `programs.claude-code.skills` in `claude.nix` — see
-  [kanban.md](kanban.md#how-cards-get-updated).
+  Claude Code via `programs.claude-code.skills` in `claude.nix` — see the
+  [board manual](https://github.com/adace123/herdr-kanban/blob/main/docs/kanban.md).
 - Upstream skill for both: `herdr` is never stored in this repo. It is derived
   from the pinned `herdr` binary (`herdr --skill`, the release-matched copy of
   `skills/herdr/SKILL.md`) by `modules/home/ai/herdr/herdr.nix`, so the skill
@@ -397,13 +396,22 @@ startup: restart Pi (or `/reload` for an auto-discovered file) after a switch.
 
 ### Herdr Kanban plugin
 
+The board lives in its own repo —
+[adace123/herdr-kanban](https://github.com/adace123/herdr-kanban) — pinned here
+as the `herdr-kanban` flake input and enabled as `programs.herdr-kanban` in
+`herdr.nix`. That repo owns the Python TUI, its Nix packaging, and the
+deployment (the plugin directory, the config copy, `herdr plugin link`,
+restarting the reconciler). This repo keeps the keybindings, the pi-side bridge
+below, and `kanban-config.toml` with our workspace codes and model names.
+
 A board for agent work: every card carries the workspace it belongs to, the
 agent that should do it, and that agent's live state. Press `s` on a card and
 the board opens a tab in that workspace, starts the agent there, and hands it
 the task; found work becomes a linked card instead of a lost sentence in chat.
 
-**It has its own manual: [docs/kanban.md](kanban.md).** The shortcuts worth
-knowing from here:
+**It has its own manual:
+[herdr-kanban/docs/kanban.md](https://github.com/adace123/herdr-kanban/blob/main/docs/kanban.md).**
+The shortcuts worth knowing from here:
 
 - `prefix+k` — the board, as an overlay over the current pane
 - `ctrl+shift+k` — capture a task in a popup; `^n` on that form saves **and**

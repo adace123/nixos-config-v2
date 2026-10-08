@@ -32,7 +32,7 @@
 
     # Pre-commit tooling, so linting and `pre-commit run` also work in a shell
     # that never loaded the flake dev shell — the herdr-kanban dispatch tabs,
-    # which skip direnv (modules/home/zsh.nix, docs/kanban.md). The hook
+    # which skip direnv (modules/home/zsh.nix; see adace123/herdr-kanban). The hook
     # *entries* are absolute store paths in .pre-commit-config.yaml, so what a
     # bare shell misses is the runner and the linters AGENTS.md tells you to run
     # by hand (statix, deadnix, nixfmt and yamlfmt are already above).

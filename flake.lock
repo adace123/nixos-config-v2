@@ -225,6 +225,26 @@
         "type": "github"
       }
     },
+    "herdr-kanban": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1791437137,
+        "narHash": "sha256-Qf0zWvMaY/lz7SjF9/uC+srBh0XyZO8fZeq5YpazNXo=",
+        "owner": "adace123",
+        "repo": "herdr-kanban",
+        "rev": "a924318e62749fe5698a673f8093645782828afd",
+        "type": "github"
+      },
+      "original": {
+        "owner": "adace123",
+        "repo": "herdr-kanban",
+        "type": "github"
+      }
+    },
     "hermes-agent": {
       "inputs": {
         "flake-parts": "flake-parts_2",
@@ -562,6 +582,7 @@
         "disko": "disko",
         "flake-parts": "flake-parts",
         "git-hooks": "git-hooks",
+        "herdr-kanban": "herdr-kanban",
         "hermes-agent": "hermes-agent",
         "home-manager": "home-manager_2",
         "llm-agents": "llm-agents",

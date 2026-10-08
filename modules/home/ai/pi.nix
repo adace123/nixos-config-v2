@@ -108,7 +108,7 @@ in
     # points at rather than quoting — a third copy of the protocol block would
     # be a third thing to drift. Global scope is deliberate: the board is
     # machine-wide across workspaces, so a dispatched agent is not the only one
-    # that needs to find it. See docs/kanban.md.
+    # that needs to find it. See adace123/herdr-kanban.
     ".pi/agent/skills/herdr-kanban" = {
       source = ./skills/herdr-kanban;
       recursive = true;

@@ -56,6 +56,17 @@
       url = "github:NousResearch/hermes-agent";
     };
 
+    # The herdr kanban board plugin. It has its own repo because the Nix
+    # packaging is *about the plugin* — it enumerates the plugin's modules and
+    # asserts nothing ships unimported — so it belongs next to the code it
+    # guards, where that repo's CI can run it. Consumed as a home-manager module
+    # in modules/home/ai/herdr/herdr.nix; this repo keeps the keybindings and
+    # the config with our workspace codes and model names.
+    herdr-kanban = {
+      url = "github:adace123/herdr-kanban";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Pi itself comes from the official flake, not llm-agents: it is upstream's
     # own build (nix/package.nix), so it tracks the same release the `pi update`
     # channel does. `main` is deliberate — upstream also keeps a `stable` branch

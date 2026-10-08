@@ -56,9 +56,9 @@ There is no unit-test suite; validation is layered:
   enforces (`.github/workflows/flake-check.yml`).
 - `pre-commit run --all-files` - the hooks alone, before committing. Statix
   checks the whole tree, so a failure here is often pre-existing, not yours.
-- Kanban self-test - `modules/home/ai/herdr/plugins/kanban/kanban/selftest.py`,
-  wired as the `kanban-selftest` pre-commit hook and run against the packaged
-  app rather than the working tree.
+- Kanban self-test - lives in the `herdr-kanban` repo (the `herdr-kanban` flake
+  input) and runs there as part of `nix flake check`. This repo no longer builds
+  the plugin, so that repo's CI is the gate.
 - Post-deploy tests - `modules/home/ai/skills/post-deploy-test/tests/`
   (`run-all.sh` plus numbered checks) verify a deployed NixOS host; see the
   `post-deploy-test` skill.
@@ -278,7 +278,6 @@ These are the repo's living docs — keep them in sync with the code:
 - `docs/backups.md` — Restic → R2 backups, schedule, retention, restore, DR
 - `docs/dathomir.md` — OCI Always-Free VPS + `infra/` OpenTofu workflow
 - `docs/ai.md` — AI agents (Claude, Pi, Hermes, Herdr)
-- `docs/kanban.md` — the herdr-kanban board: cards, keys, the agent protocol, config, skills
 - `docs/deployment.md` — deploy/rollback/GC + CI (GitHub Actions) reference
 - `docs/secrets.md` — SOPS secrets workflow
 - `scripts/README.md` — helper shell scripts (incl. `ai-selector`)
@@ -290,9 +289,11 @@ These are the repo's living docs — keep them in sync with the code:
 - **Adding/renaming a `just` recipe or script** → note it in the doc that lists commands. New package/homebrew installs belong in the relevant module doc or `darwin.md`/`nixos.md` "Adding Packages" section.
 - **Changing secrets, services, infrastructure, or CI** → update `secrets.md`, the host/module doc, `deployment.md`/`dathomir.md`, and `infra/README.md` as applicable.
 - **New AI agent or skill** → update `docs/ai.md`.
-- **Board behaviour, keys, protocol or config** → update `docs/kanban.md`. Its
-  protocol block is checked against `PROTOCOL_TEMPLATE` by a pre-commit hook
-  (`scripts/check-kanban-protocol-sync.sh`), so change both or the commit fails.
+- **Board behaviour, keys, protocol or config** → the board's docs and code live
+  in the `herdr-kanban` repo (the flake input); change them there. Its protocol
+  block is checked against `PROTOCOL_TEMPLATE` by that repo's `nix flake check`.
+  In this repo, update `docs/ai.md` and the keybindings in `herdr.nix` when the
+  wiring changes.
 - **Backup/restore/retention changes** → update `docs/backups.md`.
 - **Any commit that changes behaviour** → add its `CHANGELOG.md` entry (and cut the CalVer heading when releasing) in the same commit. See [Changelog & Versioning](#changelog--versioning).
 - **Transient plan/design artifacts** → write them to `.pi/plans/`, never `docs/`. See [Plan Artifacts](#plan-artifacts).

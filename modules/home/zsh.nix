@@ -103,7 +103,7 @@
       # opens: the board marks that pane with HERDR_KANBAN_DISPATCH, and loading
       # this repo's flake dev shell there costs seconds and prints its banner
       # into the pane while the agent it exists for is still starting
-      # (modules/home/ai/herdr/plugins/kanban/kanban/dispatch.py, docs/kanban.md).
+      # (adace123/herdr-kanban: kanban/dispatch.py, docs/kanban.md).
       if [[ -z "''${HERDR_KANBAN_DISPATCH:-}" ]]; then
         eval "$(direnv hook zsh)"
       fi

@@ -124,4 +124,6 @@ herdr-kanban add "<title>" --notes "why it is separate from this one"
   means it, not for an agent working around a guard.
 
 The full board — keys, columns, config, dispatch behaviour — is written up in
-`docs/kanban.md` of the `nixos-config-v2` repo that installs this skill.
+`docs/kanban.md` of the
+[`adace123/herdr-kanban`](https://github.com/adace123/herdr-kanban) repo that
+ships this plugin.

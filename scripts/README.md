@@ -12,8 +12,6 @@ This directory contains utility scripts for the Nix configuration.
 - `check-for-updates.sh` - Check `flake.lock` for upstream changes and notify (`just check-updates`)
 - `check-npm-cache.sh` - Report stale npm metadata that breaks `npm install
   <pkg>@latest` and `pi update --extensions` (`just npm-cache-check`)
-- `check-kanban-protocol-sync.sh` - Fail if the board protocol quoted in
-  `docs/kanban.md` drifts from the plugin's `PROTOCOL_TEMPLATE` (pre-commit hook)
 - `check-nix-caches-sync.sh` - Fail if `flake.nix`'s literal `nixConfig` drifts
   from `nix-caches.nix`, the source of truth (pre-commit hook and CI)
 - `README.md` - This file

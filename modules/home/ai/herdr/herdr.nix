@@ -6,10 +6,6 @@
 }:
 let
   llmAgents = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system};
-  # The kanban board plugin (plugins/kanban): a Textual TUI packaged with
-  # python3.withPackages [ textual ] plus the manifest/config the activation
-  # script below deploys. See kanban-package.nix.
-  kanban = import ./kanban-package.nix { inherit pkgs; };
 
   # The agent skill herdr ships (https://herdr.dev/docs/agent-skill/): the
   # release-matched copy of skills/herdr/SKILL.md, which `herdr --skill` prints
@@ -27,11 +23,27 @@ let
   '';
 in
 {
+  # The kanban board plugin. It lives in its own repo (adace123/herdr-kanban,
+  # pinned as a flake input) because the Nix packaging is *about the plugin* —
+  # it enumerates the plugin's modules and asserts nothing ships unimported —
+  # so it belongs next to the code it guards, where that repo's CI can run it.
+  #
+  # The plugin's home-manager module owns the deployment: the packaged app and
+  # launcher, the copied plugin directory
+  # (~/.config/herdr/plugins-managed/kanban), the config, `herdr plugin link`,
+  # and restarting the background reconciler. It also puts the `herdr-kanban`
+  # CLI (`--snapshot`, `--selftest`, or the board itself outside herdr) on
+  # PATH. What stays here is what is ours: the keybindings below, and
+  # kanban-config.toml with our workspace codes and model names.
+  imports = [ inputs.herdr-kanban.homeModules.default ];
+
+  programs.herdr-kanban = {
+    enable = true;
+    config = ./kanban-config.toml;
+  };
+
   home.packages = [
     llmAgents.herdr
-    # Standalone entry point for the board: `herdr-kanban --snapshot`,
-    # `herdr-kanban --selftest`, or just `herdr-kanban` outside herdr.
-    kanban.cli
   ];
 
   # herdr's pi integration reports the pane's agent lifecycle, but it cannot see
@@ -121,7 +133,7 @@ in
     command = "herdr-picker.launch"
     description = "fuzzy-launch (spaces / tabs / worktrees / files / commands / agents)"
 
-    # herdr-kanban plugin — the board overlay (plugins/kanban).
+    # herdr-kanban plugin — the board overlay.
     [[keys.command]]
     key = "prefix+k"
     type = "plugin_action"
@@ -196,52 +208,6 @@ in
     if [ -x "$herdrBin" ]; then
       if ! "$herdrBin" plugin list 2>/dev/null | grep -q "herdr-automations"; then
         "$herdrBin" plugin link "$autoDir" >/dev/null 2>&1 || true
-      fi
-    fi
-  '';
-
-  # herdr-kanban — a kanban board plugin (plugins/kanban/): tasks carry the
-  # workspace they belong to and the agent that should do them; dispatching a
-  # card opens a tab in that workspace, starts the agent, and hands it the task.
-  # Same stable-dir + `herdr plugin link` pattern as the plugins above: the
-  # manifest and launcher are copied into a real, writable directory because
-  # `herdr plugin link` canonicalises the linked path, so a store symlink would
-  # go stale on the next rebuild. The Python app stays in the store; the copied
-  # launcher bakes in the store paths for the app and its interpreter.
-  home.activation.herdrKanbanPlugin = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    kanbanDir="$HOME/.config/herdr/plugins-managed/kanban"
-    mkdir -p "$kanbanDir"
-    cp -f "${kanban.manifest}" "$kanbanDir/herdr-plugin.toml"
-    cp -f "${kanban.launcher}" "$kanbanDir/launcher.sh"
-    chmod +x "$kanbanDir/launcher.sh"
-
-    # Repo-managed defaults (columns, placement, icon mode, sync cadence) go to
-    # the plugin config dir on every activation: config.toml here is the source
-    # of truth, exactly like the picker's. The board stores its tasks in
-    # ~/.local/state/herdr/plugins/herdr-kanban/board.json instead, so a switch
-    # never touches them.
-    kanbanCfg="$HOME/.config/herdr/plugins/config/herdr-kanban"
-    mkdir -p "$kanbanCfg"
-    cp -f "${kanban.config}" "$kanbanCfg/config.toml"
-
-    herdrBin="$(command -v herdr 2>/dev/null || true)"
-    [ -x "$herdrBin" ] || herdrBin="$HOME/.local/bin/herdr"
-    if [ -x "$herdrBin" ]; then
-      if ! "$herdrBin" plugin list 2>/dev/null | grep -q "herdr-kanban"; then
-        "$herdrBin" plugin link "$kanbanDir" >/dev/null 2>&1 || true
-      fi
-      # Apply the prefix+k binding written above to the running server.
-      "$herdrBin" server reload-config >/dev/null 2>&1 || true
-
-      # Restart the background reconciler (the plugin's [[startup]] hook runs
-      # it when herdr starts) so it runs the code and config just deployed.
-      # Only while herdr is up: with no server there is nothing to follow, and
-      # the next server start brings it up anyway.
-      # The stop goes through the daemon's own lock, not a raw pid file: a pid
-      # a crashed daemon left behind names whatever process has it now.
-      HERDR_BIN_PATH="$herdrBin" bash "$kanbanDir/launcher.sh" sync-stop >/dev/null 2>&1 || true
-      if "$herdrBin" workspace list >/dev/null 2>&1; then
-        HERDR_BIN_PATH="$herdrBin" bash "$kanbanDir/launcher.sh" sync >/dev/null 2>&1 || true
       fi
     fi
   '';

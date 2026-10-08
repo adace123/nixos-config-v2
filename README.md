@@ -141,7 +141,7 @@ editing, rotating keys, recovering access, adding a new machine, and backups.
 | [docs/backups.md](docs/backups.md) | Restic → R2 backups, schedule, restore, DR |
 | [docs/dathomir.md](docs/dathomir.md) | OCI Always-Free VPS + infra/ OpenTofu workflow |
 | [docs/ai.md](docs/ai.md) | AI agents (Claude, Pi, Hermes, Herdr) |
-| [docs/kanban.md](docs/kanban.md) | herdr-kanban board: cards, keys, agent protocol, config |
+| [herdr-kanban docs](https://github.com/adace123/herdr-kanban/blob/main/docs/kanban.md) | herdr-kanban board (external repo): cards, keys, agent protocol, config |
 | [docs/secrets.md](docs/secrets.md) | Full secrets workflow |
 | [docs/deployment.md](docs/deployment.md) | All deployment commands, auto-update, GC, CI |
 | [infra/README.md](infra/README.md) | OpenTofu workspace reference |
@@ -187,7 +187,6 @@ editing, rotating keys, recovering access, adding a new machine, and backups.
     ├── backups.md            # Restic → R2 backups & DR
     ├── dathomir.md           # OCI Always-Free VPS
     ├── ai.md                 # AI coding agents
-    ├── kanban.md             # herdr-kanban board: cards, keys, protocol
     ├── deployment.md         # Deploy / rollback / CI
     └── secrets.md            # SOPS secrets workflow
 ```

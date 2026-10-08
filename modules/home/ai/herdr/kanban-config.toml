@@ -1,10 +1,16 @@
 # herdr-kanban settings
 #
-# This file is repo-managed (modules/home/ai/herdr/plugins/kanban/config.toml)
-# and is copied to the plugin config dir (~/.config/herdr/plugins/config/
-# herdr-kanban/) on every activation, so editing it here is the source of
-# truth. Every key is optional — a missing file or key falls back to the same
-# defaults baked into the app.
+# This file is repo-managed and is copied to the plugin config dir
+# (~/.config/herdr/plugins/config/herdr-kanban/) on every activation by
+# `programs.herdr-kanban.config` (modules/home/ai/herdr/herdr.nix), so editing it
+# here is the source of truth. Every key is optional — a missing file or key
+# falls back to the same defaults baked into the app (`kanban/config.py` in
+# adace123/herdr-kanban).
+#
+# The generic half of this file is mirrored as `config.example.toml` in the
+# plugin repo. The two tables that are ours alone are `[workspaces]` (the short
+# codes our card ids are built from) and `[models]` (the model names our agents
+# accept).
 
 [ui]
 # "overlay" fills the active pane and restores focus/zoom on close (the
