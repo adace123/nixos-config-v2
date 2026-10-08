@@ -309,7 +309,7 @@ card (`nixos-*` / `kanban-*`) in the plan itself, not in a doc index.
 **CalVer**: `YYYY.MM.DD`, plus a `.N` suffix for a second release on the same day
 (`2026.10.07.1`). There is deliberately **no** `version` attribute in `flake.nix`
 and no version file — the changelog heading *is* the version, and each version
-corresponds to one commit on `main`.
+is cut at one commit on `main`, the promotion commit.
 
 **Every commit that changes behaviour adds an entry.** Append it under the
 `## [Unreleased]` heading, grouped by change kind; add a group heading only when
