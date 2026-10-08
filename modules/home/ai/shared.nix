@@ -19,32 +19,6 @@ let
   '';
 in
 {
-  rules = {
-    code-quality = ''
-      # Code Quality Rules
-
-      ## General Guidelines
-      - Write clean, readable code with meaningful variable names
-      - Use proper error handling and avoid silent failures
-      - Follow existing code style and conventions in the project
-      - Add comments for complex logic, not for obvious operations
-
-      ## Security
-      - Never log or expose secrets, API keys, or credentials
-      - Validate all user inputs
-      - Use parameterized queries for database operations
-    '';
-
-    best-practices = ''
-      # Best Practices
-
-      - Keep functions small and focused on a single task
-      - Prefer composition over inheritance
-      - Write tests for critical functionality
-      - Use descriptive names for variables and functions
-    '';
-  };
-
   agents = {
     # Pinned rather than inherited: this agent is exempt from the
     # CLAUDE_CODE_SUBAGENT_MODEL default set in claude.nix, because a model in

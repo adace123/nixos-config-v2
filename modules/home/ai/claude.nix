@@ -26,7 +26,6 @@ in
       theme = "dark";
       model = "claude-opus-5-5";
       advisorModel = "opus";
-      defaultMode = "auto";
       # Model routing for delegated work. The main loop keeps Opus, the
       # subagents that do judgement work state their own model outright
       # (`Explore` below, `code-reviewer` in shared.nix), and this variable
@@ -51,30 +50,39 @@ in
       # read-only home-manager symlink into the Nix store.
       enabledPlugins = {
         "cc-plugin-you-should-know@builtin" = true;
+        # Synced from claude.ai but never used.
+        "productivity@synced" = false;
+        "cowork-plugin-management@synced" = false;
+        "slack-by-salesforce@synced" = false;
       };
       statusLine = {
         type = "command";
         command = "bash -c 'basename $(dirname $(pwd))/$(basename $(pwd)); git branch --show-current 2>/dev/null | xargs -I{} echo \" ({})\" || true; echo -n \" | \"; ${llmAgents.ccusage}/bin/ccusage statusline' | tr -d '\\n'";
       };
       permissions = {
+        # Must live under `permissions`; a top-level defaultMode is ignored.
+        defaultMode = "auto";
+        # Prefix rules match every flag, so anything that can discard work or
+        # run commands (checkout/restore/switch/stash, find/fd -exec) is left
+        # off and goes through the prompt or the auto-mode check instead.
+        # The space before `*` stops `git log*` from also matching `git logx`.
         allow = [
-          "Bash(git diff*)"
-          "Bash(git status*)"
-          "Bash(git log*)"
-          "Bash(git show*)"
-          "Bash(git branch*)"
-          "Bash(git checkout*)"
-          "Bash(git switch*)"
-          "Bash(git stash*)"
-          "Bash(git restore*)"
-          "Bash(git add*)"
-          "Bash(git commit*)"
+          "Bash(git diff)"
+          "Bash(git diff *)"
+          "Bash(git status)"
+          "Bash(git status *)"
+          "Bash(git log)"
+          "Bash(git log *)"
+          "Bash(git show)"
+          "Bash(git show *)"
+          "Bash(git branch)"
+          "Bash(git branch *)"
+          "Bash(git add *)"
+          "Bash(git commit *)"
           "Bash(cat *)"
           "Bash(ls *)"
-          "Bash(find *)"
           "Bash(grep *)"
           "Bash(rg *)"
-          "Bash(fd *)"
           "Bash(tree *)"
           "Bash(head *)"
           "Bash(tail *)"
@@ -93,6 +101,14 @@ in
           "WebFetch(domain:npmjs.com)"
           "mcp__context7__get-library-docs"
           "mcp__context7__resolve-library-id"
+        ];
+        # Destructive forms the broad `git branch *` allow would otherwise cover.
+        ask = [
+          "Bash(git branch -D *)"
+          "Bash(git branch -d *)"
+          "Bash(git branch --delete *)"
+          "Bash(git branch -f *)"
+          "Bash(git branch --force *)"
         ];
       };
       hooks = {
@@ -198,14 +214,13 @@ in
     '';
 
     skills = {
-      code-quality = shared.rules.code-quality;
-      best-practices = shared.rules.best-practices;
       # The board's judgement layer for agents the board did not dispatch.
       # Same file Pi gets (see pi.nix); a claude kind is dispatchable from the
       # board too, so both harnesses carry it.
       herdr-kanban = ./skills/herdr-kanban;
     }
-    // commonSkills.claudeSkills;
+    # tdd stays Pi-only; Claude never used it.
+    // builtins.removeAttrs commonSkills.claudeSkills [ "tdd" ];
 
   };
 
