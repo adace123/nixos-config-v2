@@ -28,6 +28,11 @@ in
       defaultMode = "auto";
       outputStyle = "concise";
       skipAutoPermissionPrompt = true;
+      # Declared here (not toggled via /plugin) because settings.json is a
+      # read-only home-manager symlink into the Nix store.
+      enabledPlugins = {
+        "cc-plugin-you-should-know@builtin" = true;
+      };
       statusLine = {
         type = "command";
         command = "bash -c 'basename $(dirname $(pwd))/$(basename $(pwd)); git branch --show-current 2>/dev/null | xargs -I{} echo \" ({})\" || true; echo -n \" | \"; npx ccusage@latest statusline' | tr -d '\\n'";

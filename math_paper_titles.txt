@@ -1,0 +1,722 @@
+Milne's rationality conjecture for abelian varieties
+Exact Birch–Swinnerton-Dyer Formula from Low Selmer Corank
+The Selmer converse for elliptic curves at every prime
+The two-primary Birch–Swinnerton-Dyer formula in Selmer corank at most one
+The Quasi-Riemann Hypothesis: A Zero-Free Half-Plane ℜ s> 7/8
+The Quasi-Riemann Hypothesis (alternate 11/12 proof)
+Uniform exclusion of Landau–Siegel zeros
+Hilbert’s tenth problem over the rational numbers
+A pointwise 2-converse for elliptic curves with rational two-torsion
+Catalan's constant is irrational
+Goldfeld's analytic density conjecture and the 2-converse for elliptic curves
+The mean analytic rank of quadratic twists of elliptic curves
+Ordinary two-point correlations of multiplicative functions
+The Deligne-Drinfeld conjecture
+Reconstruction of Function Fields from Mod-ℓ Milnor K-Theory
+Reconstruction from Milnor K-theory modulo the characteristic
+The Bogomolov-Pop reconstruction theorem
+Unrestricted pro-modularity at the prime two
+The Dimension of the Two-Adic Hecke Algebra at Odd Level
+Fontaine–Mazur modularity at the prime 2
+Weighted dilation graphs, smooth shifted primes and totient fibers
+The Poisson-Dirichlet law for prime predecessors
+Prime Predecessors with an Even Number of Prime Factors
+The joint Dickman law for consecutive integers
+The additive indecomposability of the primes
+Global Arthur Enhancements of Cuspidal Excursion Parameters
+Rationality of the Canonical Unramified Arthur Filtration
+Ramanujan-Arthur Decompositions of Cuspidal Functions at Full Finite Level
+Temperedness at ramified places for globally generic exceptional groups
+The Restricted Geometric Langlands Equivalence in Positive Characteristic
+Constructible tame Hecke eigensheaves in positive characteristic
+Tame Hecke Eigensheaves with Several Marked Points
+Frobenius Structures on Tame Hecke Eigensheaves
+Equidistribution of Prime-Degree Torus Packets with Arbitrary Local Type
+Equidistribution of primitive quartic torus packets for arbitrary orders
+Equidistribution of Primitive Sextic Torus Packets
+The abelian Zilber–Pink conjecture
+The E×CM component of Zilber–Pink for curves in A2
+Quaternionic division points on curves in the Siegel threefold
+Elliptic squares and Zilber–Pink for curves in A2
+The irrationality exponent of pi is 2
+The Margulis–Platonov conjecture over global function fields
+The Margulis–Platonov conjecture over number fields
+Étale covers with a prescribed exterior sheet
+The p-adic section conjecture
+Squarefree values of quartics and power-free values of polynomials
+A quadratic bound for Jacobsthal's function
+The Weak Inhomogeneous Duffin–Schaeffer Conjecture
+An unconditional first moment for cubic Gauss sums
+An asymptotic formula for the number of totients
+Short Egyptian fractions
+Positive lower density of large prime gaps
+Integral points on character varieties of curves
+Bounded-Step Walks on Gaussian Primes
+Primitive roots for every admissible integer base
+Simultaneous primitive roots: a conditional lower bound for prime bases
+Modularity of elliptic curves over imaginary quadratic fields
+Open Homomorphisms of Global Solvably Closed Galois Groups
+The rational Hodge conjecture for products of K3 surfaces
+Algebraicity of Kuga–Satake Correspondences for K3 Surfaces
+The rational Hodge conjecture for CM abelian varieties
+Algebraic Kuga–Satake correspondences and Hodge conjectures on a K3 quadratic locus
+Weil classes and Hodge classes on abelian powers
+Abelian covers, Gale correspondences, and the Hodge conjecture for powers
+Algebraicity of Weil classes on split abelian eightfolds
+A Conditional Reduction for Algebraic Kuga–Satake Correspondences
+Orbifold and logarithmic Iitaka subadditivity
+Logarithmic Kodaira dimension and whole-fiber variation
+The reverse logarithmic Kodaira inequality and additivity
+Projective Hodge lines and ordinary Iitaka subadditivity
+B-semiampleness for compact log-smooth Kähler fibrations
+Log abundance for compact Kähler spaces under logarithmic Iitaka subadditivity
+Uniform indices for semi-log-canonical log Calabi–Yau pairs
+Conditional good minimal models for compact Kähler fourfolds
+Log abundance in characteristic zero
+Minimal metrics and interior injectivity for nef adjoints
+Fourfold nonvanishing by minimal metrics and moving jets
+Lifting sections from the reduced support of an adjoint
+Schnell fiber spaces and good canonical models
+Uniform log Iitaka fibrations and bounded moduli denominators
+Uniform Pluricanonical Iitaka Fibrations
+Relative denominators and effective systems for log Calabi-Yau fibrations
+Arithmetic Stein-degree bounds for log Calabi–Yau pairs
+Uniform effective log Iitaka fibrations for fourfolds
+Abundance after nonvanishing for compact Kähler fourfolds
+Log abundance in numerical dimension one for threefolds in positive characteristic
+Abundance in numerical dimension one for terminal threefolds in positive characteristic
+Numerical semiampleness of nef adjoint classes on compact Kähler manifolds
+Numerical Semiampleness of Nef Adjoint Divisors
+Minimal models and Mori fibre spaces for generalized log canonical Q-pairs
+Minimal models in numerical dimension one
+The ordinary-double-point gap in every dimension
+The normalized-volume gap in dimension four
+Fujita's freeness conjecture
+Nagata's conjecture for plane curves
+Maximal Seshadri constants on arbitrary polarized surfaces
+Maximal Multipoint Seshadri Constants in Higher Dimensions
+Maximal multipoint Seshadri constants in positive characteristic
+Bloch’s conjecture for surfaces with p_g=0
+Projective-space bases of Lagrangian fibrations
+The strong hyperkähler SYZ conjecture
+Every complex K3 surface is Oka
+P=W in composite rank for fixed determinant
+The equivariant cohomological Hikita conjecture for arbitrary quivers
+A projective fourfold with large fundamental group and non-Stein universal cover
+A surface counterexample to Shafarevich holomorphic convexity
+An explicit failure of complex affine-space cancellation
+A singular normal affine surface with free tangent sheaf
+A stable coordinate that is not a coordinate in four variables
+An explicit noncoordinate polynomial with affine three-space zero fibre
+Ample rank-two bundles on the quadric surface without Griffiths-positive metrics
+Canonical ampleness of compact hyperbolic Kähler manifolds
+Universal-cover splitting for compact Kähler manifolds
+Integrability of split tangent bundles on rationally connected manifolds
+A high-arity counterexample to Pixton completeness in Chow
+Irrational cubic fourfolds with geometric K3 categories
+A Gepner stability condition on every smooth quintic threefold
+Prescribed large-volume charges on threefolds with trivial canonical bundle
+Termination of generalized log canonical flips on compact Kähler fourfolds
+Termination of generalized-canonical flips on compact Kähler fourfolds
+Termination for projective log canonical fourfolds with rational boundary
+Finite ordinary minimal model programs on compact Kähler fourfolds
+Finite ordinary minimal model programs on compact Kähler fourfolds
+The abelianity conjecture for special compact Kähler manifolds
+Two-step monodromy of special quasi-projective varieties
+A conditional abelianity theorem for special fourfold pairs with a half-weight divisor
+Semialgebraic universal covers of normal projective varieties
+Symmetry of semialgebraic bounded domains with compact quotient
+Ambiently homeomorphic isolated hypersurfaces of multiplicities two and three
+Ambiently homeomorphic isolated hypersurface germs in ℂ⁴ with multiplicities four and five
+Global Spherical Shells on Minimal Surfaces of Class VII
+Contact Fano manifolds and the LeBrun–Salamon conjecture
+The generalized Mukai conjecture
+Topological triviality of mu-constant families of surface singularities
+Virasoro Constraints under Projectivization
+Virasoro Constraints for Projective Complete Intersections
+Bounded klt complements for Fano contractions
+Uniform Cartier sections for Fano type contractions
+The Campana–Peternell conjecture in dimension six
+Anticanonical nonvanishing from smooth semipositivity
+Invariant anticanonical indices and conversion of twisted differentials
+Bounded anticanonical metrics on klt pairs and torus quotients
+Cohomological transfer and equivariant anticanonical sections
+Metric descent and rank-preserving contractions
+Integrable metrics and effectivity with controlled boundary
+Exact orders and invariant anticanonical linear systems
+Global quantum geometric Langlands at irrational level
+Removable Boundaries and Rigidity of Circle Domains
+Koebe's Circle-Domain Conjecture
+Brennan's conjecture and sharp inverse-square integral means
+A strict inverse-first-power bound for univalent functions
+The Falconer distance conjecture in all dimensions
+The Kakeya maximal conjecture in three dimensions
+Every four-dimensional Kakeya set has full Hausdorff dimension
+Almost-everywhere Fourier convergence in L log L
+Ultraflat real Littlewood polynomials
+Nearly minimal maxima and positive minima of Littlewood polynomials
+Asymptotically minimal maxima of real Littlewood polynomials
+Elliptic capacity propagation and Fourier restriction to the sphere
+Diagonal Fourier extension for positively curved surfaces in three dimensions
+Bochner–Riesz multipliers in three dimensions
+Critical local smoothing for the three-dimensional wave equation
+Endpoint convergence for the planar Schrodinger equation
+Endpoint pointwise convergence for the Schrodinger equation in higher dimensions
+Riesz transforms and uniform rectifiability in higher codimension
+Annular variation of the triangular Hilbert transform at the symmetric point
+An L³ bound for the dyadic triangular Hilbert form
+The maximal triangular Hilbert transform at the symmetric point
+A uniform Hilbert transform estimate for Lipschitz directions
+The geometric case of the Erdős similarity conjecture
+The dyadic case of the Erdős similarity conjecture
+An Endpoint Gradient Bound for the Centered Disk Maximal Operator
+An L³ bound for the trilinear Hilbert transform
+The symmetric Mahler conjecture and its equality cases
+The Mahler Conjecture for General Convex Bodies
+Symplectic Balls in Symmetric Polar Products
+Petty’s projection-volume conjecture in dimensions at least four
+A product counterexample to the simplex maximum for projection-body volume
+Planar Graph Metrics Embed into L1 with Constant Distortion
+L1 Embeddings of Graphs of Bounded Treewidth
+An atomic certificate for triangular-lattice universal optimality
+Universal optimality of the triangular lattice
+A sharp Fourier certificate for planar circle packing
+Triangular minimality for planar Coulomb renormalized energy
+The logarithmic Brunn–Minkowski conjecture
+A single-lattice covering bound of order n log n
+Translative covering densities of order n log n
+A dimension-free logarithmic Sobolev inequality for subgaussian log-concave measures
+Subpolynomial dimension reduction in Lp
+Hyperbolicity Cones Without Semidefinite Lifts
+A nonspectrahedral hyperbolicity cone
+An Exact Semidefinite Lift of a Nonspectrahedral Hyperbolicity Cone
+The Gaussian propeller bound in every dimension
+The Euclidean Steinitz–Bergström theorem
+A doubling Hilbert subset with no finite-dimensional bi-Lipschitz embedding
+Edit Distance in l1: Matching Bounds up to Constants in the Exponent
+Finite-Circle Obstructions, Binary Codes, and Histogram Embeddings for Edit Distance
+Tree Constructions for the l1 Distortion of Binary Edit Distance
+Finite angular cylinder covers below the half-area bound
+Finite cylinder approximation of ruled sets
+Slope-field perturbations of the two-cylinder covering
+Finite triangular approximation of radial sweeps
+A sharp entropy bound and the simplex inequality for isotropic constants
+The Unique Games Theorem
+A Direct Proof of Optimal Max-Cut Hardness
+The Factor-Two Hardness Threshold for Vertex Cover
+Constant-factor hardness of Min-UnCut
+Constant-factor hardness of directed feedback vertex set
+Exact derandomization of logarithmic space: L = RL = BPL
+Turn-Based Stochastic Mean-Payoff Games in Deterministic Quasipolynomial Time
+Mean-payoff parity games in quasipolynomial time
+Deterministic quasipolynomial-time mean-payoff games
+Randomized quasipolynomial-time mean-payoff games
+Perfect completeness for 2-to-1 games
+Hardness of finding large independent sets in three-colorable graphs
+An Upper Bound of 9/4 for the Matrix Multiplication Exponent
+Complex Matrix Multiplication Below 2.258 and Rectangular Bounds
+Staggered extraction for exact matrix multiplication over every field
+A cubic lower bound for border determinantal complexity of the permanent
+Integer multiplication below n log n
+Squared-logarithmic randomized k-server on arbitrary metrics
+Uniform computation of the squared-logarithmic k-server bound
+One Sample Suffices for Matroid Prophet Inequalities against an Almighty Adversary
+Beyond the Square-Root Exponent for Depth-Three Boolean Circuits
+A Fully Polynomial Randomized Approximation Scheme for Perfect Matchings in General Graphs
+Entropy and Face Dimension of the Perfect-Matching Polytope
+An FPRAS for Common Integer Polymatroid Bases with Binary Capacities
+Approximate counting of common bases of two matroids
+Exact Uniform Sampling of Contingency Tables with Arbitrary Margins
+An FPRAS for Cell-Bounded Contingency Tables
+Uniform Matrix Hitting Points in Every Positive Characteristic
+One Rational Matrix Hitting Point for Noncommutative Formulas
+Polynomial Hitting Lists for Noncommutative Rational Formulas
+Constant-factor hardness of uniform sparsest cut
+Near-square-root logarithmic integrality gaps for uniform sparsest cut
+Additive hardness and unbounded configuration gaps in bin packing
+Sharp binary-information contraction on the discrete cube
+Hellinger contraction with arbitrary Boolean output bias
+Almost-Linear-Time Maximum-Cardinality Matching in General Graphs
+An Almost-Linear Approximation Scheme for Edit Distance
+Uniform quasipolynomial-time trace reconstruction
+A latest-anchor induction with spectrally compact masks for worst-case trace reconstruction
+Quantitative lower bounds for trace reconstruction
+A Polynomial-Time Algorithm for Three-Machine Unit-Job Scheduling
+Single-exponential recovery and bounded-price strictness for metric k-median
+The approximation threshold for metric k-median
+Exponential PSD rank of positively shifted matching matrices
+Average sensitivity of polynomial threshold functions
+A Polynomial-Time 2-Approximation for Shortest Common Superstring
+An exponential state lower bound for two-way nondeterministic complementation
+An exponential two-way deterministic state lower bound for one-way liveness
+An explicit power saving for the exact discrete Fourier transform
+Finite tensor savings and exact Fourier circuits
+Polynomial mixing of the switch chain for every graphical degree sequence
+A superquadratic separation between sensitivity and block sensitivity
+Parity lifts and bounded-treewidth witnesses for Weisfeiler–Leman equivalence
+The complexity of identifying a graph by Weisfeiler–Leman refinement
+Unconditional time lower bounds for Weisfeiler–Leman equivalence
+Variable-dimension Weisfeiler–Leman equivalence on general and subcubic graphs
+Finite Monoid Computations and a Uniform Generalized Star-Height Bound
+Generalized Star Height at Most Four
+Generalized Star Height at Most Three
+Homogeneous depth-five lower bounds for iterated matrix multiplication
+The PCP-for-PPAD conjecture: a quasilinear reduction
+Simulating One-Tape Time in Two-Fifths-Power Space
+Subset Sum in Time O(2^0.49n)
+A Low-Space Algorithm for Worst-Case Subset Sum
+Subpolynomial query complexity for well-conditioned log-concave sampling
+Memory and precision in noiseless Gaussian regression
+Posterior replicas and conditional information in Gaussian regression
+Localization costs and information growth for exact Gaussian observations
+Projection moments, positive cap domination, and Riesz estimates on the sphere
+Replacing Gaussian observations in memory-constrained inference
+Subsphere methods for memory-sample lower bounds in noiseless Gaussian regression
+Existential–universal real sentences in the counting hierarchy
+Deterministic Polynomial Factorization over Prime Fields
+Uniform bounds for planar polynomial limit cycles
+Two limit cycles for quintic Liénard systems
+A smooth three-torus diffeomorphism with simple Lebesgue spectrum
+Rokhlin's multiple-mixing problem for one transformation
+Positive Metric Entropy for the Standard Map at Large Parameters
+Continuous Phase Foliations Create Analytic Caustic Collars
+Rigidity of Smooth Billiards with a Continuous Caustic Collar
+The entropy-rate dimension formula for self-similar measures on the line
+Uniform Permanence in Weakly Reversible Mass-Action Systems
+Boundedness and persistence of weakly reversible mass-action systems
+Weak mixing of triangular billiards with an irrational angle
+Ergodicity of triangular billiards with an irrational angle
+A C^1 Counterexample to the Entropy Conjecture
+A zero-entropy system without a smooth positive-volume model
+Arithmetic classification and non-Pisot singularity for Bernoulli convolutions
+Pointwise Multiple Ergodic Averages for Mixing Transformations
+Pointwise convergence of fourfold ergodic averages for mixing transformations
+Triple ergodic averages with distinct integer slopes
+Pointwise convergence of triple ergodic averages for mixing transformations
+A translational tile with no fully periodic tiling in dimension three
+A nine-dimensional counterexample to Borsuk's covering assertion
+A counterexample to Hadwiger's conjecture
+A counterexample to the Colin de Verdière chromatic conjecture
+A linear list-coloring bound in terms of the Hadwiger number
+The Euclidean plane is not five-colorable
+Quasipolynomial Bounds for Arithmetic Progressions
+Quantitative Superexponential Bounds for van der Waerden Numbers
+A counterexample to Sidorenko's conjecture
+Balanced counterexamples to Ryser's conjecture at prime orders
+A counterexample to Ryser's covering conjecture
+Monochromatic finite sums and products in the positive integers
+The crossing number of complete graphs
+The crossing number of complete bipartite graphs
+The higher-dimensional Erdős distinct-distances conjecture
+The weak pinned planar distance theorem
+A power saving for planar unit distances
+Combinatorial invariance of Kazhdan–Lusztig polynomials
+Elementary positivity of chromatic quasisymmetric functions
+The sharp logarithmic exponent of r(5,t)
+Sharp logarithmic exponents for fixed off-diagonal Ramsey numbers
+The hypercube Ramsey number has linear order
+A classification of finite Euclidean Ramsey configurations
+A proof of Seymour’s second-neighborhood conjecture
+The strong thin tree conjecture
+A polynomial-time construction of strong thin trees
+Graph Decompositions at the Integral Expectation Threshold
+Integral and fractional expectation thresholds are equivalent
+Talagrand’s discrete-convexity conjecture
+The second Kahn–Kalai conjecture
+Bounded-degree coboundary expanders in every dimension
+Deterministic nonbipartite Ramanujan graphs in every fixed degree
+The circulant Hadamard conjecture
+Paired states and Hamiltonian cycles in cubic bipartite planar graphs
+A linear cycle-and-edge decomposition of every graph
+A power saving for intersective polynomial differences with an exponent depending only on the degree
+A Power Saving for Polynomial Differences at Prime Arguments
+A power saving for square-difference-free sets
+A power saving for planar halving lines
+Correspondence coloring graphs with a forbidden clique
+A logarithmic independence bound for clique-free graphs
+A Counterexample to the Infinite Matroid Packing/Covering Conjecture
+A uniform influence bound for hypergraph properties
+A Sharp Threshold Bound for Monotone Graph Properties
+Snaky in 21 Maker moves
+The sharp terminal leave in random triangle removal
+Cycle--clique Ramsey numbers
+Polynomial removal fails for ordered binary matrices
+A power improvement in the Heilbronn triangle lower bound
+Unbounded Violations of the Square-Root Degree Bound
+Positivity of Serre's Intersection Multiplicity
+Lech's multiplicity conjecture
+A Complete Local Domain without a Small Cohen–Macaulay Module
+A Torsion-Free Group Algebra with Zero Divisors
+A Torsion-Free Group Algebra That Is Not Directly Finite
+A Counterexample to Kaplansky's Direct-Finiteness Conjecture in Characteristic Two
+A Counterexample to the Group-Ring Determinant Conjecture
+A Counterexample to Kaplansky's Direct-Finiteness Conjecture in Odd Characteristic
+An algebra of infinite little finitistic dimension
+An explicit counterexample to the Auslander-Reiten conjecture
+A counterexample to Tachikawa's second conjecture
+The Artinian Lex-Plus-Powers Betti Theorem
+Commuting Division-Coefficient Forms and the Artinian Eisenbud--Green--Harris Conjecture
+A Counterexample to Kurosh’s Division-Ring Problem
+The Blockwise Alperin Weight Conjecture
+Donovan's Conjecture over Algebraically Closed Fields
+Integral Donovan Finiteness over Witt Vectors
+Tensor saturation for even spin groups
+Universal Tensor Squares for Symmetric Groups
+A Cyclic Polytabloid Proof of Saxl's Conjecture
+Finite congruence lattices: characterization and undecidability
+A negative solution to the finite lattice representation problem
+The ℓ¹-Bass Conjecture for Discrete Groups
+The Bass trace conjecture and the characteristic-zero Kaplansky idempotent conjecture
+Fiber functors for finite symmetric tensor categories in positive characteristic
+An integral counterexample to Gersten's conjecture
+An integral degree-three Gersten counterexample
+Foulkes' conjecture for the sixth symmetric power
+Quadratic stabilization of the canonical Foulkes--Howe map
+Random Walks on Critical FK–Ising Maps and Liouville Brownian Motion
+Spectral convergence for critical FK–Ising planar maps
+A Linear Clock for Random Walk on Tree-Weighted Planar Maps
+Canonical conformal limits of subcritical FK planar maps
+The critical Liouville quantum sphere and geometric limits of FK maps at q=4
+Metric-measure limits of subcritical FK and spanning-tree planar maps
+Brownian continuum random tree limits of finite Fortuin–Kasteleyn maps above four
+No bigeodesics in planar first-passage percolation
+Strict convexity and differentiability of the planar exponential first-passage limit shape
+Critical bond and site percolation on the cubic lattice
+No percolation at criticality on quasi-transitive graphs
+Nonuniqueness of percolation on nonamenable quasi-transitive graphs
+The canonical massive continuum limit of the two-dimensional O(3) model
+An Isolated Particle Pole for the Two-Dimensional O(3) Spin Field
+Exact mass asymptotics for the two-dimensional O(4) lattice model
+Sharp mass bounds for the two-dimensional O(4) model
+Exponential decay in two-dimensional classical O(n) models
+The critical logarithmic correction for the planar XY model
+Critical Center Magnetization in the Planar XY Model
+The Critical Spin Field of the Planar XY Model
+Essential Singularity of the Correlation Length in the Planar XY Model
+The critical correlation exponent of the planar XY model
+BKT universality for height and planar spin fields
+The low-temperature Sherrington–Kirkpatrick free-energy limiting law
+The low-temperature Sherrington–Kirkpatrick fluctuation scale
+Quenched SLE₃ limits for general weak random-bond Ising models
+Quenched SLE₃ Universality for the Weak Random-Bond Ising Model
+Logarithmic Relative Fluctuations in the Weakly Disordered Planar Ising Model
+Conformal universality of bulk Ising correlations under weak interactions
+SLE3 universality for weak finite-range Ising interactions
+Buffered comparison and stopping-band resolution in critical Ising
+Fixed-energy universality for weak Anderson disorder on random regular graphs
+GOE bulk universality for fixed-degree random regular graphs
+A directional zero–one law for finite-range-dependent random environments
+A directional zero–one law under strict ellipticity
+Directional transience implies ballisticity
+The Mézard–Parisi formula for diluted spin glasses
+The free energy of the Ising random perceptron
+Microscopic jamming in the negative spherical perceptron
+The spherical perceptron with bi-orthogonally invariant disorder
+The free energy of the spherical random perceptron
+Square-lattice FK interfaces and nested loops for 1 <= q < 4
+Self-dual random-cluster interfaces below one
+Quenched SLE Universality for Weakly Disordered FK–Ising Interfaces
+Thermal FK–Ising interfaces and massive SLE
+Natural Occupation Measures for Critical Square-Lattice FK Interfaces
+Conformal Limits of Critical Square-Lattice Random-Cluster Interfaces
+From critical crossings to quenched near-critical universality in Voronoi percolation
+A Pivotal Amplitude for Voronoi Percolation from Cardy's Formula
+Cardy’s formula for critical Poisson–Voronoi percolation
+The Gaussian free field limit of the balanced six-vertex model with variance multiplier 1/arcsin(c/2)
+The curve scaling limit of half-plane double dimers
+Universality of critical quench autocorrelations in the Sherrington–Kirkpatrick model
+Functional universality of critical SK autocorrelations
+A spectral gap throughout the high-temperature Sherrington–Kirkpatrick phase
+Cutoff throughout the high-temperature Sherrington–Kirkpatrick phase
+Critical slowing down in the Sherrington–Kirkpatrick model
+Stretched-exponential barriers for typical SK initial states
+A typical-start upper bound for low-temperature SK Glauber dynamics
+Critical mixing in the Sherrington–Kirkpatrick model
+A continuum temperature singularity for a radial pair potential
+A radial continuum phase transition with algebraic decay
+The Reconstruction Threshold for the Ferromagnetic Four-State Potts Model
+A Capacity Criterion for Four-State Potts Reconstruction on Trees
+The exact reconstruction threshold for the three-state symmetric channel
+An exact Hausdorff gauge for SLE
+An explicit exact Hausdorff gauge for SLE
+The free uniform spanning forest is a factor of IID
+Gaussian free-field limits of weighted integer Lipschitz heights
+The Gaussian free field limit of integer Lipschitz heights with two-arc boundary data
+Uniform real Lipschitz surfaces on the triangular lattice
+The joint scaling limit of critical Ashkin-Teller currents
+All-temperature pressure for orthogonally invariant Ising spin glasses
+A Limiting Satisfiability Threshold for Every Fixed Clause Size
+Linear Variance of the Random 3-SAT Hitting Time
+Variance of the Random k-SAT Hitting Time
+Computing the Random 3-SAT Threshold
+The sharp factor-of-IID threshold for the free Ising model on regular trees
+Radial transfer estimates and polygon length laws for honeycomb walks
+Critical honeycomb chords with prescribed boundary endpoints
+Cylinder loop weights and planar nesting
+Mass and covering exponents for fixed-length honeycomb walks
+Signed cylinder propagation and marked polygons on the honeycomb lattice
+Cylinder amplitudes and logarithmic bridge-length windows on the honeycomb lattice
+Marked polygon correlations and one-arc bounds
+Disk transfer representations and confined bridge mass
+Polynomial vacuum representations and bridge mass for honeycomb walks
+Renewal and changes of law for critical honeycomb walks
+Critical strip-crossing mass on the honeycomb lattice
+Uniform marked-polygon estimates and sharp finite bridge moments
+Cap-selected amplitudes and triangle chords for honeycomb walks
+Optimal-order mixing of the Thorp shuffle
+Random coordinate frames and partial permutation laws
+From partial permutation information to Fourier bounds
+Conditional information under deterministic coordinate sweeps
+Conditional permutations in a revealed switching environment
+Routing densities and representation contraction for Thorp sweeps
+Row–column symmetry and contraction of coordinate sweeps
+Random-subspace tests and trace smoothing for coordinate sweeps
+Compatibility entropy and the spectrum of a Thorp sweep
+Signed tensor densities and diagram budgets for the Thorp shuffle
+Conditional coordinate sweeps and analytic transfer
+A strict four-row permanent inequality and permutation moments
+The sharp exponential rate of singularity for symmetric Bernoulli matrices
+The sharp singularity rate for biased symmetric sign matrices
+A CH obstruction to a prescribed categoricity threshold
+Eventual categoricity for abstract elementary classes
+Rigidity of the Turing degrees
+Single-fold Diophantine representations
+Choiceless polynomial time with counting does not capture polynomial time
+Witnessed symmetric choice is strictly stronger than choiceless polynomial time with counting
+The Partition Principle does not imply Choice
+Weak and strong normalization in pure type systems
+A Modulus Proof of Cannon’s Conjecture
+An infinite finitely presented residually finite 2-group
+An infinite finitely presented periodic group
+Thompson's group F is nonamenable
+A finitely generated counterexample to the Eilenberg–Ganea conjecture
+Finite algebraic envelopes and the Boone–Higman conjecture
+Simple F∞ overgroups of groups with decidable word problem
+A universal group of type F∞
+Unitarizability implies amenability for discrete groups
+Strong Ulam Stability Characterizes Amenability
+A torsion-free hyperbolic group that is not residually finite
+An infinite finitely presented simple amenable group
+Harmonic heights and the Artin K(pi,1) conjecture
+An Artin group with no geometric CAT(0) action
+Parabolic intersections in Artin groups
+Quasi-isometric recognition of virtually polycyclic groups
+Nonsingular systems of equations over arbitrary groups
+The Kervaire theorem for groups
+A hyperbolic group with no geometric CAT(0) action
+Baumslag-Solitar-free one-relator groups are hyperbolic
+Virtual compact specialness of hyperbolic one-relator groups
+A group without fixed price
+The spacetime Penrose inequality with charge and original-data rigidity
+A Charged Reduction of the Spacetime Penrose Inequality in Spatial Dimensions at Least Four
+Spacetime Penrose inequalities: enclosing area, charge, and rigidity
+The Kerr–Newman Penrose Inequality for Axisymmetric Electrovacuum Exteriors
+Electromagnetic tails and the Kerr–Newman Penrose inequality
+The nonmaximal anti-de Sitter Penrose Inequality and original-data rigidity
+The Penrose inequality for maximal asymptotically hyperbolic initial data
+A local Penrose inequality for conformal perturbations of Schwarzschild–anti-de Sitter data
+The spacetime Penrose inequality and enclosing area
+Conformal flow and the Riemannian Penrose inequality with minimizing frontiers
+Equality and rigidity in the spacetime Penrose inequality
+Boundary graph deformations for the spacetime Penrose inequality
+Area-controlled end replacement and the Bondi Penrose inequality in the CKS class
+Absolutely Continuous Spectrum for Weak-Disorder Anderson Models in Dimensions at Least Three
+Pure-Point Spectrum for the Two-Dimensional Anderson Model at Every Positive Disorder
+Equality cases in the sharp one-dimensional matrix Lieb–Thirring inequality
+Sharp one-dimensional Lieb–Thirring inequalities for matrix potentials
+Sharp one-dimensional Lieb–Thirring constants
+Uniform excess charge for Coulomb molecules and the outer radius of neutral atoms
+Generalized ionization energies for full Coulomb atoms
+Generalized outer-electron radii of neutral Coulomb atoms
+Generic Future Inextendibility with Square-Integrable Connection Near a Fixed Kerr Spacetime
+Generic C1 Future Inextendibility Near Rotating Subextremal Kerr Spacetimes
+Quantitative Near-Kerr Evolution and Generic C2 Future Inextendibility
+A two-dimensional area law from a global spectral gap
+Polynomial PEPS approximation of gapped square-grid ground states
+The maximum number of mutually unbiased bases in dimension six
+Exact Fourier certificates for complex Hadamard matrices of order six
+Bose–Einstein condensation at positive temperature in the dilute hard-sphere gas
+Quantum Depletion and Momentum Distribution in the Dilute Hard-Sphere Bose Gas
+Quantum Depletion for Fixed Bounded Repulsive Potentials
+A density-uniform condensate bound for dilute Bose gases
+Ground-state condensation in the dilute hard-sphere gas
+The periodic spin-one Haldane gap
+A boundary-field gap for the spin-one Heisenberg chain
+Uniform Stability of the Spherical Laughlin Gap
+A Fock-space inequality and the Laughlin spectral gap
+The unique threshold bound state of the SU(N) BFSS model
+Positive eigenvalues of the relative SU(2) BFSS Hamiltonian
+Bloch's Law for Finite-Range Heisenberg Ferromagnets in Three Dimensions
+The first lattice correction to Bloch's law
+The spherical magnetization law for the three-dimensional quantum Heisenberg ferromagnet
+Spontaneous magnetization in the quantum Heisenberg ferromagnet
+Entanglement with zero distillable secret key in local dimension ten
+The entropy photon-number inequality
+Product-projection localization and the QAC0 parity lower bound
+Regular trajectories, pruning and quantum parity
+Continuum Coulomb hardness with binary nuclear charges
+QMA-hardness of continuum Coulomb energy with unit nuclear charges
+Classical capacity and entropy inequalities for generalized amplitude damping
+Threshold parallel repetition for finite-dimensional entangled games
+A Coulomb ground-state density without Kohn-Sham ensemble representation
+Exact quantum factoring over a fixed finite gate set
+Strongly rational unitary vertex operator algebras and conformal nets
+QAOA attains the SK ground-state energy in the thermodynamic-first limit
+Full support of the zero-temperature Sherrington-Kirkpatrick order parameter
+Scale and conformal symmetry in four-dimensional operational quantum field theory
+Polynomial-Time Unitary Synthesis from a Boolean Oracle
+A Nearly Quartic Separation Between Randomized and Quantum Query Complexity
+A torsion-free counterexample to reduced Baum–Connes injectivity
+A torsion-free counterexample to the Kadison–Kaplansky projection conjecture
+An irrational-trace counterexample to reduced Baum–Connes
+Arithmeticity of twisted finite correspondences for lattices over local fields
+The arithmetic category and stable recovery of lattice factors
+An isomorphism of the free group factors
+Kadison's similarity theorem through uniform derivation estimates
+Universal strong Kadison–Kastler stability
+Near Inclusions of von Neumann Algebras Without Small Spatial Embeddings
+Close Separable C*-Algebras Without Spatial Conjugacy
+Expected amenable subalgebras preserving core commutants
+Bounded recovery for modular spectral averages
+Equivariant Jiang–Su Stability for Amenable Actions in the Unital Stably Finite Case
+Cuntz comparison and Jiang–Su absorption
+Nuclear dimension and Jiang–Su stability without elementary subquotients
+Tracial projection methods and uniform property Gamma
+An explicit obstruction to nuclear norm-ultrapower embeddings
+Invariant-projection counterexamples for every irrational rotation
+Backward intertwiners and a transitive commutant
+A counterexample to Kaplansky's quasitrace conjecture and failure of tensor-product stable finiteness
+Vanishing of higher bounded Hochschild cohomology
+Relative generation and the generator problem for finite factors
+A counterexample to Naimark's problem in ZFC
+A finite-entropy separation of microstates and nonmicrostates free entropy
+The Kirchberg–Rørdam character criterion
+Approximation Paving over Arbitrary Maximal Abelian Subalgebras
+Quadratic Strong-Operator Paving over Arbitrary Maximal Abelian Subalgebras
+The trace cone classifies Razak–Jacelon stabilizations
+Filtered products and boundary-preserving compression in complex cobordism
+Radius of comparison equals half the mean dimension
+Weak pure infiniteness and O-infinity absorption
+The Hilbert–Smith conjecture in every finite dimension
+A boundary-only obstruction to four-dimensional disk embedding
+A marked tensor obstruction to four-dimensional disk embedding
+A PD4 group without an aspherical manifold model
+Purely cosmetic surgery on knots in the three-sphere
+Failure of rational injectivity for maximal coarse assembly
+A counterexample to the coarse Novikov conjecture
+Finite Smith–Toda Complexes at Varying Primes
+A finite Smith–Toda complex V(4) at the prime 1009
+The Kervaire invariant problem at the prime three
+Rational homology and Quillen's conjecture
+Stabilizer orbits and thick tensor ideals of dualizable K(n)-local spectra
+The Grothendieck homotopy hypothesis via elementary expansions
+Finite generation for the K(n)-local sphere
+Cyclic length and chromatic fixed-point loss
+The Singer conjecture in dimension four
+The Stable Hurewicz Image of the Sphere at Two
+Thomason Model Structures in Every Strict Higher Dimension
+Filtered chromatic splitting at generic primes
+The height-three chromatic overlap: an explicit filtration and its attachments
+A rational obstruction to strong chromatic splitting at height three
+Failure of finite assembly for a chromatic overlap at the prime three
+Counterexamples to weak chromatic splitting: sphere kernels and descent exponents
+Counterexamples to the Hahn-Wilson conjecture at height two
+Nonhomeomorphic closed aspherical four-manifolds with the same homotopy type
+A Counterexample to Wall's D(2) Problem
+A positive solution to Tingley’s problem
+Relative independence of the separable quotient problem
+Lipschitz Equivalent Separable Banach Spaces Need Not Be Linearly Isomorphic
+Bi-Lipschitz Absorption of c0 Without a Linear Copy of c0
+A direct proof of the complete Crouzeix inequality
+The complete Crouzeix theorem: optimal similarity and a common positive boundary representation
+The cotype–cotype conjecture under the approximation property
+Nontrivial Markov Type Forces Superreflexivity
+Fixed Points of Nonexpansive Maps in Reflexive Banach Spaces
+Counterexamples to the duality conjecture for metric entropy
+A uniformly discrete counterexample to bounded approximation in Lipschitz-free spaces
+Asymptotic midpoint uniform convexity and unbounded diamond distortion in a reflexive tree space
+Midpoint lenses in segment spaces
+Distortion of countably branching diamonds from midpoint and tree energies
+Exact asymptotic moduli in a Daugavet subspace of L1
+Midpoint convexity from bounded tree potentials and path costs
+Independent products in real L1: asymptotic midpoint convexity without AUC renormings
+Midpoint convexity from two recursive potentials
+Metric Markov Cotype Two of ℓ₁
+Smooth isometric immersions of closed surfaces into Euclidean four-space
+A Smooth Metric with No Local Isometric Immersion into Three-Space
+An integral scalar curvature bound for real simplicial volume
+Positive scalar curvature forces rational inessentiality
+Spectral scalar curvature and uniform Urysohn width
+Spectral scalar curvature and Urysohn width in dimension three
+Positive scalar curvature and uniform codimension-two width
+Generalized Cartan–Hadamard isoperimetry and Euclidean equality rigidity
+Sharp integral fillings in CAT(0) spaces
+Uniformization of complete Kähler manifolds with positive bisectional curvature
+Entropy equality and local symmetry in negative curvature
+A counterexample to the nearby Lagrangian conjecture
+Deforming hypersymplectic four-manifolds to hyperkähler triples
+Taming implies compatibility on four-manifolds
+Symplectic Ball Packings in Higher Dimensions
+The metric Blaschke theorem
+Infinitely many closed geodesic images on every Riemannian sphere
+A Codimension-One Bound for the Singular Set of a Stationary Integral Varifold
+Almost-everywhere regularity of stationary integral varifolds
+Hamiltonian Fixed Points Below the Stable Morse Number in Dimension Twenty-Two
+Sharpness of the Cyclic Integral Floer Bound Below the Stable Morse Number
+Hamiltonian Fixed Points Below the Stable Morse Number
+A nondegenerate counterexample to the Morse-number Arnold bound
+Three fixed points on the symplectic quadric threefold
+Zero-Plane Rigidity for Einstein Four-Manifolds
+An L² Einstein Gap for Nonnegatively Curved Four-Manifolds
+Positively curved Einstein four-manifolds
+The Solomon–Yau least-volume theorem
+Sharp nodal length on smooth surfaces
+Smooth counterexamples to Yau's nodal upper bound in dimensions three and four
+Power-law violations of Yau's nodal upper bound
+A closed Ricci flow with bounded scalar curvature and finite-time curvature blowup
+Bounded scalar curvature and smooth extension of four-dimensional Ricci flow
+Path selection and an elliptic inequality on degenerating Ricci-flat trees
+A finite-time singularity of Calabi flow on projective space
+A Smooth Nonquadratic Entire Affine Maximal Graph in Dimension Ten
+The affine Bernstein theorem in dimensions three through nine
+The Isoperimetric Conjecture for the Cubic Flat Three-Torus
+Uniqueness of tangent flows at the first singular time of embedded surface mean-curvature flow
+Gigli’s distributional curvature characterization of Alexandrov spaces
+Weak Hessian bounds along every geodesic in RCD spaces
+Bi-Lipschitz Coordinates at Regular Points of Noncollapsed RCD Spaces
+A Three-Manifold Without Conjugate Points and Without a Nonpositively Curved Metric
+A negatively pinched Kähler threefold without bounded holomorphic coordinates
+One-sided negative sectional curvature and the holomorphic Liouville property
+Global Support and Convex Injectivity Domains under Weak MTW
+Uniform Bi-Holder Transport from Weak MTW
+A counterexample to integer-degree harmonic dimension comparison
+A Three-Dimensional Counterexample to Integer-Degree Harmonic Dimension Comparison
+Global classical solutions of the three-dimensional relativistic Vlasov–Maxwell system
+Nonuniqueness with local conservation for the hard-sphere Boltzmann equation
+Nonuniqueness for the periodic hard-sphere Boltzmann equation
+The Boltzmann–Grad limit for stable radial potentials on regular kinetic intervals
+Hard-sphere fluctuations on the regular Boltzmann lifespan
+Determination of a metric and a unitary connection from one boundary patch
+Smooth anisotropic uniqueness in the Calderón problem from one boundary patch
+Nonuniqueness for bounded measurable scalar conductivities in three dimensions
+Interior regularity of planar Mumford–Shah minimizers
+The critical dimension for one-phase Bernoulli minimizers
+Strong diffeomorphic approximation in three dimensions for 1≤p≤2
+Strong diffeomorphic approximation in three dimensions for p>2
+Strict hot spots and absence of interior critical points on smooth simply connected planar domains
+The Subcritical Hénon–Lane–Emden Conjecture
+Stable self-similar blowup for a supercritical defocusing Schrödinger equation on the torus
+Global Uniqueness for the Smooth Isotropic Elasticity Inverse Problem
+A counterexample to the Monge ansatz for the three-marginal Coulomb cost
+Sharp One-Third Stability of Brenier Maps
+A positive resolution of De Giorgi's conjecture in dimension eight
+Finite Instructions and Solenoidal Shear Flows
+A Fixed Particle Test for Computation in a Forced Viscous Flow
+Universal Computation with Eventually Stationary Navier–Stokes Forcing
+Geometric Programs for Solenoidal Forcing
+Prefix Instructions and Incompressible Flows
+Computation under Rapidly Vanishing Navier–Stokes Forcing
+Velocity-Field Detection of Computation in Forced Navier–Stokes Flows
+Scalar Potentials and Slow Clocks for Forced Fluid Computation
+Incompressible Box Transport and Finite Computation
+Uniform Interior C^1,α Estimates for Infinity-Harmonic Functions
