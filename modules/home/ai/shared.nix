@@ -47,8 +47,6 @@ in
 
   agents = {
     code-reviewer = {
-      opencode = "# Code Reviewer Agent\n\n${codeReviewerCore}";
-
       claude-code = ''
         ---
         name: code-reviewer
@@ -63,21 +61,6 @@ in
 
   commands = {
     changelog = {
-      opencode = ''
-        # Update Changelog
-
-        Update CHANGELOG.md with a new entry for the specified version.
-        Follow the Keep a Changelog format: https://keepachangelog.com/
-
-        Keep entries concise: one short line per change, describing what changed
-        from a user's point of view. Rationale, file names, and investigation
-        notes belong in the commit message, not the changelog. If the project's
-        CLAUDE.md defines its own changelog conventions, follow those instead.
-
-        Usage: /changelog [version] [change-type] [message]
-        Change types: Added, Changed, Deprecated, Removed, Fixed, Security
-      '';
-
       claude-code = ''
         ---
         allowed-tools: Bash(git log:*), Bash(git diff:*), Edit
@@ -96,18 +79,6 @@ in
     };
 
     commit = {
-      opencode = ''
-        # Create Commit
-
-        Create a properly formatted conventional git commit message.
-
-        Format:
-        - Use imperative mood ("Add feature" not "Added feature")
-        - First line: brief summary (50 chars max)
-        - Body: detailed explanation if needed
-        - Reference issues with "Fixes #123" or "Closes #456"
-      '';
-
       claude-code = ''
         ---
         allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git commit:*), Bash(git diff:*)

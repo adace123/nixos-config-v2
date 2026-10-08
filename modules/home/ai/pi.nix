@@ -114,6 +114,16 @@ in
       recursive = true;
     };
 
+    # Deterministic post-deploy checks for the NixOS hosts (HA logs, Caddy, HA
+    # container, Beszel). Written for the OpenCode CLI under .opencode/skills/
+    # and moved here when that CLI was dropped — the scripts resolve their own
+    # directory, so nothing but SKILL.md's paths had to change. Edit them here,
+    # not under ~/.pi, which is a read-only store symlink.
+    ".pi/agent/skills/post-deploy-test" = {
+      source = ./skills/post-deploy-test;
+      recursive = true;
+    };
+
     # OpenCode Go/Zen reject a request without `x-opencode-session` with
     # `400 MissingSessionID`. Pi sends it on its own requests, but that merge
     # lives in the coding agent's stream wrapper, so an extension running a

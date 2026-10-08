@@ -10,7 +10,6 @@ gum style \
 # Define assistants (name|command pairs)
 assistants=(
 	"Claude Code|claude"
-	"Opencode|opencode"
 	"Gemini CLI|gemini"
 	"GitHub Copilot|copilot"
 )

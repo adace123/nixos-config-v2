@@ -19,7 +19,7 @@ This directory contains utility scripts for the Nix configuration.
 ## AI Assistant Selector
 
 `ai-selector.sh` lets you pick a coding assistant from a menu (Claude Code,
-OpenCode, Gemini CLI, GitHub Copilot) using `gum`. It is installed at
+Gemini CLI, GitHub Copilot) using `gum`. It is installed at
 `~/.local/bin/ai-selector` by `modules/home/base.nix`. Requires `gum` (in
 `home.packages`). Run it with:
 

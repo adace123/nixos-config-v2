@@ -14,7 +14,7 @@ flake.nix
 │       └── home-manager (user: aaron)
 │           ├── shell / CLI tools / dev environments
 │           ├── Neovim (nvf), Zed, Ghostty
-│           └── AI tools (Claude, Hermes, opencode)
+│           └── AI tools (Claude, Hermes, Pi)
 └── NixOS   (aarch64-linux)
     ├── coruscant      — Raspberry Pi 4 home server
     │   ├── Home Assistant  (podman container, port 8123)
@@ -139,7 +139,7 @@ editing, rotating keys, recovering access, adding a new machine, and backups.
 | [docs/home-assistant.md](docs/home-assistant.md) | HA layout, services, intended future structure |
 | [docs/backups.md](docs/backups.md) | Restic → R2 backups, schedule, restore, DR |
 | [docs/dathomir.md](docs/dathomir.md) | OCI Always-Free VPS + infra/ OpenTofu workflow |
-| [docs/ai.md](docs/ai.md) | AI agents (Claude, OpenCode, Pi, Hermes, Herdr) |
+| [docs/ai.md](docs/ai.md) | AI agents (Claude, Pi, Hermes, Herdr) |
 | [docs/kanban.md](docs/kanban.md) | herdr-kanban board: cards, keys, agent protocol, config |
 | [docs/secrets.md](docs/secrets.md) | Full secrets workflow |
 | [docs/deployment.md](docs/deployment.md) | All deployment commands, auto-update, GC, CI |

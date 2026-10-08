@@ -197,7 +197,7 @@ modules/
 └── home/                # User-level configuration
     ├── default.nix      # Main user config
     ├── 1password-agent.nix # 1Password SSH agent
-    ├── ai/              # AI configuration (claude, hermes, opencode, skills)
+    ├── ai/              # AI configuration (claude, pi, hermes, skills)
     ├── aerospace.nix    # Aerospace window manager
     ├── fastfetch.nix    # System info display
     ├── ghostty.nix      # Ghostty terminal emulator
@@ -252,7 +252,7 @@ These are the repo's living docs — keep them in sync with the code:
 - `docs/home-assistant.md` — HA layout, integrations, automations, backups link
 - `docs/backups.md` — Restic → R2 backups, schedule, retention, restore, DR
 - `docs/dathomir.md` — OCI Always-Free VPS + `infra/` OpenTofu workflow
-- `docs/ai.md` — AI agents (Claude, OpenCode, Pi, Hermes, Herdr)
+- `docs/ai.md` — AI agents (Claude, Pi, Hermes, Herdr)
 - `docs/kanban.md` — the herdr-kanban board: cards, keys, the agent protocol, config, skills
 - `docs/deployment.md` — deploy/rollback/GC + CI (GitHub Actions) reference
 - `docs/secrets.md` — SOPS secrets workflow

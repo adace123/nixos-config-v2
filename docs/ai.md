@@ -7,7 +7,6 @@ lives under `modules/home/ai/`:
 modules/home/ai/
 ├── default.nix     # imports all agents below
 ├── claude.nix      # Claude Code
-├── opencode.nix    # OpenCode
 ├── pi.nix          # Pi (pi-coding-agent) + its MCP + skills
 ├── pi-extensions/  # Pi-only extensions (OpenCode session headers)
 ├── hermes.nix      # Hermes (a Pi-compatible agent)
@@ -20,6 +19,7 @@ modules/home/ai/
 │       ├── automations/ # herdr-automations (cron-scheduled agent runs)
 │       └── kanban/ #   herdr-kanban (board: workspace + agent tasks)
 ├── shared.nix      # Shared rules / code-reviewer / commands across agents
+├── skills/         # Nix-declared skills (commit-all, herdr-kanban, post-deploy-test)
 └── skills.nix      # Skills synced from the mattpocock/skills flake input
 ```
 
@@ -28,18 +28,17 @@ Shell aliases (`modules/home/zsh.nix` / agent modules)
 | Alias | Command |
 |-------|---------|
 | `cc` / `cca` | `claude --permission-mode=auto` / `claude agents` |
-| `oc` | `opencode` |
 | — | `pi` (Pi) |
 | — | `hermes` |
 | `ai-selector` | Interactive picker (see [scripts/README.md](../scripts/README.md)) |
 
 ## Shared configuration (`shared.nix`)
 
-Defines cross-agent building blocks reused by Claude and OpenCode:
+Defines cross-agent building blocks reused by Claude Code:
 
 - **Rules** — `code-quality` and `best-practices` (loaded into each agent's
   context/instructions).
-- **`code-reviewer` agent** — a senior-code-reviewer persona per agent.
+- **`code-reviewer` agent** — a senior-code-reviewer persona for Claude Code.
 - **`changelog` / `commit` commands** — conventional-commits style helpers.
 
 Edit these once in `shared.nix` to change all agents that use them.
@@ -58,6 +57,11 @@ Add a skill by appending its `skills/<path>` to `commonSkills` in `skills.nix`.
 
 - Pi-only skill: `commit-all` (a Nix-declared skill, not from upstream) is
   installed via `home.file` in `pi.nix`.
+- Pi-only skill: `post-deploy-test` (`modules/home/ai/skills/post-deploy-test/`)
+  — deterministic post-deploy checks for the NixOS hosts (HA logs, HA container,
+  Caddy, Beszel). It lived under `.opencode/skills/` for the OpenCode CLI and
+  moved here when that CLI was dropped; the scripts resolve their own directory,
+  so they still run from anywhere. Pi gets it via `home.file` in `pi.nix`.
 - Local skill for both: `herdr-kanban`
   (`modules/home/ai/skills/herdr-kanban/`) is the board's judgement layer for
   agents the board did not dispatch. Pi gets it via `home.file` in `pi.nix`,
@@ -87,13 +91,6 @@ Add a skill by appending its `skills/<path>` to `commonSkills` in `skills.nix`.
   commit directly on the default branch.
 - Config is Nix-managed at `~/.claude/settings.json` (`force = true`).
 
-## OpenCode (`opencode.nix`)
-
-- Default model `opencode/deepseek-v4-flash-free`, MCP `context7` + `grep-mcp`.
-- Granular permission presets (ask on writes/rm/dd, allow reads and git).
-- Injects shared rules into its context and exposes the shared agents/commands.
-- Config via `programs.opencode` (Nix-managed).
-
 ## Pi — `pi-coding-agent` (`pi.nix`)
 
 Pi is a Rust-based conversational coding agent.
@@ -103,7 +100,7 @@ Pi is a Rust-based conversational coding agent.
   (`github:earendil-works/pi`, branch `main`), so `pi.nix` installs
   `inputs.pi.packages.<system>.pi` built from `nix/package.nix` in that repo;
   `just update` moves it. The `llm-agents` input no longer provides Pi (it still
-  provides Claude Code, OpenCode and Herdr). The `programs.pi-coding-agent`
+  provides Claude Code and Herdr). The `programs.pi-coding-agent`
   module itself comes from home-manager.
 - Ships many Pi packages/extensions (subagents, context-mode, todo, web-access,
   powerline footer, fff, background-tasks, etc.). Where a version is pinned, the

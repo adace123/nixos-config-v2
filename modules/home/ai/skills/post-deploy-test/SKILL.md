@@ -13,16 +13,19 @@ failure.
 ## Running Tests
 
 ```bash
-.opencode/skills/post-deploy-test/tests/run-all.sh
+~/.pi/agent/skills/post-deploy-test/tests/run-all.sh
 ```
 
 Or run a single test:
 
 ```bash
-.opencode/skills/post-deploy-test/tests/01-check-hass-logs.sh
+~/.pi/agent/skills/post-deploy-test/tests/01-check-hass-logs.sh
 ```
 
-Tests are idempotent and safe to run multiple times.
+Tests are idempotent and safe to run multiple times. Every script resolves its
+own directory, so the suite also runs from a checkout
+(`modules/home/ai/skills/post-deploy-test/tests/run-all.sh`) and can be invoked
+from any working directory.
 
 ## Adding New Tests
 
@@ -33,3 +36,7 @@ Each test is a standalone shell script in `tests/` named
 - Print diagnostic output to stdout on failure
 - Source `tests/test-lib.sh` for shared helpers
 - Keep tests focused on one thing
+
+The suite is deployed to `~/.pi/agent/skills/post-deploy-test` by
+`modules/home/ai/pi.nix`; that `home.file` link is read-only, so make edits in
+the repo and re-run `just switch`.

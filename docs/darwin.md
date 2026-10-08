@@ -125,8 +125,8 @@ same pattern: add host metadata, then reuse shared modules.
 - **fastfetch** (`fastfetch.nix`) — `fastfetch` replaces `neofetch`, with a
   clean JSON config.
 
-See also [docs/ai.md](ai.md) for the AI agents (Claude, OpenCode, Pi, Hermes,
-Herdr) that run in this shell.
+See also [docs/ai.md](ai.md) for the AI agents (Claude, Pi, Hermes, Herdr)
+that run in this shell.
 
 ## Key Files
 
