@@ -82,18 +82,35 @@ just nixos-deploy 192.168.1.50
 TARGET=coruscant.tailnet-name.ts.net just nixos-deploy
 ```
 
-Under the hood this runs:
+`just nixos-deploy` builds on the host first, then activates. In two steps it
+runs:
 
 ```bash
+# step 1 - build on the Pi (aarch64-linux native) - `just nixos-remote-build`
+nix run nixpkgs#nixos-rebuild -- build \
+  --flake .#coruscant --target-host root@<TARGET> --build-host root@<TARGET>
+
+# step 2 - activate
 nix run nixpkgs#nixos-rebuild -- switch \
-  --flake .#coruscant \
-  --target-host root@<TARGET> \
-  --build-host root@<TARGET> \
-  --elevate=sudo
+  --flake .#coruscant --target-host root@<TARGET> --build-host root@<TARGET>
 ```
 
-The build happens **on the Pi** (aarch64-linux native), so no local
-cross-compilation or QEMU setup is needed.
+The build happens **on the Pi**, so no local cross-compilation or QEMU setup is
+needed, and the two steps are kept apart so the host is not restarting all its
+services (HA, zigbee2mqtt, esphome, …) while it is still compiling.
+
+### Pre-build without activating
+
+The build half has its own recipe, which is useful for warming the host's store
+ahead of a deploy at a quiet moment:
+
+```bash
+just nixos-remote-build             # default: coruscant.local
+just nixos-remote-build 10.0.0.2
+```
+
+A later `just nixos-deploy` then only has to activate, since the store paths are
+already cached on the host.
 
 ### View remote generations
 

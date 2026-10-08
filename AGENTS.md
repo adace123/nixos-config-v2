@@ -46,8 +46,24 @@ This is a Nix flake-based configuration for managing macOS systems using nix-dar
 
 ### Testing
 
-- No traditional test suite - validation done via `nix flake check`
-- Configuration tested by building/activating with `nh darwin`
+There is no unit-test suite; validation is layered:
+
+- `just check` - pre-commit hooks over the whole tree, `nix flake check`, then a
+  dry Darwin evaluation (`nh darwin build --dry`), which catches home-manager
+  type errors.
+- `nix flake check --all-systems` - evaluates every system's checks; the
+  `checks.*.pre-commit` derivation re-runs the full hook suite. That is what CI
+  enforces (`.github/workflows/flake-check.yml`).
+- `pre-commit run --all-files` - the hooks alone, before committing. Statix
+  checks the whole tree, so a failure here is often pre-existing, not yours.
+- Kanban self-test - `modules/home/ai/herdr/plugins/kanban/kanban/selftest.py`,
+  wired as the `kanban-selftest` pre-commit hook and run against the packaged
+  app rather than the working tree.
+- Post-deploy tests - `modules/home/ai/skills/post-deploy-test/tests/`
+  (`run-all.sh` plus numbered checks) verify a deployed NixOS host; see the
+  `post-deploy-test` skill.
+- Real configuration is exercised by building and activating: `nh darwin build`
+  / `just switch` locally, `just nixos-deploy` for the hosts.
 
 ## Code Style Guidelines
 
@@ -194,19 +210,26 @@ modules/
 │   ├── homebrew.nix     # Homebrew packages
 │   ├── fonts.nix        # Font configuration
 │   └── auto-update.nix  # Auto-update service
-└── home/                # User-level configuration
-    ├── default.nix      # Main user config
-    ├── 1password-agent.nix # 1Password SSH agent
-    ├── ai/              # AI configuration (claude, pi, hermes, skills)
-    ├── aerospace.nix    # Aerospace window manager
-    ├── fastfetch.nix    # System info display
-    ├── ghostty.nix      # Ghostty terminal emulator
-    ├── git.nix          # Git configuration
-    ├── nodejs.nix       # Node.js development
-    ├── nixvim.nix       # Nixvim module (enabled; Swift grammar excluded)
-    ├── python.nix       # Python development
-    ├── starship/        # Starship prompt config
-    └── zed/             # Zed editor settings and keybindings
+├── home/                # User-level configuration (home-manager)
+│   ├── 1password-agent.nix # 1Password SSH agent
+│   ├── aerospace.nix    # Aerospace window manager
+│   ├── ai/              # AI configuration (Claude, Pi, Hermes, Herdr; docs/ai.md)
+│   ├── base.nix         # User identity, PATH, session variables
+│   ├── default.nix      # Import list for the modules below
+│   ├── fastfetch.nix    # System info display
+│   ├── ghostty.nix      # Ghostty terminal emulator
+│   ├── git.nix          # Git configuration
+│   ├── nix.nix          # ~/.config/nix/nix.conf (Determinate Nix)
+│   ├── nixvim.nix       # Nixvim module (enabled; Swift grammar excluded)
+│   ├── nixvim/          # Neovim (nvf) config with LSP/Treesitter
+│   ├── nodejs.nix       # Node.js development
+│   ├── packages.nix     # CLI tools and dev utilities
+│   ├── python.nix       # Python development
+│   ├── secrets.nix      # SOPS location for home secrets
+│   ├── starship.nix     # Starship prompt config
+│   ├── zed/             # Zed editor settings (present, not imported)
+│   └── zsh.nix          # Zsh shell config + aliases
+└── nixos/               # NixOS system modules (full inventory: docs/nixos.md)
 ```
 
 ### Module Creation Guidelines
@@ -348,8 +371,8 @@ it is missing:
 - Format/lint-only commits: `nixfmt`, `statix`, `deadnix`, `markdownlint`,
   `shfmt`, `yamlfmt` reflows and fixes that change no behaviour.
 - The `[Unreleased]` promotion commit itself.
-- Local scratch that nothing consumes: `math_paper_titles.txt`, and everything
-  under `.pi/` except the tracked `.pi/mcp.json`.
+- Local scratch that nothing consumes: everything under `.pi/` except the
+  tracked `.pi/mcp.json`.
 
 Everything else — `feat`, `fix`, `refactor`, `perf`, `revert`, and the bare
 `scope: description` subjects this repo also uses — gets an entry. When one

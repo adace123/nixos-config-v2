@@ -157,15 +157,21 @@ editing, rotating keys, recovering access, adding a new machine, and backups.
 │   ├── darwin.nix            # Darwin outputs built from hosts/ metadata
 │   ├── nixos.nix             # NixOS outputs built from hosts/ metadata
 │   └── pre-commit.nix        # Pre-commit hooks
+├── hosts/                    # Per-host identity (endor, coruscant, threepio, dathomir)
+│   └── <host>/default.nix    # Hostname, user, system, host-specific extras
+├── infra/                    # OpenTofu: OCI VPS + Cloudflare (see infra/README.md)
 ├── modules/
 │   ├── darwin/               # nix-darwin system modules
 │   ├── home/                 # home-manager user modules
 │   └── nixos/
-│       ├── common.nix
-│       ├── beszel.nix
 │       ├── base.nix
+│       ├── beszel.nix
 │       ├── caddy.nix
+│       ├── common.nix
 │       ├── installer.nix
+│       ├── podman.nix
+│       ├── rpi-boot.nix
+│       ├── sd.nix
 │       ├── ssd.nix
 │       └── home-assistant/
 ├── secrets/
@@ -180,6 +186,7 @@ editing, rotating keys, recovering access, adding a new machine, and backups.
     ├── backups.md            # Restic → R2 backups & DR
     ├── dathomir.md           # OCI Always-Free VPS
     ├── ai.md                 # AI coding agents
+    ├── kanban.md             # herdr-kanban board: cards, keys, protocol
     ├── deployment.md         # Deploy / rollback / CI
     └── secrets.md            # SOPS secrets workflow
 ```
