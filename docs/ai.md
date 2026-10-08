@@ -37,7 +37,8 @@ Defines cross-agent building blocks reused by Claude Code:
 
 - **Rules** — `code-quality` and `best-practices` (loaded into each agent's
   context/instructions).
-- **`code-reviewer` agent** — a senior-code-reviewer persona for Claude Code.
+- **`code-reviewer` agent** — a senior-code-reviewer persona for Claude Code,
+  pinned to `claude-sonnet-5-5` (see the subagent model routing below).
 - **`changelog` / `commit` commands** — conventional-commits style helpers.
 
 Edit these once in `shared.nix` to change all agents that use them.
@@ -81,7 +82,20 @@ Add a skill by appending its `skills/<path>` to `commonSkills` in `skills.nix`.
 ## Claude Code (`claude.nix`)
 
 - Packages: `claude-code` (+ `ccstatusline`, `ccusage`).
-- Defaults: `claude-sonnet-5`, `dark` theme, `auto` permission mode.
+- Defaults: `claude-opus-5-5`, `dark` theme, `auto` permission mode.
+- **Subagent model routing** — the main loop and the built-in `Plan` agent stay
+  on Opus. `Explore` is overridden to `claude-haiku-5-5` (read-only search;
+  20x cheaper than Sonnet 5.5 for prompts up to 100K tokens, and Anthropic's own
+  recommendation for subagent-shaped work). Every other subagent without a model
+  of its own — including the built-in `general-purpose` agent — defaults to
+  `claude-sonnet-5-5` via `CLAUDE_CODE_SUBAGENT_MODEL`. `code-reviewer` pins
+  `claude-sonnet-5-5` in its own frontmatter, since frontmatter outranks that
+  variable. `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` is deliberately unset: it would
+  flatten every subagent onto one model with no way to exempt an agent.
+  `CLAUDE_CODE_SUBAGENT_MODEL` alone does not reach the built-in Explore/Plan
+  agents, which is why `Explore` needs its own override. The pinned model IDs
+  require `claude-code` ≥ 2.1.293 (Haiku 5.5; Opus 5.5 needs 2.1.280 and Sonnet
+  5.5 needs 2.1.284), so keep the `llm-agents` input current.
 - **Status line** — running directory + git branch + `ccusage` usage.
 - **MCP:** `context7` (HTTP).
 - **Permissions** — whitelists common read/git commands, asks on writes/pushes.

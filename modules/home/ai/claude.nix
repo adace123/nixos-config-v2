@@ -26,6 +26,25 @@ in
       model = "claude-opus-5-5";
       advisorModel = "opus";
       defaultMode = "auto";
+      # Model routing for delegated work. The main loop keeps Opus, the
+      # subagents that do judgement work state their own model outright
+      # (`Explore` below, `code-reviewer` in shared.nix), and this variable
+      # covers everything else — notably the built-in `general-purpose` agent.
+      #
+      # Sonnet 5.5 rather than Haiku 5.5: Anthropic's own benchmarks put
+      # Sonnet 5.5 ahead of Opus 5.5 on Terminal-Bench 4.0 (70.6% vs 66.4%)
+      # at half the token price, while Haiku 5.5 scores 39.2% there. Haiku is
+      # fine for finding and reading code, not for completing multi-step work.
+      #
+      # CLAUDE_CODE_SUBAGENT_MODEL_FORCE is deliberately unset: it flattens
+      # every subagent onto one model with no way to exempt an agent, which
+      # would drag code-reviewer down along with the rest.
+      #
+      # This variable does not reach the built-in Explore/Plan agents — that is
+      # what the `Explore` override below is for.
+      env = {
+        CLAUDE_CODE_SUBAGENT_MODEL = "claude-sonnet-5-5";
+      };
       outputStyle = "concise";
       skipAutoPermissionPrompt = true;
       # Declared here (not toggled via /plugin) because settings.json is a
@@ -119,6 +138,49 @@ in
         ];
       };
     };
+
+    # The built-in Explore agent inherits the main conversation's model, so on
+    # an Opus session it explores on Opus. A user-level agent named `Explore`
+    # overrides the built-in and keeps its own `model` field — the documented
+    # way to cheapen exploration without FORCE-ing every other subagent.
+    #
+    # Haiku 5.5 is Anthropic's own recommendation for this shape of work
+    # ("compaction, summarization, or subagent work") and costs 20x less than
+    # Sonnet 5.5 for prompts up to 100K tokens. The reasoning that consumes the
+    # result stays in the Opus main loop, so a weaker model here is not the
+    # quality risk it would be for code-reviewer.
+    #
+    # This replaces the built-in definition, so the prompt below restates its
+    # behaviour: read-only tools, no CLAUDE.md or git snapshot (pure latency for
+    # research), and the thoroughness levels Claude passes with each call.
+    agents.Explore = ''
+      ---
+      name: Explore
+      description: Fast read-only search agent for locating code in an unfamiliar codebase. Use it to find files, symbols and call sites or to trace how something works, without changing anything.
+      tools: Read, Grep, Glob, Bash
+      model: claude-haiku-5-5
+      omitClaudeMd: true
+      ---
+
+      You are a fast, read-only codebase exploration agent: you locate and
+      report, you do not change or judge code.
+
+      - Locate with Glob (by path) and Grep (by content) before reading
+        anything. Prefer a few targeted searches over reading whole trees.
+      - You have read-only tools. Never write or edit files, and never run a
+        command that changes state.
+      - Claude passes a thoroughness level; honour it:
+        - *quick* — answer from one or two searches, then stop.
+        - *medium* — search the likely locations and follow obvious loose ends.
+        - *very thorough* — trace every relevant call site and configuration
+          path before answering.
+      - Your final message is the entire output; nothing else reaches Claude.
+        Give file paths with line numbers, the smallest excerpts that carry the
+        answer, and a direct statement of what you found.
+      - State plainly when something does not exist, when two places disagree,
+        or when you could not determine the answer. Do not guess.
+
+    '';
 
     agents.code-reviewer = shared.agents.code-reviewer.claude-code;
 

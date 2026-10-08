@@ -46,11 +46,18 @@ in
   };
 
   agents = {
+    # Pinned rather than inherited: this agent is exempt from the
+    # CLAUDE_CODE_SUBAGENT_MODEL default set in claude.nix, because a model in
+    # agent frontmatter takes precedence over that variable. Review is
+    # unrewarded judgement with no downstream checker, so it should not ride
+    # the cheap default. Sonnet 5.5 matches Opus 5.5 on Terminal-Bench 4.0 at
+    # half the token price.
     code-reviewer = {
       claude-code = ''
         ---
         name: code-reviewer
         description: Specialized code review agent
+        model: claude-sonnet-5-5
         tools: Read, Edit, Grep, Bash
         ---
 

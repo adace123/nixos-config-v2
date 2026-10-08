@@ -9,6 +9,10 @@ commit kinds that are exempt, live in
 
 ## [Unreleased]
 
+### Added
+
+- feat(claude): route subagent models by role (Explore on Haiku 5.5, review on Sonnet 5.5)
+
 ### Changed
 
 - refactor(kanban): move the board into its own repo and consume it as a flake input
