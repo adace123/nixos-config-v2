@@ -20,6 +20,7 @@ commit kinds that are exempt, live in
 ### Fixed
 
 - fix(claude): read auto-format hook input from stdin, register context7 at user scope, drop dead settings
+- fix(claude): remove outputStyle, which matched no built-in style and had no effect
 
 ## [2026.10.07.3] - 2026-10-07
 

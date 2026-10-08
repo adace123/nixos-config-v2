@@ -46,7 +46,6 @@ in
       env = {
         CLAUDE_CODE_SUBAGENT_MODEL = "claude-sonnet-5-5";
       };
-      outputStyle = "concise";
       skipAutoPermissionPrompt = true;
       # Declared here (not toggled via /plugin) because settings.json is a
       # read-only home-manager symlink into the Nix store.
