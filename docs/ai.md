@@ -137,11 +137,14 @@ Pi is a Rust-based conversational coding agent.
   packuments separately (`vary: accept`) — so a stale full copy can advertise a
   `latest` version it does not contain and npm aborts with
   `ETARGET No matching version found for <pkg>@<version>`.
-- **Extension updates** — run `pi-update` (a `pi update --extensions` alias that
-  sets `NPM_CONFIG_PREFER_OFFLINE=false`); env config outranks `.npmrc`, so it
-  stays authoritative even where a stale cache would otherwise win. To diagnose
-  a recurrence, `just npm-cache-check` flags the precondition offline, and
-  `npm cache verify` clears it (details in `scripts/README.md`).
+- **Extension updates** — `home.activation.piExtensionUpdate` runs `pi update
+  --extensions` on every activation (non-fatal and capped at 5 minutes, so an
+  offline or flaky switch still completes with a warning). `pi-update` is the
+  manual alias for the same command, setting `NPM_CONFIG_PREFER_OFFLINE=false`;
+  env config outranks `.npmrc`, so it stays authoritative even where a stale
+  cache would otherwise win. To diagnose a recurrence, `just npm-cache-check`
+  flags the precondition offline, and `npm cache verify` clears it (details in
+  `scripts/README.md`).
 - **`~/.pi/agent/mcp.json`** — `context7` + `grep-mcp`, written by `home.file`
   and read by Pi's **built-in** MCP client. Project-scoped servers live in the
   tracked `.pi/mcp.json` at the repo root (`nixos` via `uvx mcp-nixos`), so that

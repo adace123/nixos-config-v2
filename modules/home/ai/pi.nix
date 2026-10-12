@@ -2,6 +2,7 @@
   pkgs,
   inputs,
   config,
+  lib,
   ...
 }:
 
@@ -140,6 +141,29 @@ in
     };
   }
   // commonSkills.piFiles;
+
+  # Keep the npm/git extensions current at every switch. `pi` runs npm itself
+  # (the package wrapper puts nodejs on its PATH), and `entryAfter writeBoundary`
+  # guarantees the prefer-offline=false `.npmrc` above is on disk first.
+  # NPM_CONFIG_PREFER_OFFLINE=false repeats what that file pins, matching the
+  # `pi-update` alias — env config outranks `.npmrc`.
+  #
+  # git is prepended because upstream's wrapper (unlike the home-manager
+  # `extraPackages` wrapper) does not carry it, and the update shells out to
+  # `git` for the git-sourced extensions (pi-web-access, catppuccin); the
+  # activation PATH alone is not guaranteed to have it.
+  #
+  # Deliberately non-fatal and time-bounded: activation runs under `set -eu`,
+  # so an unguarded failure (offline, flaky registry) would abort the whole
+  # switch. `timeout` is invoked by absolute path because nothing on the
+  # activation PATH stops an unreachable registry hanging npm for minutes.
+  home.activation.piExtensionUpdate = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    export NPM_CONFIG_PREFER_OFFLINE=false
+    export PATH=${lib.makeBinPath [ pkgs.git ]}:$PATH
+    if ! $DRY_RUN_CMD ${pkgs.coreutils}/bin/timeout 300 ${piPackage}/bin/pi update --extensions; then
+      echo "warning: pi extension update failed (offline?); run pi-update manually" >&2
+    fi
+  '';
 
   sops.secrets = {
     tinyfish-api-key = { };
