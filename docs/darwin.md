@@ -118,8 +118,8 @@ same pattern: add host metadata, then reuse shared modules.
   agent aliases (`cc`, `oc`, …).
 - **Starship** (`starship.nix`) — minimal cross-shell prompt (directory, git
   branch/status, nix shell).
-- **AeroSpace** (`aerospace.nix`) — i3-style tiling window manager
-  (`.aerospace.toml`, starts at login).
+- **OmniWM** (`omniwm.nix`) — tiling window manager, replacing AeroSpace; see
+  [Window Management](#window-management).
 - **Ghostty** (`ghostty.nix`) — GPU terminal with a Tokyo Night color scheme
   and FiraCode Nerd Font.
 - **Dev toolchains** — `nodejs.nix` (Bun default + Node 22/20, TS tooling),
@@ -133,6 +133,46 @@ same pattern: add host metadata, then reuse shared modules.
 
 See also [docs/ai.md](ai.md) for the AI agents (Claude, Pi, Hermes, Herdr)
 that run in this shell.
+
+## Window Management
+
+OmniWM (`modules/home/omniwm.nix`) is the tiling window manager: Niri-style
+scrolling columns, ten workspaces named `1`–`10` mostly assigned to the main
+display, and Option-based bindings in the shape of the AeroSpace config it
+replaced (`Option+H/J/K/L` to focus, `Option+Shift+…` to move, `Option+1`–`0`
+for workspaces). Its `appRules` put browsers, terminals, editors, chat and media
+on their own workspaces and float Finder, 1Password, System Settings and
+Activity Monitor.
+
+The module imports `inputs.omniwm.homeManagerModules.default` — **not** the
+module home-manager ships. OmniWM rejects any `settings.toml` that is not its
+complete schema, and the stock module writes exactly the attrset it is given, so
+partial settings there are dropped silently at runtime. This one deep-merges the
+declared settings over a full defaults file generated from the packaged version,
+merges `hotkeys` per id, and fails evaluation on an action id the packaged
+OmniWM does not know. See the `omniwm` input comment in `flake.nix`.
+
+OmniWM is installed from that input rather than from nixpkgs because the
+defaults file it merges over is generated from the version the input packages;
+taking the binary from nixpkgs instead would pair one version's schema with
+another version's binary.
+
+Two consequences worth knowing:
+
+- **Declared settings are owned by the module.** OmniWM rewrites
+  `~/.config/omniwm/settings.toml` from its own GUI, and the module regenerates a
+  writable copy whenever the declared values differ. GUI edits to a key set in
+  `modules/home/omniwm.nix` do not survive a switch; edit the module instead.
+- **Display-dependent keys are preserved, not committed.** `preserveSettings`
+  lists `routing`, `monitors` and the `monitor*Overrides` tables, which are keyed
+  by display UUID. Configure them once per desk with OmniWM's own Monitors
+  settings; each activation carries the live values over into the regenerated
+  file.
+- **The first launch needs two permissions granted by hand.** OmniWM asks for
+  Accessibility and Input Monitoring — both required at launch — plus optional
+  Screen Recording (Overview thumbnails, drag previews) and Full Disk Access
+  (Hidden Bar concealing). macOS keeps those in its own TCC database, so they
+  cannot be declared here; grant them once from OmniWM's permissions window.
 
 ## Key Files
 
@@ -149,7 +189,7 @@ that run in this shell.
 | `modules/home/packages.nix` | CLI tools and dev utilities |
 | `modules/home/zsh.nix` | Zsh shell config + aliases |
 | `modules/home/starship.nix` | Starship prompt |
-| `modules/home/aerospace.nix` | AeroSpace tiling window manager |
+| `modules/home/omniwm.nix` | OmniWM tiling window manager |
 | `modules/home/ghostty.nix` | Ghostty terminal |
 | `modules/home/fastfetch.nix` | `fastfetch` config |
 | `modules/home/nodejs.nix` | Bun/Node.js + TS tooling |

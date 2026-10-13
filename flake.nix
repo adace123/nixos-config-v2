@@ -67,6 +67,20 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # OmniWM's own flake, not the module home-manager ships. OmniWM rejects any
+    # settings.toml that is not its complete schema, and the stock module writes
+    # exactly what you hand it — so a partial `programs.omniwm.settings` file is
+    # silently ignored at runtime. This one merges our settings over a full
+    # settings-defaults.toml regenerated from the packaged version, merges
+    # hotkeys per id, and fails evaluation on an id OmniWM does not know. It also
+    # packages OmniWM itself, so package and defaults template always agree.
+    # Consumed in modules/home/omniwm.nix. nixpkgs follows ours so the lock keeps
+    # a single nixpkgs.
+    omniwm = {
+      url = "github:mst-mkt/omniwm.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Pi itself comes from the official flake, not llm-agents: it is upstream's
     # own build (nix/package.nix), so it tracks the same release the `pi update`
     # channel does. `main` is deliberate — upstream also keeps a `stable` branch

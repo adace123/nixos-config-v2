@@ -14,7 +14,7 @@
     ./python.nix
     ./nodejs.nix
     ./git.nix
-    ./aerospace.nix
+    ./omniwm.nix
     ./ghostty.nix
     ./fastfetch.nix
     ./ai

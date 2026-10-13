@@ -212,7 +212,7 @@ modules/
 │   └── auto-update.nix  # Auto-update service
 ├── home/                # User-level configuration (home-manager)
 │   ├── 1password-agent.nix # 1Password SSH agent
-│   ├── aerospace.nix    # Aerospace window manager
+│   ├── omniwm.nix       # OmniWM tiling window manager
 │   ├── ai/              # AI configuration (Claude, Pi, Hermes, Herdr; docs/ai.md)
 │   ├── base.nix         # User identity, PATH, session variables
 │   ├── default.nix      # Import list for the modules below
