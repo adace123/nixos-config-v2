@@ -93,16 +93,26 @@ in
               networking.hostName = host.hostName;
               system.stateVersion = "24.11";
 
-              # The platform image's partition layout, which nixos-infect keeps:
-              # it installs over the existing layout instead of repartitioning, so
-              # the flake configuration has to describe the same thing. Addressed
-              # by label/partlabel to avoid depending on partition numbering.
+              # The platform image's partition layout, which nixos-infect keeps: it
+              # installs over the existing layout instead of repartitioning, so the
+              # flake configuration has to describe the same thing. These are the
+              # labels Oracle's Ubuntu image actually uses — confirmed on a live
+              # instance, and the same view its own /etc/fstab takes:
+              #   sda1  cloudimg-rootfs  ext4  /
+              #   sda16 BOOT             ext4  /boot
+              #   sda15 UEFI             vfat  /boot/efi
+              # Note /boot is its own partition, and there is no by-partlabel
+              # directory on this image — the ESP is named by filesystem label.
               fileSystems."/" = {
                 device = "/dev/disk/by-label/cloudimg-rootfs";
                 fsType = "ext4";
               };
+              fileSystems."/boot" = {
+                device = "/dev/disk/by-label/BOOT";
+                fsType = "ext4";
+              };
               fileSystems."/boot/efi" = {
-                device = "/dev/disk/by-partlabel/ESP";
+                device = "/dev/disk/by-label/UEFI";
                 fsType = "vfat";
               };
 

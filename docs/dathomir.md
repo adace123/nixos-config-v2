@@ -22,7 +22,18 @@ The NixOS configuration is small by design. It intentionally does **not** import
 the home-server modules (`base.nix`, `common.nix`, `home-assistant`, …) —
 `dathomir` is a general-purpose compute node, not a second home server. It also
 no longer imports `virtualisation/oci-image.nix`, because there is no custom
-image to boot:
+image to boot. Its `fileSystems` describe the platform image's own partitions,
+which `nixos-infect` keeps rather than repartitioning:
+
+| Partition | Filesystem | Label | Mount |
+|---|---|---|---|
+| `sda1` | ext4 | `cloudimg-rootfs` | `/` |
+| `sda16` | ext4 | `BOOT` | `/boot` |
+| `sda15` | vfat | `UEFI` | `/boot/efi` |
+
+The ESP is addressed by filesystem label because this image has no
+`/dev/disk/by-partlabel` at all — an easy thing to get wrong and an unbootable
+box to get wrong it.
 
 ## Why there is no custom image (Always Free forbids them)
 
