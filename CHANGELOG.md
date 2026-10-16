@@ -23,6 +23,7 @@ commit kinds that are exempt, live in
 - refactor(kanban): move the board into its own repo and consume it as a flake input
 - refactor(dathomir): boot an Oracle platform image and convert to NixOS in place
 - chore(secrets): drop dathomir's revoked ts-auth-key
+- chore(pre-commit): stop yamlfmt reformatting sops ciphertext
 
 ### Fixed
 
