@@ -45,6 +45,7 @@ commit kinds that are exempt, live in
 - fix(darwin): install sofka as a homebrew-core formula, not a nonexistent cask
 - fix(just): verify a deploy by the host's running generation, and accept a target
 - fix(dathomir): cap boot generations so the 900MB /boot cannot fill
+- fix(pre-commit): use `excludes`, the option git-hooks.nix actually reads
 
 ## [2026.10.07.3] - 2026-10-07
 

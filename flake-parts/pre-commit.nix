@@ -125,7 +125,9 @@
           # sops files are machine-written and their ciphertext gains nothing from
           # reformatting: yamlfmt re-indents it, which fails the commit once
           # ("files were modified by this hook") and leaves a noisy diff.
-          exclude = "^secrets/";
+          # NB: the option is `excludes` (a list) — git-hooks.nix silently accepts
+          # and ignores a singular `exclude`.
+          excludes = [ "^secrets/" ];
         };
       };
 
