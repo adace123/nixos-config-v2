@@ -37,6 +37,7 @@ commit kinds that are exempt, live in
 - fix(dathomir): set NODE on the already-NixOS convergence path
 - fix(just): pass the deploy target to nixos-remote-build positionally
 - fix(darwin): install sofka as a homebrew-core formula, not a nonexistent cask
+- fix(just): verify a deploy by the host's running generation, and accept a target
 
 ## [2026.10.07.3] - 2026-10-07
 

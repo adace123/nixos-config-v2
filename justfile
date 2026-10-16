@@ -686,23 +686,54 @@ nixos-deploy TARGET="":
         TARGET="{{ NHOST }}.local"
     fi
     export NIX_SSHOPTS="${NIX_SSHOPTS:+$NIX_SSHOPTS }-4"
-    nix run nixpkgs#nixos-rebuild -- switch --flake .#{{ NHOST }} --target-host root@$TARGET --build-host root@$TARGET
+    read -r -a ssh_opts <<<"$NIX_SSHOPTS"
+
+    # The switch restarts sshd, which drops this connection, so nixos-rebuild exits
+    # non-zero even when the activation (run detached via systemd-run) completed.
+    # A non-zero exit is therefore not by itself a failure: ask the host what it is
+    # actually running instead of trusting that code.
+    switch_status=0
+    nix run nixpkgs#nixos-rebuild -- switch --flake .#{{ NHOST }} --target-host root@$TARGET --build-host root@$TARGET || switch_status=$?
+
+    if [ "$switch_status" -ne 0 ]; then
+        echo "switch exited $switch_status — checking the host's state before calling it a failure"
+        sleep 5
+        running=$(ssh -o BatchMode=yes "${ssh_opts[@]}" root@"$TARGET" 'readlink -f /run/current-system')
+        profile=$(ssh -o BatchMode=yes "${ssh_opts[@]}" root@"$TARGET" 'readlink -f /nix/var/nix/profiles/system')
+        profile_age=$(($(date -u +%s) - $(ssh -o BatchMode=yes "${ssh_opts[@]}" root@"$TARGET" 'stat -c %Y /nix/var/nix/profiles/system')))
+        if [ "$running" = "$profile" ] && [ "$profile_age" -lt 900 ]; then
+            echo "verified: the host is running the newly activated generation ($running)"
+        else
+            echo "ERROR: switch did not take — running=$running profile=$profile profile_age=${profile_age}s" >&2
+            exit 1
+        fi
+    fi
 
 # Show NixOS generations on remote host
+# TARGET: hostname or IP (default: {{ NHOST }}.local, e.g. just nixos-generations dathomir-1)
 [group('nixos')]
-nixos-generations:
+nixos-generations TARGET="":
     #!/usr/bin/env bash
     set -euo pipefail
+    TARGET="{{ TARGET }}"
+    if [ -z "$TARGET" ]; then
+        TARGET="{{ NHOST }}.local"
+    fi
     export NIX_SSHOPTS="${NIX_SSHOPTS:+$NIX_SSHOPTS }-4"
-    nix run nixpkgs#nixos-rebuild -- --list-generations --flake .#{{ NHOST }} --target-host root@{{ NHOST }}.local
+    nix run nixpkgs#nixos-rebuild -- --list-generations --flake .#{{ NHOST }} --target-host root@$TARGET
 
 # Rollback NixOS on remote host
+# TARGET: hostname or IP (default: {{ NHOST }}.local)
 [group('nixos')]
-nixos-rollback:
+nixos-rollback TARGET="":
     #!/usr/bin/env bash
     set -euo pipefail
+    TARGET="{{ TARGET }}"
+    if [ -z "$TARGET" ]; then
+        TARGET="{{ NHOST }}.local"
+    fi
     export NIX_SSHOPTS="${NIX_SSHOPTS:+$NIX_SSHOPTS }-4"
-    nix run nixpkgs#nixos-rebuild -- --rollback --flake .#{{ NHOST }} --target-host root@{{ NHOST }}.local
+    nix run nixpkgs#nixos-rebuild -- --rollback --flake .#{{ NHOST }} --target-host root@$TARGET
 
 # Tail Home Assistant logs on remote NixOS host via journalctl
 # FILTER: optional grep pattern (e.g., "error|recorder|bluetooth")
