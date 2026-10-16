@@ -32,6 +32,7 @@ commit kinds that are exempt, live in
 - fix(dathomir): make the conversion script executable
 - fix(dathomir): read the Tailscale key file as root in the conversion guard
 - fix(dathomir): mark the Tailscale state for preservation before nixos-infect runs
+- fix(dathomir): set NODE on the already-NixOS convergence path
 
 ## [2026.10.07.3] - 2026-10-07
 

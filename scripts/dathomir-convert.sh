@@ -89,6 +89,11 @@ is_nixos() { ssh_as root "$1" 'test -e /etc/NIXOS' 2>/dev/null; }
 
 # ── Phase 1: convert the platform image to NixOS ──────────────────────────────
 
+# The node we end up operating on. Phase 1 can change it — the box may come back
+# under a different tailnet name — but the "already NixOS" path skips straight to
+# phase 2, which needs it set, and `set -u` makes that omission fatal.
+NODE="$TARGET"
+
 if is_nixos "$TARGET"; then
 	log "$TARGET is already NixOS — skipping the conversion"
 else
