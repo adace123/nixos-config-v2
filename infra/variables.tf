@@ -40,10 +40,16 @@ variable "tailscale_auth_key" {
   sensitive   = true
 }
 
-variable "image_path" {
-  description = "Local path to the NixOS OCI qcow2 image"
+variable "platform_image_operating_system" {
+  description = "Oracle platform image family to boot. The instance is converted to NixOS in place; custom images are unavailable on Always Free."
   type        = string
-  default     = "./result/nixos.qcow2"
+  default     = "Canonical Ubuntu"
+}
+
+variable "platform_image_operating_system_version" {
+  description = "Version of platform_image_operating_system. Keep in the plain-release form ('24.04'), not the variants ('24.04 Minimal')."
+  type        = string
+  default     = "24.04"
 }
 
 variable "instance_shape" {

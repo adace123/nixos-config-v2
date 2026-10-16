@@ -138,12 +138,9 @@
         ];
       };
     in
-    flake
-    // {
-      packages = flake.packages // {
-        aarch64-linux = (flake.packages.aarch64-linux or { }) // {
-          vps-image = flake.nixosConfigurations.dathomir.config.system.build.OCIImage;
-        };
-      };
-    };
+    # No `packages.aarch64-linux.vps-image` any more: an Always Free OCI tenancy
+    # has custom-image-count = 0, so the built qcow2 could never be imported as a
+    # custom image. dathomir boots an Oracle platform image and is converted to
+    # NixOS in place — see docs/dathomir.md.
+    flake;
 }

@@ -307,6 +307,16 @@ nixos-init TARGET="" CONFIG=NINSTALL:
     sshpass -p installer ssh -o StrictHostKeyChecking=no "root@$TARGET" "shutdown now" || true
     echo "Done. Remove the SD card, then power on the Pi to boot from SSD."
 
+# Convert the dathomir OCI instance from its Oracle platform image (Ubuntu) to
+# NixOS in place, then converge it onto the flake configuration.
+# Always Free tenancies have custom-image-count = 0, so the built qcow2 cannot be
+# imported as a custom image; the instance boots a free platform image instead.
+# Safe to re-run — an instance that is already NixOS goes straight to convergence.
+# TARGET: optional hostname/IP (default: dathomir)
+[group('nixos')]
+dathomir-convert TARGET="dathomir":
+    scripts/dathomir-convert.sh "{{ TARGET }}"
+
 # Build the NixOS configuration for Raspberry Pi
 [group('nixos')]
 nixos-build:

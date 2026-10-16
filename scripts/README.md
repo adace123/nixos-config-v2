@@ -14,6 +14,9 @@ This directory contains utility scripts for the Nix configuration.
   <pkg>@latest` and `pi update --extensions` (`just npm-cache-check`)
 - `check-nix-caches-sync.sh` - Fail if `flake.nix`'s literal `nixConfig` drifts
   from `nix-caches.nix`, the source of truth (pre-commit hook and CI)
+- `dathomir-convert.sh` - Convert the `dathomir` OCI instance from its Oracle
+  platform image (Ubuntu) to NixOS in place, then activate the flake config
+  (`just dathomir-convert`)
 - `README.md` - This file
 
 ## AI Assistant Selector
@@ -101,6 +104,34 @@ of cached content stays. (`npm cache clean --force` also works but re-downloads
 everything.)
 
 See `docs/ai.md` for how this bit Pi's extension updates.
+
+## dathomir conversion
+
+`dathomir-convert.sh` finishes off provisioning the OCI VPS. OpenTofu creates the
+instance from an Oracle **platform image** (an Always Free tenancy cannot import a
+custom image — `custom-image-count = 0`), and this script replaces that Ubuntu
+install with NixOS:
+
+```bash
+just dathomir-convert              # default target: dathomir
+just dathomir-convert dathomir-1   # when the tailnet name came back suffixed
+```
+
+It is deliberately operator-run rather than cloud-init driven: the instance has
+no public IP, so an unattended conversion that fails leaves a box reachable only
+through OCI's VNC console. Here a failure leaves Ubuntu up and reachable, and the
+script is safe to re-run (an instance that is already NixOS skips straight to
+activating the flake config, which is built on the host because this workstation
+has no aarch64-linux builder).
+
+Mechanically it: copies the Tailscale auth key from `/var/lib/tailscale/` to
+`/etc/nixos/` (survives the pivot, unlike `/var`), adds `var/lib/tailscale` to
+`/etc/NIXOS_LUSTRATE` so the node keeps its identity, fetches `nixos-infect` at a
+pinned revision and verifies its SHA-256 before copying the verified file to the
+host (nothing unverified is piped into a root shell), runs it with
+`NIXOS_IMPORT=./dathomir-import.nix` (the module copied in from
+`infra/dathomir-infect-import.nix`), reboots into NixOS, then runs
+`NHOST=dathomir just nixos-deploy <target>`. See [docs/dathomir.md](../docs/dathomir.md).
 
 ## SSH Configuration
 

@@ -145,10 +145,12 @@ just nixos-init 192.168.1.50     # explicit IP
 
 ## OCI VPS (`dathomir`)
 
-The `Build and Deploy OCI Image` GitHub Actions workflow builds
-`.#packages.aarch64-linux.vps-image`, uploads the resulting `nixos.qcow2` as a
-short-lived workflow artifact, then runs OpenTofu from `infra/` against Oracle
-Cloud Infrastructure.
+The `deploy-oci.yml` GitHub Actions workflow drives OpenTofu from `infra/`
+against Oracle Cloud Infrastructure. It no longer builds an image: an Always Free
+tenancy has `custom-image-count = 0`, so the instance boots an Oracle **platform
+image** and is converted to NixOS in place by an operator-run step — CI has no
+path into the instance, which is Tailscale-only. See
+[docs/dathomir.md](dathomir.md).
 
 Manual dry-run:
 
@@ -160,6 +162,15 @@ Manual deploy:
 
 ```bash
 gh workflow run deploy-oci.yml -f apply=true
+```
+
+A1 free-tier capacity is scarce, so an apply from CI often fails with
+`500-InternalError, Out of host capacity`. Retry locally instead, where the
+fault-domain rotation runs:
+
+```bash
+just -f infra/justfile apply-retry
+just dathomir-convert            # platform image -> NixOS, over the tailnet
 ```
 
 > **Paused (2025-08-14):** auto-run on push is disabled, so pushes to `main` no longer

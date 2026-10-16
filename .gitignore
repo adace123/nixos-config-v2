@@ -73,6 +73,10 @@ infra/*.tfstate
 infra/*.tfstate.*
 infra/crash.log
 infra/crash.*.log
+# Saved plan written by `just -f infra/justfile plan-apply` (tofu plan -out=tfplan).
+# Kept ignored: a saved plan can embed resolved variable values, including secrets
+# passed in as TF_VAR_* (e.g. the Tailscale auth key), and it is never needed twice.
+infra/tfplan
 
 # Temporary sops plaintext
 secrets/*-plaintext.*

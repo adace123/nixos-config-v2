@@ -16,35 +16,6 @@ default:
 edit-secrets:
     nix shell nixpkgs#sops nixpkgs#age -c sops ../secrets/oci.yaml
 
-# ── OCI image ─────────────────────────────────────────────────────────────────
-
-# Build the NixOS OCI qcow2 image expected by var.image_path.
-# Produces ./result/nixos.qcow2 as a symlink to the Nix store output.
-# Requires an aarch64-linux builder; Darwin without one cannot build this.
-build-image:
-    #!/usr/bin/env bash
-    set -euo pipefail
-
-    out_link="result-vps-image"
-    image_dir="result"
-    image_name="$(nix eval ..#nixosConfigurations.dathomir.config.image.fileName --raw)"
-
-    nix build ..#packages.aarch64-linux.vps-image \
-        --system aarch64-linux \
-        --accept-flake-config \
-        --out-link "$out_link"
-
-    if [ ! -e "$out_link/$image_name" ]; then
-        echo "ERROR: expected image not found: $out_link/$image_name" >&2
-        exit 1
-    fi
-
-    rm -rf "$image_dir"
-    mkdir -p "$image_dir"
-    ln -s "../$out_link/$image_name" "$image_dir/nixos.qcow2"
-
-    echo "OCI image ready: $image_dir/nixos.qcow2 -> ../$out_link/$image_name"
-
 # ── OpenTofu commands ─────────────────────────────────────────────────────────
 
 # Initialize OpenTofu with S3-compatible R2 backend.
@@ -67,24 +38,45 @@ tofu CMD *ARGS:
 plan-apply *ARGS:
     nix develop ../#infra -c env OCI_SECRETS_FILE=../secrets/oci.yaml ./tofu-env.sh plan-apply {{ARGS}}
 
-# Destroy all OpenTofu-managed OCI resources after showing the plan.
-destroy *ARGS:
+# Apply, cycling the three fault domains until A1 capacity is available.
+# `500-InternalError, Out of host capacity` is the normal Always Free state of
+# the A1 pool. us-sanjose-1 has a single availability domain, so cycling fault
+# domains over time is the only lever left (see docs/dathomir.md); a capacity
+# failure leaves nothing behind, so attempts are safe to repeat. Stops
+# immediately on any other error. MAX_ATTEMPTS / SLEEP_SECONDS override defaults.
+apply-retry *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
 
-    placeholder_created=0
-    if [ ! -e result/nixos.qcow2 ]; then
-        mkdir -p result
-        touch result/nixos.qcow2
-        placeholder_created=1
-    fi
+    max_attempts="${MAX_ATTEMPTS:-30}"
+    sleep_seconds="${SLEEP_SECONDS:-60}"
+    log="$(mktemp)"
+    trap 'rm -f "$log"' EXIT
+    fault_domains=(FAULT-DOMAIN-1 FAULT-DOMAIN-2 FAULT-DOMAIN-3)
 
-    cleanup() {
-        if [ "$placeholder_created" -eq 1 ]; then
-            rm -f result/nixos.qcow2
-            rmdir result 2>/dev/null || true
+    for ((i = 1; i <= max_attempts; i++)); do
+        fd="${fault_domains[$(((i - 1) % ${#fault_domains[@]}))]}"
+        echo "=== attempt $i/$max_attempts  fault_domain=$fd ==="
+        if TF_VAR_fault_domain="$fd" \
+            nix develop ../#infra -c env OCI_SECRETS_FILE=../secrets/oci.yaml \
+            ./tofu-env.sh tofu apply -input=false -auto-approve -no-color "$@" >"$log" 2>&1; then
+            echo "Capacity available in $fd — apply succeeded."
+            grep -E "Apply complete|Outputs:" "$log" | tail -3
+            exit 0
         fi
-    }
-    trap cleanup EXIT
+        if grep -qi "out of host capacity" "$log"; then
+            echo "capacity unavailable in $fd"
+        else
+            echo "STOPPING: not a capacity failure —"
+            grep -E "Error:|╷" "$log" | head -10
+            exit 1
+        fi
+        sleep "$sleep_seconds"
+    done
 
+    echo "Gave up after $max_attempts attempts; A1 capacity is scarce at the moment."
+    exit 2
+
+# Destroy all OpenTofu-managed OCI resources after showing the plan.
+destroy *ARGS:
     nix develop ../#infra -c env OCI_SECRETS_FILE=../secrets/oci.yaml ./tofu-env.sh tofu destroy {{ARGS}}

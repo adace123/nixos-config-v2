@@ -76,46 +76,100 @@ in
       imageModule = ../modules/nixos/sd.nix;
     }
     // {
+      # dathomir boots an Oracle *platform* image (Ubuntu) on an Always Free
+      # tenancy and is converted to NixOS in place by scripts/dathomir-convert.sh —
+      # an Always Free tenancy has custom-image-count = 0, so the former
+      # "build a qcow2, import it as a custom image" path could never work. Hence
+      # no virtualisation/oci-image.nix here and no OCIImage output to build.
+      # See docs/dathomir.md.
       "${dathomirHost.hostName}" = mkSystem dathomirHost {
         modules = [
-          "${inputs.nixpkgs}/nixos/modules/virtualisation/oci-image.nix"
-          ({ host, pkgs, ... }: {
-            networking.hostName = host.hostName;
-            services.cloud-init.enable = true;
-            services.tailscale = {
-              enable = true;
-              openFirewall = true;
-            };
-            systemd.services.tailscale-autoconnect = {
-              description = "Connect to Tailscale";
-              after = [
-                "cloud-final.service"
-                "network-online.target"
-                "tailscaled.service"
-              ];
-              wants = [
-                "network-online.target"
-                "tailscaled.service"
-              ];
-              wantedBy = [ "multi-user.target" ];
-              path = [ pkgs.tailscale ];
-              serviceConfig = {
-                Type = "oneshot";
-                RemainAfterExit = true;
+          (
+            { host, ... }:
+            let
+              caches = import ../nix-caches.nix;
+            in
+            {
+              networking.hostName = host.hostName;
+              system.stateVersion = "24.11";
+
+              # The platform image's partition layout, which nixos-infect keeps:
+              # it installs over the existing layout instead of repartitioning, so
+              # the flake configuration has to describe the same thing. Addressed
+              # by label/partlabel to avoid depending on partition numbering.
+              fileSystems."/" = {
+                device = "/dev/disk/by-label/cloudimg-rootfs";
+                fsType = "ext4";
               };
-              script = ''
-                if tailscale status --peers=false >/dev/null 2>&1; then
-                  exit 0
-                fi
-                for _ in $(seq 1 120); do
-                  [ -s /var/lib/tailscale/authkey ] && break
-                  sleep 1
-                done
-                tailscale up --auth-key "$(cat /var/lib/tailscale/authkey)" --ssh --hostname ${host.hostName}
-              '';
-            };
-            services.openssh.settings.PermitRootLogin = "no";
-          })
+              fileSystems."/boot/efi" = {
+                device = "/dev/disk/by-partlabel/ESP";
+                fsType = "vfat";
+              };
+
+              # UEFI boot without NVRAM access: install grub on the removable
+              # path. nixos-infect generates the same settings for the bootstrap
+              # system, so both agree about where to boot from.
+              boot.loader = {
+                efi.efiSysMountPoint = "/boot/efi";
+                grub = {
+                  enable = true;
+                  efiSupport = true;
+                  efiInstallAsRemovable = true;
+                  device = "nodev";
+                };
+              };
+              boot.initrd.availableKernelModules = [
+                "nvme"
+                "virtio_blk"
+                "virtio_scsi"
+              ];
+
+              # Root SSH with keys is what `just nixos-deploy` needs. The instance
+              # has no public IP, so only tailnet peers can reach either account.
+              users.users.root.openssh.authorizedKeys.keys = host.sshPublicKeys;
+              users.users.nixos = {
+                isNormalUser = true;
+                extraGroups = [ "wheel" ];
+                openssh.authorizedKeys.keys = host.sshPublicKeys;
+              };
+              security.sudo.wheelNeedsPassword = false;
+
+              services.openssh = {
+                enable = true;
+                settings = {
+                  PermitRootLogin = "prohibit-password";
+                  PasswordAuthentication = false;
+                };
+              };
+
+              services.tailscale = {
+                enable = true;
+                openFirewall = true;
+                # Seeded by scripts/dathomir-convert.sh from the key cloud-init
+                # wrote, which survives the conversion in /etc/nixos. Only used if
+                # the preserved /var/lib/tailscale node identity is unavailable.
+                authKeyFile = "/etc/nixos/tailscale-authkey";
+                extraUpFlags = [ "--ssh" ];
+              };
+
+              nix = {
+                gc = {
+                  automatic = true;
+                  dates = "weekly";
+                  options = "--delete-older-than 14d";
+                };
+                settings = {
+                  auto-optimise-store = true;
+                  # Single source of truth: nix-caches.nix (also used by flake.nix
+                  # `nixConfig` and modules/home/default.nix).
+                  inherit (caches) extra-substituters;
+                  inherit (caches) extra-trusted-public-keys;
+                };
+              };
+
+              time.timeZone = "America/Los_Angeles";
+            }
+          )
         ];
       };
     };

@@ -4,11 +4,21 @@ data "oci_identity_availability_domains" "ads" {
   compartment_id = var.compartment_ocid
 }
 
-data "oci_objectstorage_namespace" "ns" {
-  compartment_id = var.compartment_ocid
+# dathomir boots an Oracle *platform* image. An Always Free tenancy has
+# `custom-image-count = 0`, so importing a built NixOS qcow2 as a custom image
+# fails with `400-QuotaExceeded ... CreateImage`; a quota policy cannot raise an
+# Oracle-imposed service limit. The instance therefore starts as Ubuntu (a
+# platform image, which is free) and is converted to NixOS in place — see
+# docs/dathomir.md.
+data "oci_core_images" "platform" {
+  compartment_id           = var.compartment_ocid
+  operating_system         = var.platform_image_operating_system
+  operating_system_version = var.platform_image_operating_system_version
+  shape                    = var.instance_shape
+  state                    = "AVAILABLE"
+  sort_by                  = "TIMECREATED"
+  sort_order               = "DESC"
 }
-
-data "oci_core_compute_global_image_capability_schemas" "default" {}
 
 # ── Networking ────────────────────────────────────────────────────────────────
 
@@ -59,88 +69,6 @@ resource "oci_core_subnet" "public" {
   prohibit_public_ip_on_vnic = false
 }
 
-# ── Object Storage ────────────────────────────────────────────────────────────
-
-resource "oci_objectstorage_bucket" "nixos_images" {
-  compartment_id = var.compartment_ocid
-  namespace      = data.oci_objectstorage_namespace.ns.namespace
-  name           = "nixos-images"
-  access_type    = "NoPublicAccess"
-}
-
-resource "oci_objectstorage_object" "nixos_image" {
-  bucket    = oci_objectstorage_bucket.nixos_images.name
-  namespace = data.oci_objectstorage_namespace.ns.namespace
-  object    = "nixos-aarch64.qcow2"
-  source    = var.image_path
-}
-
-# ── Custom Image ──────────────────────────────────────────────────────────────
-
-resource "oci_core_image" "nixos" {
-  compartment_id = var.compartment_ocid
-  display_name   = "NixOS ARM64"
-
-  image_source_details {
-    source_type    = "objectStorageTuple"
-    namespace_name = data.oci_objectstorage_namespace.ns.namespace
-    bucket_name    = oci_objectstorage_bucket.nixos_images.name
-    object_name    = oci_objectstorage_object.nixos_image.object
-  }
-
-  launch_mode = "PARAVIRTUALIZED"
-
-  timeouts {
-    create = "60m"
-  }
-}
-
-# ── Shape Compatibility (A1.Flex) ─────────────────────────────────────────────
-
-resource "oci_core_shape_management" "nixos_a1_compat" {
-  compartment_id = var.compartment_ocid
-  image_id       = oci_core_image.nixos.id
-  shape_name     = "VM.Standard.A1.Flex"
-}
-
-# ── Image Capabilities ────────────────────────────────────────────────────────
-
-resource "oci_core_compute_image_capability_schema" "nixos_caps" {
-  compartment_id                                      = var.compartment_ocid
-  image_id                                            = oci_core_image.nixos.id
-  compute_global_image_capability_schema_version_name = data.oci_core_compute_global_image_capability_schemas.default.compute_global_image_capability_schemas[0].current_version_name
-
-  schema_data = {
-    "Compute.Firmware" = jsonencode({
-      descriptorType = "enumstring"
-      source         = "IMAGE"
-      defaultValue   = "UEFI_64"
-      values         = ["UEFI_64"]
-    })
-
-    "Compute.LaunchMode" = jsonencode({
-      descriptorType = "enumstring"
-      source         = "IMAGE"
-      defaultValue   = "PARAVIRTUALIZED"
-      values         = ["PARAVIRTUALIZED", "EMULATED", "CUSTOM", "NATIVE"]
-    })
-
-    "Storage.BootVolumeType" = jsonencode({
-      descriptorType = "enumstring"
-      source         = "IMAGE"
-      defaultValue   = "PARAVIRTUALIZED"
-      values         = ["PARAVIRTUALIZED", "ISCSI", "SCSI", "IDE", "NVME"]
-    })
-
-    "Network.AttachmentType" = jsonencode({
-      descriptorType = "enumstring"
-      source         = "IMAGE"
-      defaultValue   = "PARAVIRTUALIZED"
-      values         = ["PARAVIRTUALIZED", "E1000", "VFIO", "VDPA"]
-    })
-  }
-}
-
 # ── Instance ──────────────────────────────────────────────────────────────────
 
 resource "oci_core_instance" "nixos" {
@@ -157,11 +85,16 @@ resource "oci_core_instance" "nixos" {
 
   source_details {
     source_type = "image"
-    source_id   = oci_core_image.nixos.id
+    source_id   = data.oci_core_images.platform.images[0].id
   }
 
   metadata = {
     ssh_authorized_keys = var.ssh_public_key
+    # The instance has no public IP, so the platform-image (Ubuntu) stage is only
+    # reachable over Tailscale — the conversion in scripts/dathomir-convert.sh is
+    # operator-run and needs to get in before the OS is replaced. On the NixOS
+    # side the same key file is preserved across the pivot (see that script); the
+    # NixOS config does not use cloud-init.
     user_data = base64encode(<<-EOT
       #cloud-config
       write_files:
@@ -170,6 +103,9 @@ resource "oci_core_instance" "nixos" {
           permissions: '0600'
           content: |
             ${var.tailscale_auth_key}
+      runcmd:
+        - [ bash, -c, "curl -fsSL https://tailscale.com/install.sh | sh" ]
+        - [ bash, -c, "for i in $(seq 1 60); do systemctl is-active --quiet tailscaled && break; sleep 2; done; tailscale up --auth-key=$(cat /var/lib/tailscale/authkey) --ssh --hostname dathomir" ]
     EOT
     )
   }
@@ -190,9 +126,4 @@ resource "oci_core_instance" "nixos" {
     network_type     = "PARAVIRTUALIZED"
     boot_volume_type = "PARAVIRTUALIZED"
   }
-
-  depends_on = [
-    oci_core_shape_management.nixos_a1_compat,
-    oci_core_compute_image_capability_schema.nixos_caps,
-  ]
 }

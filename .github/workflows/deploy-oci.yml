@@ -17,42 +17,13 @@ env:
   TF_IN_AUTOMATION: "true"
   TF_INPUT: "false"
 jobs:
-  build-image:
-    runs-on: ubuntu-24.04-arm
-    steps:
-      - uses: actions/checkout@v7
-      - name: Enable KVM access
-        run: |
-          if [ -e /dev/kvm ]; then
-            echo "KVM available"
-            sudo chmod 666 /dev/kvm
-          else
-            echo "KVM not available (will fall back to emulation)"
-          fi
-      - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v23
-        with:
-          flakehub: false
-          extra-conf: |
-            system-features = kvm benchmark big-parallel nixos-test uid-range
-      - name: Build NixOS OCI image
-        run: nix develop .#infra -c just build-image
-        working-directory: infra
-      - name: Stage image artifact
-        run: |
-          mkdir -p /tmp/oci-image
-          cp -L result/nixos.qcow2 /tmp/oci-image/nixos.qcow2
-        working-directory: infra
-      - name: Upload image artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: nixos-oci-image
-          path: /tmp/oci-image/nixos.qcow2
-          if-no-files-found: error
-          retention-days: 1
-          compression-level: 0
+  # No image is built here any more: an Always Free tenancy has
+  # custom-image-count = 0, so a built qcow2 cannot be imported as a custom image
+  # (CreateImage fails with 400-QuotaExceeded). The instance boots an Oracle
+  # platform image, and scripts/dathomir-convert.sh converts it to NixOS in place
+  # — operator-run over the tailnet, since the instance has no public IP.
+  # See docs/dathomir.md.
   plan:
-    needs: build-image
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -65,11 +36,6 @@ jobs:
         uses: DeterminateSystems/nix-installer-action@v23
         with:
           flakehub: false
-      - name: Download image artifact
-        uses: actions/download-artifact@v8
-        with:
-          name: nixos-oci-image
-          path: infra/result
       - name: OpenTofu Init
         working-directory: infra
         run: nix develop "${{ github.workspace }}#infra" -c env OCI_SECRETS_FILE=../secrets/oci.yaml ./tofu-env.sh init
@@ -78,7 +44,6 @@ jobs:
         run: nix develop "${{ github.workspace }}#infra" -c env OCI_SECRETS_FILE=../secrets/oci.yaml ./tofu-env.sh tofu plan -input=false -no-color
   apply:
     needs:
-      - build-image
       - plan
     if: github.event_name == 'workflow_dispatch' && inputs.apply
     runs-on: ubuntu-latest
@@ -94,14 +59,13 @@ jobs:
         uses: DeterminateSystems/nix-installer-action@v23
         with:
           flakehub: false
-      - name: Download image artifact
-        uses: actions/download-artifact@v8
-        with:
-          name: nixos-oci-image
-          path: infra/result
       - name: OpenTofu Init
         working-directory: infra
         run: nix develop "${{ github.workspace }}#infra" -c env OCI_SECRETS_FILE=../secrets/oci.yaml ./tofu-env.sh init
+      # `plan-apply` plans and applies in one process so the temporary OCI
+      # private-key path matches. A1 free-tier capacity is scarce: "Out of host
+      # capacity" is expected and retried with `just -f infra/justfile apply-retry`
+      # (which cycles fault domains) rather than in CI.
       - name: OpenTofu Plan
         working-directory: infra
         run: nix develop "${{ github.workspace }}#infra" -c env OCI_SECRETS_FILE=../secrets/oci.yaml ./tofu-env.sh plan-apply
