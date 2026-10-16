@@ -18,6 +18,7 @@ commit kinds that are exempt, live in
 - feat(home): add OmniWM as the tiling window manager, replacing AeroSpace
 - feat(pre-commit): check that shebang scripts are executable
 - feat(infra): refuse to destroy the converted dathomir instance by accident
+- feat(dathomir): serve the beszel hub over the tailnet behind Caddy
 
 ### Changed
 

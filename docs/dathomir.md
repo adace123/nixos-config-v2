@@ -354,6 +354,31 @@ If the tailnet name comes back as `dathomir-1`, the pre-conversion node still
 holds `dathomir`: delete that stale node in the Tailscale admin console and the
 plain name returns. `scripts/dathomir-convert.sh` prints this when it happens.
 
+## Beszel hub (tailnet-only, with a real TLS name)
+
+dathomir runs the beszel **hub**, as the Pi hosts do, published by Caddy at
+`beszel-domain` from `secrets/dathomir.yaml` with a Cloudflare DNS-01
+certificate. The name is a genuine one on the Cloudflare zone, but its A record
+points at this host's **tailnet** address — so it resolves, and is unroutable
+outside the tailnet. No public IP, no inbound firewall rule, no tunnel.
+
+Caddy's build (upstream plus the Cloudflare DNS plugin) comes from
+`nix-caddy.nix`, shared with the Pi hosts so the plugin version and its hash are
+defined once.
+
+Two steps are manual, and **the order matters**:
+
+1. Install the host's age key at `/var/lib/sops-nix/key.txt` — it is in 1Password,
+   and also on the workstation at `~/.config/sops/age/host-keys/dathomir.txt`.
+   Do this *before* deploying: Caddy's config file comes from a sops template, so
+   a switch without the key leaves Caddy broken.
+2. Point the `beszel-domain` A record at dathomir's tailnet address
+   (`tailscale ip -4 dathomir-1`). Tailscale keeps a node's address stable.
+
+The hub itself stays on `127.0.0.1:8090`, so only Caddy is reachable. Clients must
+be on the same tailnet as dathomir — including any host that should *report* to
+the hub, since Tailscale-only cuts both ways.
+
 ## Destroying the VPS
 
 Destroying the instance is reversible (state is in R2), but remember it also

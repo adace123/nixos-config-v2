@@ -84,8 +84,14 @@ in
       # See docs/dathomir.md.
       "${dathomirHost.hostName}" = mkSystem dathomirHost {
         modules = [
+          inputs.sops-nix.nixosModules.sops
           (
-            { host, ... }:
+            {
+              config,
+              host,
+              pkgs,
+              ...
+            }:
             let
               caches = import ../nix-caches.nix;
             in
@@ -165,6 +171,72 @@ in
                 authKeyFile = "/etc/nixos/tailscale-authkey";
                 extraUpFlags = [ "--ssh" ];
               };
+
+              # The tailnet is the only way in, so trust it. `services.tailscale.
+              # openFirewall` above only opens WireGuard's UDP port — not the
+              # interface — so without this Caddy's 443 would be firewalled off from
+              # exactly the clients meant to reach it.
+              networking.firewall.trustedInterfaces = [ "tailscale0" ];
+
+              # Secrets for the Cloudflare DNS-01 challenge below. The host's age key
+              # is installed once by hand at /var/lib/sops-nix/key.txt; nothing
+              # decrypts without it.
+              sops = {
+                defaultSopsFile = ../secrets/dathomir.yaml;
+                age.keyFile = "/var/lib/sops-nix/key.txt";
+                secrets = {
+                  beszel-domain = { };
+                  cloudflare-api-key = { };
+                };
+              };
+
+              # Beszel hub, published to the tailnet only. Caddy terminates TLS for
+              # the Cloudflare-managed name — whose A record deliberately points at
+              # this host's tailnet address, so the name resolves but is unroutable
+              # outside the tailnet — and proxies the hub, which stays on localhost.
+              services.beszel.hub = {
+                enable = true;
+                host = "127.0.0.1";
+                port = 8090;
+              };
+
+              sops.templates."caddy-env" = {
+                content = ''
+                  CLOUDFLARE_API_TOKEN=${config.sops.placeholder.cloudflare-api-key}
+                '';
+                owner = "caddy";
+                group = "caddy";
+                mode = "0400";
+              };
+
+              sops.templates."caddyfile" = {
+                content = ''
+                  {
+                    acme_dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+                  }
+
+                  ${config.sops.placeholder.beszel-domain} {
+                    reverse_proxy 127.0.0.1:8090
+                  }
+                '';
+                owner = "caddy";
+                group = "caddy";
+                mode = "0400";
+              };
+
+              services.caddy = {
+                enable = true;
+                openFirewall = true;
+                configFile = config.sops.templates."caddyfile".path;
+                # The Cloudflare DNS plugin, defined once in nix-caddy.nix.
+                package = import ../nix-caddy.nix { inherit pkgs; };
+                environmentFile = config.sops.templates."caddy-env".path;
+              };
+
+              systemd.services.caddy.restartTriggers = [
+                config.sops.secrets.cloudflare-api-key.path
+                config.sops.secrets.beszel-domain.path
+              ];
 
               nix = {
                 gc = {
