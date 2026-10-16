@@ -130,7 +130,14 @@ resource "oci_core_instance" "nixos" {
     assign_public_ip = var.assign_public_ip
   }
 
+  # The instance's OS is not reproducible from the platform image: it was
+  # converted in place by scripts/dathomir-convert.sh, so destroying it throws
+  # that away and a replacement has to be converted again. Neither `apply` nor
+  # `-replace` may do that by accident — remove this block deliberately (then
+  # re-run `just dathomir-convert`) when a replacement is what you actually want.
   lifecycle {
+    prevent_destroy = true
+
     precondition {
       condition     = var.instance_shape == "VM.Standard.A1.Flex" && var.instance_ocpus <= 2 && var.instance_memory_gbs <= 12
       error_message = "Refusing to create non-Always-Free compute: use VM.Standard.A1.Flex with <= 2 OCPUs and <= 12 GB RAM."

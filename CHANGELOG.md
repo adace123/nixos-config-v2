@@ -17,6 +17,7 @@ commit kinds that are exempt, live in
 - feat(pi): run pi update --extensions at activation
 - feat(home): add OmniWM as the tiling window manager, replacing AeroSpace
 - feat(pre-commit): check that shebang scripts are executable
+- feat(infra): refuse to destroy the converted dathomir instance by accident
 
 ### Changed
 

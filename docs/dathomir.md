@@ -336,6 +336,13 @@ instead — along with its DNS name. Keep that key and the tailnet you expect th
 host to appear on in step, and note that a Tailscale account switch on your
 workstation does not move the host.
 
+Key handling differs either side of the conversion. The converted system takes
+its root keys from `hosts/dathomir/default.nix` (three of them). The **pre-conversion**
+Ubuntu stage authorizes only `ssh_public_key` from `infra/variables.tf`, and OCI
+will not add keys to a running instance — `ssh_authorized_keys` cannot be changed
+after launch — so widening that variable only takes effect on the next instance
+replacement, which means re-running the conversion.
+
 `infra/variables.tf` seeds the `ssh_authorized_keys` metadata (default: the
 primary dathomir access key), which cloud-init applies to the `ubuntu` user;
 `nixos-infect` then gives root the same keys. In NixOS, root login is
@@ -356,6 +363,19 @@ prunes nothing else — the R2 bucket also holds Restic backups (see
 ```bash
 just -f infra/justfile destroy
 ```
+
+**This is deliberately blocked by a `prevent_destroy` lifecycle guard** in
+`infra/main.tf`: the instance's OS is not reproducible from the platform image —
+it was converted in place — so destroying it throws the conversion away. Delete
+the `lifecycle` block first when a replacement is genuinely what you want, then
+re-run `just dathomir-convert` afterwards.
+
+Note that plans currently *fail* with `Resource instance cannot be destroyed`,
+because the instance metadata still carries the throwaway key used during the
+first provisioning (OCI refuses to change `ssh_authorized_keys` on a live
+instance, so the metadata cannot be reconciled in place). Accepting one
+replacement resolves it for good — and is the moment to widen `ssh_public_key`
+first if you want more than one key usable during the pre-conversion window.
 
 ## Related docs
 
