@@ -28,6 +28,7 @@ commit kinds that are exempt, live in
 - chore(secrets): drop dathomir's revoked ts-auth-key
 - chore(pre-commit): stop yamlfmt reformatting sops ciphertext
 - refactor(caddy): share the Cloudflare-plugin Caddy build via nix-caddy.nix
+- refactor(beszel): move the hub off the Pi hosts, add agents on dathomir and coruscant
 
 ### Fixed
 

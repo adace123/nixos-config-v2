@@ -379,6 +379,13 @@ The hub itself stays on `127.0.0.1:8090`, so only Caddy is reachable. Clients mu
 be on the same tailnet as dathomir — including any host that should *report* to
 the hub, since Tailscale-only cuts both ways.
 
+dathomir also runs the **agent** (reporting to its own hub), and coruscant runs
+one pointed at this hub over the tailnet. Each agent needs its own
+`beszel-agent-key` in that host's secrets file — the hub mints one when you add
+the system in its UI — and a missing value fails activation, so add it before
+deploying. The hub polls each agent on 45876: coruscant's is reachable because its
+firewall trusts `tailscale0`, dathomir's over loopback.
+
 ## Destroying the VPS
 
 Destroying the instance is reversible (state is in R2), but remember it also

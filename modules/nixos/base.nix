@@ -1,12 +1,20 @@
-{ config, host, ... }:
+{
+  config,
+  host,
+  lib,
+  ...
+}:
 {
   imports = [
     ./common.nix
-    ./beszel.nix
     ./home-assistant
     ./caddy.nix
     ./podman.nix
-  ];
+  ]
+  # The beszel hub now lives on dathomir, so these hosts run the *agent* instead —
+  # only where the host opts in, because each agent needs its own key in that
+  # host's secrets file and a missing one fails activation.
+  ++ lib.optional (host.beszelAgent or false) ./beszel-agent.nix;
 
   # Per-host secrets file — each host only decrypts its own secrets
   # (see .sops.yaml creation rules).
@@ -15,7 +23,6 @@
   sops.secrets = {
     ts-auth-key = { };
     home-assistant-external-domain = { };
-    beszel-domain = { };
     alexa-notify-me-api-key = { };
   };
 

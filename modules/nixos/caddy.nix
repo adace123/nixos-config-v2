@@ -20,10 +20,6 @@
       ${config.sops.placeholder.home-assistant-external-domain} {
         reverse_proxy 127.0.0.1:8123
       }
-
-      ${config.sops.placeholder.beszel-domain} {
-        reverse_proxy localhost:8090
-      }
     '';
     owner = "caddy";
     group = "caddy";
@@ -42,7 +38,6 @@
 
   systemd.services.caddy.restartTriggers = [
     config.sops.secrets.cloudflare-api-key.path
-    config.sops.secrets.beszel-domain.path
     config.sops.secrets.home-assistant-external-domain.path
   ];
 }

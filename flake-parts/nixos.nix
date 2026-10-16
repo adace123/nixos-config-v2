@@ -85,6 +85,9 @@ in
       "${dathomirHost.hostName}" = mkSystem dathomirHost {
         modules = [
           inputs.sops-nix.nixosModules.sops
+          # Runs the beszel agent here as well as the hub, so the box reports to
+          # itself (and needs its own beszel-agent-key in secrets/dathomir.yaml).
+          ../modules/nixos/beszel-agent.nix
           (
             {
               config,

@@ -19,7 +19,7 @@ modules/nixos/                       # host-specific modules
     configuration.yaml               # Home Assistant base configuration template
   caddy.nix                          # Caddy reverse proxy (Cloudflare DNS)
   podman.nix                         # Podman engine + remote socket for the Mac
-  beszel.nix                         # Beszel monitoring hub
+  beszel-agent.nix                   # Beszel monitoring agent (hub lives on dathomir)
   ssd.nix                            # Disko SSD partition layout + boot config
   sd.nix                             # SD-root storage (Turing Pi / TP2 nodes)
   rpi-boot.nix                       # Shared RPi kernel/boot settings
@@ -41,7 +41,7 @@ modules/nixos/                       # host-specific modules
 | Mosquitto (MQTT) | 1883 | `home-assistant/` |
 | Zigbee2MQTT | 8091 | `home-assistant/` |
 | ESPHome | 6052 | `home-assistant/` |
-| Beszel Hub | 8090 | `nixos/beszel.nix` |
+| Beszel agent | 45876 | `nixos/beszel-agent.nix` (hub runs on dathomir) |
 | Caddy (HTTPS proxy) | 443 | `caddy.nix` |
 | Podman (container engine) | socket | `podman.nix` |
 | Tailscale | — | `nixos/common.nix` |
