@@ -34,10 +34,9 @@
     enable = true;
     openFirewall = true;
     configFile = config.sops.templates."caddyfile".path;
-    package = pkgs.caddy.withPlugins {
-      plugins = [ "github.com/caddy-dns/cloudflare@v0.2.4" ];
-      hash = "sha256-dQvk6ezY6TQ1J7PjhCXnThF/SqVgPwBO8/RXzHCY+js=";
-    };
+    # Shared with dathomir's config so the Cloudflare DNS plugin (and its hash)
+    # is defined once — see nix-caddy.nix.
+    package = import ../../nix-caddy.nix { inherit pkgs; };
     environmentFile = config.sops.templates."caddy-env".path;
   };
 

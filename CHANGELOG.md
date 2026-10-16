@@ -25,6 +25,7 @@ commit kinds that are exempt, live in
 - refactor(dathomir): boot an Oracle platform image and convert to NixOS in place
 - chore(secrets): drop dathomir's revoked ts-auth-key
 - chore(pre-commit): stop yamlfmt reformatting sops ciphertext
+- refactor(caddy): share the Cloudflare-plugin Caddy build via nix-caddy.nix
 
 ### Fixed
 
