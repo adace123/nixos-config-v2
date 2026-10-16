@@ -19,6 +19,7 @@ commit kinds that are exempt, live in
 - feat(pre-commit): check that shebang scripts are executable
 - feat(infra): refuse to destroy the converted dathomir instance by accident
 - feat(dathomir): serve the beszel hub over the tailnet behind Caddy
+- feat(infra): manage the ha and beszel DNS records in OpenTofu
 
 ### Changed
 

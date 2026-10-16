@@ -73,6 +73,11 @@ infra/*.tfstate
 infra/*.tfstate.*
 infra/crash.log
 infra/crash.*.log
+# Local variable files: never committed, and not currently used (everything
+# environment-specific comes from secrets/oci.yaml via infra/tofu-env.sh), but
+# ignored so one cannot be added by accident.
+infra/terraform.tfvars
+infra/*.auto.tfvars
 # Saved plan written by `just -f infra/justfile plan-apply` (tofu plan -out=tfplan).
 # Kept ignored: a saved plan can embed resolved variable values, including secrets
 # passed in as TF_VAR_* (e.g. the Tailscale auth key), and it is never needed twice.

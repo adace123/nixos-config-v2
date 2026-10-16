@@ -29,7 +29,7 @@ variable "private_key_path" {
 }
 
 variable "ssh_public_key" {
-  description = "OpenSSH public key content for instance metadata. Defaults to the primary dathomir access key."
+  description = "OpenSSH public key(s) for instance metadata. Defaults to the primary dathomir access key. A newline-separated list works here, but note OCI refuses to change ssh_authorized_keys on a live instance — adding the other two hosts/dathomir keys means replacing the instance, and therefore re-running the conversion."
   type        = string
   default     = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC6DWf0lf4vWTAUmjkulvvZrhCifTS8eFqkDlHPSawrU"
 }
@@ -112,4 +112,41 @@ variable "assign_public_ip" {
   description = "Whether to assign a public IPv4 address. Keep false when accessing through Tailscale."
   type        = bool
   default     = false
+}
+
+# ── DNS (infra/dns.tf) ────────────────────────────────────────────────────────
+# The token, zone id and hostnames come from secrets/oci.yaml via
+# infra/tofu-env.sh, so none of them need to appear in this public repo.
+
+variable "cloudflare_api_token" {
+  description = "Cloudflare API token with DNS edit rights for the zone below (set by infra/tofu-env.sh via TF_VAR_cloudflare_api_token)"
+  type        = string
+  sensitive   = true
+}
+
+variable "cloudflare_zone_id" {
+  description = "Cloudflare zone holding the HA and beszel records (set via TF_VAR_cloudflare_zone_id)"
+  type        = string
+}
+
+variable "home_assistant_domain" {
+  description = "Public name for Home Assistant on coruscant (set via TF_VAR_home_assistant_domain)"
+  type        = string
+}
+
+variable "beszel_domain" {
+  description = "Public name for the beszel hub (set via TF_VAR_beszel_domain). Lives with Caddy on whatever host serves the hub — dathomir."
+  type        = string
+}
+
+variable "home_assistant_tailnet_ip" {
+  description = "Coruscant's Tailscale address. The record points here deliberately: the name resolves publicly but is routable only from inside the tailnet. Update it if that node ever re-registers."
+  type        = string
+  default     = "100.66.226.84"
+}
+
+variable "dathomir_tailnet_ip" {
+  description = "dathomir's Tailscale address — where the beszel hub lives. Same reasoning as above, same maintenance note."
+  type        = string
+  default     = "100.89.136.120"
 }
