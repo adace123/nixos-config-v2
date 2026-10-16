@@ -36,6 +36,7 @@ commit kinds that are exempt, live in
 - fix(dathomir): mark the Tailscale state for preservation before nixos-infect runs
 - fix(dathomir): set NODE on the already-NixOS convergence path
 - fix(just): pass the deploy target to nixos-remote-build positionally
+- fix(darwin): install sofka as a homebrew-core formula, not a nonexistent cask
 
 ## [2026.10.07.3] - 2026-10-07
 

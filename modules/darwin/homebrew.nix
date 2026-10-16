@@ -27,6 +27,7 @@ _: {
       "podman" # Container engine (remote client for coruscant)
       "pam-u2f" # YubiKey PAM module for sudo authentication
       "pre-commit" # Git hooks manager
+      "sofka" # Kubernetes TUI, reimagined in Rust (k9s alternative)
       "ykman" # YubiKey Manager CLI
       "terminal-notifier" # macOS notification tool
 
@@ -56,7 +57,6 @@ _: {
       "session-manager-plugin" # AWS SSM
       "ngrok"
       "stablyai/orca/orca"
-      "nklmilojevic/sofka/sofka"
 
       # Productivity
       "chatgpt" # OpenAI ChatGPT
