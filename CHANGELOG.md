@@ -38,6 +38,7 @@ commit kinds that are exempt, live in
 - fix(just): pass the deploy target to nixos-remote-build positionally
 - fix(darwin): install sofka as a homebrew-core formula, not a nonexistent cask
 - fix(just): verify a deploy by the host's running generation, and accept a target
+- fix(dathomir): cap boot generations so the 900MB /boot cannot fill
 
 ## [2026.10.07.3] - 2026-10-07
 

@@ -126,6 +126,10 @@ in
                   efiSupport = true;
                   efiInstallAsRemovable = true;
                   device = "nodev";
+                  # /boot on this image is a ~900 MB partition (sda16) and every
+                  # generation drops a kernel and an initrd into it, so bound it the
+                  # way the Pi hosts do — a full /boot makes rebuilds fail.
+                  configurationLimit = 5;
                 };
               };
               boot.initrd.availableKernelModules = [
