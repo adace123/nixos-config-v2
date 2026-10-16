@@ -329,6 +329,13 @@ ssh root@dathomir      # NixOS
 ssh ubuntu@dathomir    # only before the conversion
 ```
 
+The Tailscale auth key in `secrets/oci.yaml` decides *which* tailnet the instance
+joins: cloud-init uses whatever key it is handed, and an auth key belongs to one
+account, so a key from a different tailnet silently registers the box there
+instead — along with its DNS name. Keep that key and the tailnet you expect this
+host to appear on in step, and note that a Tailscale account switch on your
+workstation does not move the host.
+
 `infra/variables.tf` seeds the `ssh_authorized_keys` metadata (default: the
 primary dathomir access key), which cloud-init applies to the `ubuntu` user;
 `nixos-infect` then gives root the same keys. In NixOS, root login is
