@@ -22,7 +22,7 @@ never deployed to any host.
 secrets/endor.yaml                  ← endor's secrets (AI provider API keys)
 secrets/coruscant.yaml              ← coruscant's secrets (Tailscale, Caddy, HA)
 secrets/threepio.yaml               ← threepio's secrets (same set as coruscant)
-secrets/dathomir.yaml               ← dathomir's secrets (currently ts-auth-key)
+secrets/dathomir.yaml               ← dathomir's secrets (empty — placeholder for future ones)
 secrets/cloudflare.yaml             ← Restic → R2 credentials (both Pi hosts + CI)
 secrets/oci.yaml                    ← OCI/OpenTofu state credentials (CI only)
 
@@ -235,7 +235,7 @@ double-checking.
 |------|------|---------|
 | `endor.yaml` | `tinyfish-api-key`, `opencode-api-key` | Pi/hermes AI agents (home-manager) |
 | `coruscant.yaml` / `threepio.yaml` | `ts-auth-key`, `cloudflare-api-key`, `home-assistant-external-domain`, `beszel-domain`, `alexa-notify-me-api-key` | Tailscale auth, Caddy DNS-01, HA/Caddy vhosts, Beszel, Alexa Notify Me |
-| `dathomir.yaml` | `ts-auth-key` | Placeholder for future runtime secrets |
+| `dathomir.yaml` | *(none)* | Empty placeholder; dathomir takes its Tailscale key from `/etc/nixos/tailscale-authkey`, seeded during the conversion |
 | `cloudflare.yaml` | R2 endpoint/keys/bucket, `restic-password` | Restic backups (`home-assistant/restic.nix`) |
 | `oci.yaml` | OCI + OpenTofu state credentials | CI deploy workflow only |
 

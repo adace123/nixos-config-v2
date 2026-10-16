@@ -18,6 +18,7 @@ commit kinds that are exempt, live in
 
 ### Changed
 
+- chore(secrets): drop dathomir's revoked ts-auth-key
 - refactor(dathomir): boot an Oracle platform image and convert to NixOS in place
 - refactor(kanban): move the board into its own repo and consume it as a flake input
 

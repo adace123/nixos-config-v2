@@ -100,9 +100,10 @@ Before the pivot the script copies the Tailscale auth key out of
 across and discards `/var`), and adds `var/lib/tailscale` to the preserve list so
 the node keeps its identity — a single-use auth key would otherwise leave the
 converted box unreachable. The NixOS side reads the key from
-`/etc/nixos/tailscale-authkey`. Migrating that to sops-nix
-(`secrets/dathomir.yaml` already carries `ts-auth-key`) needs the host's age key
-installed from 1Password first, so it is not wired up yet.
+`/etc/nixos/tailscale-authkey`. Migrating that to sops-nix needs the host's age
+key installed from 1Password first, so it is not wired up yet — and note
+`secrets/dathomir.yaml` is currently empty, so that migration would add
+`ts-auth-key` back rather than find it already there.
 
 ## infra/ (OpenTofu)
 
