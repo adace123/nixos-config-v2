@@ -53,10 +53,10 @@ _: {
       "docker-desktop" # Docker
       "ghostty" # Terminal emulator
       "warp" # AI terminal
-      "lm-studio" # Local LLMs
       "session-manager-plugin" # AWS SSM
       "ngrok"
       "stablyai/orca/orca"
+      "nklmilojevic/sofka/sofka"
 
       # Productivity
       "chatgpt" # OpenAI ChatGPT

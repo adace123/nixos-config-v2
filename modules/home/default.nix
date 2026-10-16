@@ -13,6 +13,7 @@
     # Feature-specific modules.
     ./python.nix
     ./nodejs.nix
+    ./ollama.nix
     ./git.nix
     ./omniwm.nix
     ./ghostty.nix

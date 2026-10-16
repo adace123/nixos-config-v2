@@ -24,6 +24,10 @@ modules/home/ai/
 
 Shell aliases (`modules/home/zsh.nix` / agent modules)
 
+Ollama, the local LLM server these agents can point at, is not an agent and so
+lives outside `modules/home/ai/` — it is in `modules/home/ollama.nix`, documented
+under [docs/darwin.md → Ollama](darwin.md#ollama).
+
 | Alias | Command |
 |-------|---------|
 | `cc` / `cca` | `claude --permission-mode=auto` / `claude agents` |

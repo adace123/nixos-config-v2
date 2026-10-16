@@ -128,11 +128,62 @@ same pattern: add host metadata, then reuse shared modules.
   The generated `~/.npmrc` deliberately omits `prefer-offline` so npm
   revalidates registry metadata instead of serving stale packuments (the
   `ETARGET` failure this caused is described in [docs/ai.md](ai.md)).
+- **Ollama** (`ollama.nix`) — local LLM server as a per-user launchd agent on
+  `127.0.0.1:11434`; see [Ollama](#ollama).
 - **fastfetch** (`fastfetch.nix`) — `fastfetch` replaces `neofetch`, with a
   clean JSON config.
 
 See also [docs/ai.md](ai.md) for the AI agents (Claude, Pi, Hermes, Herdr)
 that run in this shell.
+
+## Ollama
+
+`modules/home/ollama.nix` runs [Ollama](https://ollama.com) as a local LLM
+server on this Mac:
+
+```shell
+ollama pull qwen3:8b           # models live in ~/.ollama
+curl http://127.0.0.1:11434    # "Ollama is running"
+```
+
+It uses home-manager's `services.ollama`, which on Darwin installs a per-user
+launchd agent — `~/Library/LaunchAgents/org.nix-community.home.ollama.plist`,
+loaded into the `gui` domain and wrapped in `wait4path /nix/store` so it does
+not race the store mount at login. The module adds `RunAtLoad` and log paths
+`~/Library/Logs/ollama.log` on top; the server restarts itself if it crashes.
+The `ollama` package comes from nixpkgs (flake-pinned, Metal-accelerated on
+Apple Silicon) rather than Homebrew or the official `.app`.
+
+Key properties:
+
+- **Localhost only.** `OLLAMA_HOST=127.0.0.1:11434`. Ollama has no
+  authentication, so binding `0.0.0.0` would give every host on the LAN
+  unrestricted use of this Mac's GPU. Change `host` in the module if that is
+  ever wanted deliberately.
+- **Offline-capable, self-contained.** Nothing here downloads models; pull them
+  by hand. To point models elsewhere, set `OLLAMA_MODELS` via
+  `services.ollama.environmentVariables`.
+- **LM Studio was removed** once Ollama took over the local-LLM role —
+  `cleanup = "zap"` in `modules/darwin/homebrew.nix` uninstalls it on the next
+  switch.
+
+Troubleshooting:
+
+Look for the `inference compute` line in the log on the first model load —
+`library=Metal` confirms the GPU backend loaded. That is the expected result on
+Apple Silicon: the nixpkgs build links `Metal.framework`/`MetalKit.framework`
+and embeds the ggml Metal backend (no separate `.metallib` file).
+
+```shell
+# agent state
+launchctl print gui/$(id -u)/org.nix-community.home.ollama
+
+# restart
+launchctl kickstart -k gui/$(id -u)/org.nix-community.home.ollama
+
+# server logs
+tail -f ~/Library/Logs/ollama.log
+```
 
 ## Window Management
 
@@ -194,6 +245,7 @@ Two consequences worth knowing:
 | `modules/home/fastfetch.nix` | `fastfetch` config |
 | `modules/home/nodejs.nix` | Bun/Node.js + TS tooling |
 | `modules/home/python.nix` | Python 3.14 + uv |
+| `modules/home/ollama.nix` | Ollama LLM server (per-user launchd agent) |
 | `modules/home/git.nix` | Git config, signing, aliases |
 | `modules/home/secrets.nix` | SOPS location for home secrets |
 | `modules/home/nix.nix` | `~/.config/nix/nix.conf` (Determinate Nix) |
