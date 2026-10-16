@@ -15,6 +15,7 @@ commit kinds that are exempt, live in
 - feat(just): notify on sudo auth during switch whether or not the lid is closed
 - feat(pi): run pi update --extensions at activation
 - feat(home): add OmniWM as the tiling window manager, replacing AeroSpace
+- feat(pre-commit): check that shebang scripts are executable
 
 ### Changed
 

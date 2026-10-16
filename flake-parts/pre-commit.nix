@@ -79,6 +79,14 @@
         # Check for case conflicts in filenames
         check-case-conflicts.enable = true;
 
+        # A shebang script without the executable bit only fails when something
+        # finally runs it — that is how `just dathomir-convert` died with exit 126
+        # ("Permission denied") having done nothing at all. Its pair,
+        # check-executables-have-shebangs, is deliberately not enabled: it flags
+        # every executable file, and the repo has files whose exec bit is set by
+        # whatever installs them rather than by git.
+        check-shebang-scripts-are-executable.enable = true;
+
         # shellcheck for shell script analysis
         shellcheck = {
           enable = true;
