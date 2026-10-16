@@ -680,7 +680,7 @@ nixos-remote-build TARGET="":
 nixos-deploy TARGET="":
     #!/usr/bin/env bash
     set -euo pipefail
-    just nixos-remote-build TARGET="{{ TARGET }}"
+    just nixos-remote-build "{{ TARGET }}"
     TARGET="{{ TARGET }}"
     if [ -z "$TARGET" ]; then
         TARGET="{{ NHOST }}.local"
