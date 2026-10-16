@@ -36,6 +36,21 @@ resource "oci_core_internet_gateway" "nixos" {
   enabled        = true
 }
 
+# Outbound-only internet access, and it is not optional: an internet gateway only
+# routes traffic for VNICs that have a public IP, and this instance deliberately
+# has none (see `assign_public_ip`). Without a NAT gateway the instance has no
+# egress whatsoever — which breaks cloud-init's Tailscale install on first boot
+# and every nix build the host runs later (including the conversion).
+resource "oci_core_nat_gateway" "nixos" {
+  compartment_id = var.compartment_ocid
+  vcn_id         = oci_core_vcn.nixos.id
+  display_name   = "nixos-nat"
+}
+
+# Historic name: the default route now points at the NAT gateway rather than the
+# internet gateway above, so this subnet is outbound-only in practice. The
+# internet gateway is deliberately left unrouted — the design has no public
+# ingress path, and Tailscale is how you reach the box.
 resource "oci_core_route_table" "public" {
   compartment_id = var.compartment_ocid
   vcn_id         = oci_core_vcn.nixos.id
@@ -43,7 +58,7 @@ resource "oci_core_route_table" "public" {
 
   route_rules {
     destination       = "0.0.0.0/0"
-    network_entity_id = oci_core_internet_gateway.nixos.id
+    network_entity_id = oci_core_nat_gateway.nixos.id
   }
 }
 
