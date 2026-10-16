@@ -315,7 +315,7 @@ nixos-init TARGET="" CONFIG=NINSTALL:
 # TARGET: optional hostname/IP (default: dathomir)
 [group('nixos')]
 dathomir-convert TARGET="dathomir":
-    scripts/dathomir-convert.sh "{{ TARGET }}"
+    ./scripts/dathomir-convert.sh "{{ TARGET }}"
 
 # Build the NixOS configuration for Raspberry Pi
 [group('nixos')]

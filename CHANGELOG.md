@@ -24,6 +24,7 @@ commit kinds that are exempt, live in
 
 ### Fixed
 
+- fix(dathomir): make the conversion script executable
 - fix(secrets): replace dathomir's revoked Tailscale auth key
 - fix(dathomir): add the NAT gateway the public-IP-less instance needs for egress
 - fix(dathomir): use the platform image's real disk labels, including /boot

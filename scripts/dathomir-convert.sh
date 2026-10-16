@@ -36,6 +36,15 @@ SSH_OPTS=(
 	-o ServerAliveInterval=30
 )
 
+# Extra ssh options, for an operator whose key is not the workstation default —
+# e.g. NIX_SSHOPTS="-i /tmp/breakglass" when the instance was created with a
+# different authorized key. nixos-rebuild honours the same variable during the
+# convergence step, so one export covers both halves of this script.
+if [[ -n ${NIX_SSHOPTS:-} ]]; then
+	read -r -a extra_ssh_opts <<<"$NIX_SSHOPTS"
+	SSH_OPTS+=("${extra_ssh_opts[@]}")
+fi
+
 log() { printf '\n== %s\n' "$*"; }
 die() {
 	printf 'ERROR: %s\n' "$*" >&2
