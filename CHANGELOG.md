@@ -24,6 +24,7 @@ commit kinds that are exempt, live in
 
 ### Fixed
 
+- fix(dathomir): read the Tailscale key file as root in the conversion guard
 - fix(dathomir): make the conversion script executable
 - fix(secrets): replace dathomir's revoked Tailscale auth key
 - fix(dathomir): add the NAT gateway the public-IP-less instance needs for egress

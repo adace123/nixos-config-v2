@@ -97,8 +97,10 @@ else
 		die "$TARGET does not look like the Ubuntu platform image; not converting it"
 
 	# The auth key cloud-init wrote must exist *before* the pivot: it is the only
-	# way back in, since the instance has no public IP.
-	ssh_as ubuntu "$TARGET" 'test -s /var/lib/tailscale/authkey' ||
+	# way back in, since the instance has no public IP. Checked with sudo because
+	# the file is 0600 root:root — as the ubuntu user, `test -s` fails on EACCES
+	# and looks like a missing file.
+	ssh_as ubuntu "$TARGET" 'sudo test -s /var/lib/tailscale/authkey' ||
 		die "$TARGET has no /var/lib/tailscale/authkey — did cloud-init run? (tailnet access would be lost on conversion)"
 
 	log "Staging the preserved Tailscale key and the NixOS import module"
