@@ -110,6 +110,17 @@ else
 	scp "${SSH_OPTS[@]}" "$IMPORT_MODULE" "ubuntu@$TARGET:/tmp/dathomir-import.nix"
 	ssh_as ubuntu "$TARGET" 'sudo install -m 600 /tmp/dathomir-import.nix /etc/nixos/dathomir-import.nix && rm -f /tmp/dathomir-import.nix'
 
+	# Carry the Tailscale node identity (/var/lib/tailscale) across the pivot, not
+	# just the key. `NIXOS_LUSTRATE` discards everything it does not list, and
+	# nixos-infect only appends its own entries (etc/nixos, ssh host keys, ...).
+	# Without this the converted box has to authenticate a second time: fine with a
+	# reusable key, fatal with a single-use one, since the box has no public IP.
+	# Written *before* nixos-infect runs, because the infection can drop the SSH
+	# connection as it finishes — a post-hoc edit would then never happen (it did
+	# not, on the first real run). nixos-infect only appends to this file.
+	log "Marking /var/lib/tailscale to be preserved across the pivot"
+	ssh_as ubuntu "$TARGET" 'grep -qx "var/lib/tailscale" /etc/NIXOS_LUSTRATE 2>/dev/null || (echo "var/lib/tailscale" | sudo tee -a /etc/NIXOS_LUSTRATE >/dev/null)'
+
 	log "Fetching nixos-infect $NIXOS_INFECT_REV and verifying it"
 	infect_file="$(mktemp)"
 	trap 'rm -f "$infect_file"' EXIT
@@ -121,18 +132,12 @@ else
 
 	log "Running the verified nixos-infect on $TARGET — this takes a while"
 	scp "${SSH_OPTS[@]}" "$infect_file" "ubuntu@$TARGET:/tmp/nixos-infect"
-	ssh_as ubuntu "$TARGET" 'sudo env NIXOS_IMPORT=./dathomir-import.nix bash /tmp/nixos-infect'
-	ssh_as ubuntu "$TARGET" 'rm -f /tmp/nixos-infect' || true
-
-	# Carry the Tailscale node identity (/var/lib/tailscale) across the pivot, not
-	# just the key: nixos-infect writes /etc/NIXOS_LUSTRATE with the paths to keep
-	# (etc/nixos, ssh host keys, ...) and discards the rest, so without this the
-	# converted box has to authenticate a second time — and a single-use auth key
-	# would leave it unreachable, since it has no public IP. With the state kept,
-	# tailscaled comes up already logged in and the key in /etc/nixos is only a
-	# fallback.
-	log "Preserving /var/lib/tailscale across the pivot"
-	ssh_as ubuntu "$TARGET" 'grep -qx "var/lib/tailscale" /etc/NIXOS_LUSTRATE || echo "var/lib/tailscale" | sudo tee -a /etc/NIXOS_LUSTRATE'
+	# A non-zero exit here is not by itself a failure: nixos-infect rewrites /boot and
+	# the bootloader as it finishes and the connection often drops with it. The wait
+	# for NixOS below is what decides whether the conversion actually took.
+	if ! ssh_as ubuntu "$TARGET" 'sudo env NIXOS_IMPORT=./dathomir-import.nix bash /tmp/nixos-infect'; then
+		printf 'note: the nixos-infect session ended non-zero (it drops the connection as it finishes).\n'
+	fi
 
 	log "Rebooting into NixOS"
 	ssh_as ubuntu "$TARGET" 'sudo reboot' || true
@@ -159,9 +164,11 @@ fi
 # booting a system whose fileSystems do not match the disk is not a failure you
 # can recover from over SSH.
 log "Verifying the instance's filesystem labels match the flake configuration"
-if ! ssh_as root "$NODE" 'test -e /dev/disk/by-label/cloudimg-rootfs && test -e /dev/disk/by-partlabel/ESP'; then
-	ssh_as root "$NODE" 'findmnt -no SOURCE,FSTYPE,TARGET / /boot/efi; ls /dev/disk/by-label /dev/disk/by-partlabel' || true
-	die "this instance's labels are above; modules expect by-label/cloudimg-rootfs and by-partlabel/ESP — fix fileSystems before converging"
+# $p must expand on the remote host, not here.
+# shellcheck disable=SC2016
+if ! ssh_as root "$NODE" 'for p in /dev/disk/by-label/cloudimg-rootfs /dev/disk/by-label/BOOT /dev/disk/by-label/UEFI; do [ -e "$p" ] || exit 1; done'; then
+	ssh_as root "$NODE" 'findmnt -no SOURCE,FSTYPE,TARGET / /boot /boot/efi; ls /dev/disk/by-label' || true
+	die "the labels above do not match fileSystems in flake-parts/nixos.nix (by-label/cloudimg-rootfs, by-label/BOOT, by-label/UEFI) — fix the config before converging"
 fi
 
 log "Activating the flake configuration on $NODE (built on the host, no local aarch64 builder needed)"

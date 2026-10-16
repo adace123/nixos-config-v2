@@ -18,19 +18,20 @@ commit kinds that are exempt, live in
 
 ### Changed
 
-- chore(secrets): drop dathomir's revoked ts-auth-key
-- refactor(dathomir): boot an Oracle platform image and convert to NixOS in place
 - refactor(kanban): move the board into its own repo and consume it as a flake input
+- refactor(dathomir): boot an Oracle platform image and convert to NixOS in place
+- chore(secrets): drop dathomir's revoked ts-auth-key
 
 ### Fixed
 
-- fix(dathomir): read the Tailscale key file as root in the conversion guard
-- fix(dathomir): make the conversion script executable
-- fix(secrets): replace dathomir's revoked Tailscale auth key
-- fix(dathomir): add the NAT gateway the public-IP-less instance needs for egress
-- fix(dathomir): use the platform image's real disk labels, including /boot
 - fix(claude): read auto-format hook input from stdin, register context7 at user scope, drop dead settings
 - fix(claude): remove outputStyle, which matched no built-in style and had no effect
+- fix(dathomir): use the platform image's real disk labels, including /boot
+- fix(dathomir): add the NAT gateway the public-IP-less instance needs for egress
+- fix(secrets): replace dathomir's revoked Tailscale auth key
+- fix(dathomir): make the conversion script executable
+- fix(dathomir): read the Tailscale key file as root in the conversion guard
+- fix(dathomir): mark the Tailscale state for preservation before nixos-infect runs
 
 ## [2026.10.07.3] - 2026-10-07
 
