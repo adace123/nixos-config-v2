@@ -22,6 +22,7 @@ commit kinds that are exempt, live in
 - feat(infra): manage the ha and beszel DNS records in OpenTofu
 - feat(dathomir): add Pocket ID for passkey logins to the beszel hub
 - feat(darwin): resolve DNS through Cloudflare's resolvers
+- feat(beszel): enable agents on dathomir and coruscant with a universal token
 
 ### Changed
 
