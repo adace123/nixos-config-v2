@@ -85,9 +85,6 @@ in
       "${dathomirHost.hostName}" = mkSystem dathomirHost {
         modules = [
           inputs.sops-nix.nixosModules.sops
-          # Runs the beszel agent here as well as the hub, so the box reports to
-          # itself (and needs its own beszel-agent-key in secrets/dathomir.yaml).
-          ../modules/nixos/beszel-agent.nix
           (
             {
               config,
@@ -259,7 +256,13 @@ in
               time.timeZone = "America/Los_Angeles";
             }
           )
-        ];
+        ]
+        # The agent is gated on the same per-host flag the Pi hosts use, because its
+        # key is minted by the hub and a declared-but-missing secret fails
+        # activation — so the hub has to be deployed, and a system added to it,
+        # before the agent can be switched on here.
+        ++ inputs.nixpkgs.lib.optional (dathomirHost.beszelAgent or false
+        ) ../modules/nixos/beszel-agent.nix;
       };
     };
 }
