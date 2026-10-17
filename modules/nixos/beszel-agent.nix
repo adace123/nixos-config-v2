@@ -3,20 +3,24 @@
   ...
 }:
 {
-  # Beszel agent, authenticating with a *universal token* rather than the
-  # per-system `KEY` that the hub's "Add system" flow hands out.
+  # Beszel agent, dialling the hub over an outgoing WebSocket with a *universal
+  # token* rather than waiting for the hub to dial it over inbound SSH.
   #
-  # Why: with TOKEN + HUB_URL the agent makes an outgoing WebSocket connection to
-  # the hub, so nothing needs to reach the agent (no inbound 45876, no firewall
-  # exemption) and the hub needs no per-system key — which means provisioning an
-  # agent is one shared secret and a deploy, not a click in the hub UI followed by
-  # copying a unique key into that host's secrets. Create the token once at
-  # /settings/tokens and put the same value in each host's file below; it can also
-  # be created through the hub's PocketBase API with a superuser token.
+  # The agent needs three values. TOKEN is the universal token, created once at
+  # the hub's /settings/tokens (the same value on every agent; it can also be
+  # created through the hub's PocketBase API with a superuser token). HUB_URL is
+  # the hub's public name, already in this host's secrets. KEY is the hub's SSH
+  # *public* key, which the agent uses to verify the hub's auth-challenge
+  # signature — the 0.20.0 agent refuses to start without it even in token mode.
+  # The hub keeps one global ed25519 keypair at
+  # /var/lib/beszel-hub/beszel_data/id_ed25519, so every agent uses the same KEY;
+  # derive it with `ssh-keygen -y -f` on the hub host. (It is public, but lives
+  # in sops alongside the token to keep one mechanism for agent credentials.)
   #
-  # Add `beszel-token` to the host's file in secrets/ BEFORE deploying: this
-  # template renders it, and a missing value fails activation.
+  # Add `beszel-token` and `beszel-key` to the host's file in secrets/ BEFORE
+  # deploying: this template renders them, and a missing value fails activation.
   sops.secrets.beszel-token = { };
+  sops.secrets.beszel-key = { };
   # The hub's public name, already in this host's secrets, is the URL the agent
   # dials. dathomir could short-circuit to 127.0.0.1:8090, but going through the
   # name is what every other host has to do, and keeps one code path.
@@ -26,6 +30,7 @@
     content = ''
       TOKEN=${config.sops.placeholder.beszel-token}
       HUB_URL=https://${config.sops.placeholder.beszel-domain}
+      KEY=${config.sops.placeholder.beszel-key}
     '';
     owner = "beszel-agent";
     group = "beszel-agent";

@@ -386,7 +386,10 @@ the tailnet. Both authenticate with a **universal token** — create it once at
 `/settings/tokens` and put the same value in each host's `beszel-token` secret —
 and dial the hub over an outgoing WebSocket connection. So nothing has to reach the
 agent, the hub needs no per-system key, and provisioning an agent is a shared
-secret plus a deploy rather than a click in the UI. A missing secret fails
+secret, the hub's SSH public key, plus a deploy rather than a click in the UI.
+The agent also needs the hub's SSH public key (`beszel-key`, derived from the
+hub's keypair with `ssh-keygen -y`) to verify the hub's auth-challenge signature —
+the 0.20.0 agent refuses to start without it even in token mode. A missing secret fails
 activation, so add it before deploying.
 
 ## Pocket ID (passkey login for the hub)

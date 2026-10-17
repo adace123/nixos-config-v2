@@ -55,6 +55,7 @@ commit kinds that are exempt, live in
 - fix(beszel): keep the agents off until the hub can mint their keys
 - fix(caddy): refresh the Cloudflare-plugin fixed-output hash
 - fix(caddy): reload when the Caddyfile template changes, not just when a secret does
+- fix(beszel): give agents the hub SSH public key (KEY), required alongside the universal token
 
 ## [2026.10.07.3] - 2026-10-07
 

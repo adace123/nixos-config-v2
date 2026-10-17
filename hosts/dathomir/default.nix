@@ -3,7 +3,8 @@
   system = "aarch64-linux";
 
   # Reports to the beszel hub this host itself runs (see flake-parts/nixos.nix),
-  # authenticating with the universal `beszel-token` in secrets/dathomir.yaml.
+  # authenticating with the universal `beszel-token` and the hub SSH public key
+  # `beszel-key` in secrets/dathomir.yaml.
   beszelAgent = true;
 
   sshPublicKeys = [
