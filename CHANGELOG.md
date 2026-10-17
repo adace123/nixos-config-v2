@@ -23,6 +23,7 @@ commit kinds that are exempt, live in
 - feat(dathomir): add Pocket ID for passkey logins to the beszel hub
 - feat(darwin): resolve DNS through Cloudflare's resolvers
 - feat(beszel): enable agents on dathomir and coruscant with a universal token
+- feat(beszel): run hub and agents from upstream 0.21.0 release binaries for the service-logs panel
 
 ### Changed
 

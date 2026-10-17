@@ -239,6 +239,9 @@ in
               # outside the tailnet — and proxies the hub, which stays on localhost.
               services.beszel.hub = {
                 enable = true;
+                # Upstream release binaries (0.21.0 has the service-logs panel;
+                # nixpkgs only has 0.20.0). Shared definition in nix-beszel.nix.
+                package = import ../nix-beszel.nix { inherit pkgs; };
                 host = "127.0.0.1";
                 port = 8090;
                 # OAuth accounts are created on first login. The client itself is

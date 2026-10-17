@@ -1,5 +1,6 @@
 {
   config,
+  pkgs,
   ...
 }:
 {
@@ -11,7 +12,7 @@
   # created through the hub's PocketBase API with a superuser token). HUB_URL is
   # the hub's public name, already in this host's secrets. KEY is the hub's SSH
   # *public* key, which the agent uses to verify the hub's auth-challenge
-  # signature — the 0.20.0 agent refuses to start without it even in token mode.
+  # signature — beszel agents refuse to start without it even in token mode.
   # The hub keeps one global ed25519 keypair at
   # /var/lib/beszel-hub/beszel_data/id_ed25519, so every agent uses the same KEY;
   # derive it with `ssh-keygen -y -f` on the hub host. (It is public, but lives
@@ -39,6 +40,8 @@
 
   services.beszel.agent = {
     enable = true;
+    # Same pinned build as the hub: hub and agent must speak the same protocol.
+    package = import ../../nix-beszel.nix { inherit pkgs; };
     environmentFile = config.sops.templates."beszel-agent-env".path;
   };
 
