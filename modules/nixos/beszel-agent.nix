@@ -41,4 +41,10 @@
     enable = true;
     environmentFile = config.sops.templates."beszel-agent-env".path;
   };
+
+  # The agent serves each monitored service's journal (last 200 lines) to the
+  # hub UI, and reads it with journalctl — which needs journal access. Without
+  # this the services list still shows but the logs panel is hidden. The agent
+  # checks access at startup, so a restart picks up permission changes.
+  systemd.services.beszel-agent.serviceConfig.SupplementaryGroups = [ "systemd-journal" ];
 }

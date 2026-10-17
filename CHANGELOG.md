@@ -56,6 +56,7 @@ commit kinds that are exempt, live in
 - fix(caddy): refresh the Cloudflare-plugin fixed-output hash
 - fix(caddy): reload when the Caddyfile template changes, not just when a secret does
 - fix(beszel): give agents the hub SSH public key (KEY), required alongside the universal token
+- fix(beszel): give the agent journal access so service logs show in the hub UI
 
 ## [2026.10.07.3] - 2026-10-07
 

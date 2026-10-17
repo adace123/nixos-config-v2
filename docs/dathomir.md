@@ -389,7 +389,9 @@ agent, the hub needs no per-system key, and provisioning an agent is a shared
 secret, the hub's SSH public key, plus a deploy rather than a click in the UI.
 The agent also needs the hub's SSH public key (`beszel-key`, derived from the
 hub's keypair with `ssh-keygen -y`) to verify the hub's auth-challenge signature —
-the 0.20.0 agent refuses to start without it even in token mode. A missing secret fails
+the 0.20.0 agent refuses to start without it even in token mode. The unit also
+joins `systemd-journal` so the hub UI can show each service's journal, not just
+its status — without that group the logs panel is hidden. A missing secret fails
 activation, so add it before deploying.
 
 ## Pocket ID (passkey login for the hub)
