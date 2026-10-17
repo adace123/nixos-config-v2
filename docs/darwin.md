@@ -185,6 +185,18 @@ launchctl kickstart -k gui/$(id -u)/org.nix-community.home.ollama
 tail -f ~/Library/Logs/ollama.log
 ```
 
+## DNS
+
+`modules/darwin/dns.nix` points every enabled network service at Cloudflare's
+resolvers (`1.1.1.1`, `1.0.0.1`) at activation — macOS stores DNS per service, so
+the script walks them rather than setting it globally.
+
+It coexists with Tailscale instead of replacing it: Tailscale answers tailnet names
+itself (`dathomir-1`, `*.ts.net`, …) and forwards everything else to the service's
+resolver, so Cloudflare is what reaches the public internet.
+
+Applied by `just switch`; there is nothing else to run.
+
 ## Window Management
 
 OmniWM (`modules/home/omniwm.nix`) is the tiling window manager: Niri-style

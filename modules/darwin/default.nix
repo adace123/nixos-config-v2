@@ -4,6 +4,7 @@
     ./homebrew.nix
     ./fonts.nix
     ./auto-update.nix
+    ./dns.nix
   ];
 
   # User configuration
