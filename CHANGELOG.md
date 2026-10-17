@@ -52,6 +52,7 @@ commit kinds that are exempt, live in
 - fix(dathomir-convert): refuse piped runs and say why a target is unreachable
 - fix(beszel): keep the agents off until the hub can mint their keys
 - fix(caddy): refresh the Cloudflare-plugin fixed-output hash
+- fix(caddy): reload when the Caddyfile template changes, not just when a secret does
 
 ## [2026.10.07.3] - 2026-10-07
 
