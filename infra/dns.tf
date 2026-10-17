@@ -22,6 +22,19 @@ resource "cloudflare_dns_record" "home_assistant" {
   comment = "Home Assistant on coruscant — Tailscale-only by design (managed by OpenTofu, nixos-config-v2)"
 }
 
+# Pocket ID, the passkey identity provider the hub delegates its logins to. Same
+# tailnet-only treatment, and new rather than imported — nothing served this name
+# before.
+resource "cloudflare_dns_record" "pocket_id" {
+  zone_id = var.cloudflare_zone_id
+  name    = var.pocket_id_domain
+  type    = "A"
+  content = var.dathomir_tailnet_ip
+  ttl     = 1 # automatic
+  proxied = false
+  comment = "Pocket ID on dathomir — Tailscale-only by design (managed by OpenTofu, nixos-config-v2)"
+}
+
 # The hub moved from the Pi hosts to dathomir, so this record now points at
 # dathomir's tailnet address. Repointing it takes the name away from the hub that
 # still runs on the Pi hosts, whatever else the old one was serving.

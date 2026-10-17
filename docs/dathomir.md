@@ -389,6 +389,42 @@ agent, the hub needs no per-system key, and provisioning an agent is a shared
 secret plus a deploy rather than a click in the UI. A missing secret fails
 activation, so add it before deploying.
 
+## Pocket ID (passkey login for the hub)
+
+`id.<domain>` serves [Pocket ID](https://pocket-id.org) from dathomir — a
+passkey-based identity provider the hub delegates its logins to, so signing in uses
+a passkey rather than a password. It is published exactly like the hub: a public
+name whose A record points at this host's tailnet address.
+
+Two things are worth knowing before touching its configuration:
+
+- **`APP_URL` and `ENCRYPTION_KEY` are supplied through
+  `services.pocket-id.credentials`, not `settings`.** A settings value is rendered
+  into the Nix store at build time, where a sops placeholder cannot be substituted
+  (it lands literally, and Pocket ID rejects it) — and the module appends its own
+  settings file *after* the host's, so its `APP_URL = http://localhost` default would
+  win regardless. Credentials are exported inside the start script, after
+  `EnvironmentFile` is applied. Pocket ID also wants a *full URL*: a credential is
+  read verbatim, so the `https://` scheme has to be in the file a template renders —
+  pointing the credential at the bare domain secret gives "APP_URL must not contain a
+  path", because a scheme-less string parses as one.
+- **The OIDC client for the hub lives in the hub's own settings, not this repo**
+  (client id, secret and the three endpoints). It is the one piece of this setup that
+  is not declarative.
+
+Enrolment: open `https://id.<domain>`, create the admin account with a passkey, then
+**Administration → OIDC Clients → Add** with callback
+`https://monitoring.<domain>/api/oauth2-redirect`, PKCE on, and verified emails on
+(the hub requires a verified address). Paste those values into the hub's OAuth2
+settings.
+
+The hub runs with `USER_CREATION=true`. **`DISABLE_PASSWORD_AUTH=true` is deliberately
+not set** — switch it on only once a passkey login has been verified, because doing
+it first locks everyone out of the hub.
+
+Neither Pocket ID's database nor the hub's is backed up, so losing this host means
+re-enrolling passkeys and re-adding systems; see [docs/backups.md](backups.md).
+
 ## Destroying the VPS
 
 Destroying the instance is reversible (state is in R2), but remember it also

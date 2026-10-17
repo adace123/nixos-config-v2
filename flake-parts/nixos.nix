@@ -187,6 +187,49 @@ in
                 secrets = {
                   beszel-domain = { };
                   cloudflare-api-key = { };
+                  # Generated once and never printed; Pocket ID reads it through a
+                  # systemd credential, so it stays out of the Nix store.
+                  pocket-id-encryption-key = { };
+                  pocket-id-domain = { };
+                };
+              };
+
+              # Pocket ID: passkey-based identity provider, which is what gives the
+              # hub its passkey login. Published on the tailnet exactly like the hub
+              # — a public name whose A record points at this host's Tailscale
+              # address — with its certificate from the same Cloudflare DNS-01 setup.
+              # APP_URL carries the domain, which lives in sops. A sops *placeholder*
+              # is only substituted inside sops-rendered content (templates/files) —
+              # put it in an ordinary settings attrset and the literal placeholder
+              # Pocket ID wants a full URL, and a credential is read verbatim — so the
+              # scheme has to be in the file the credential points at, not just the
+              # bare hostname that the DNS record and Caddy vhost need. Hence a
+              # template: pointing APP_URL at the domain secret itself gave
+              # "APP_URL must not contain a path", because a scheme-less string parses
+              # as one.
+              sops.templates."pocket-id-app-url" = {
+                content = "https://${config.sops.placeholder.pocket-id-domain}";
+              };
+
+              services.pocket-id = {
+                enable = true;
+                settings = {
+                  PORT = 1411;
+                  # Behind Caddy, so it must trust forwarded headers.
+                  TRUST_PROXY = true;
+                  ANALYTICS_DISABLED = true;
+                };
+                credentials = {
+                  # Neither value may enter the store, so both are handed over as
+                  # systemd credentials built from sops-rendered files.
+                  ENCRYPTION_KEY = config.sops.secrets.pocket-id-encryption-key.path;
+                  # APP_URL goes through `credentials` rather than `settings` because a
+                  # settings value is rendered into the store at build time (so a sops
+                  # placeholder could not be substituted) *and* the module appends its
+                  # own settings file after this host's, where its
+                  # `APP_URL = http://localhost` default would win. Credentials are
+                  # exported inside the start script, after EnvironmentFile is applied.
+                  APP_URL = config.sops.templates."pocket-id-app-url".path;
                 };
               };
 
@@ -198,6 +241,13 @@ in
                 enable = true;
                 host = "127.0.0.1";
                 port = 8090;
+                # OAuth accounts are created on first login. The client itself is
+                # configured in the hub's own settings (see docs/dathomir.md) because
+                # it lives in the hub database, not here.
+                #
+                # DISABLE_PASSWORD_AUTH is deliberately NOT set yet: turning it on
+                # before a passkey login has been verified locks everyone out.
+                environment.USER_CREATION = "true";
               };
 
               sops.templates."caddy-env" = {
@@ -218,6 +268,10 @@ in
                   ${config.sops.placeholder.beszel-domain} {
                     reverse_proxy 127.0.0.1:8090
                   }
+
+                  ${config.sops.placeholder.pocket-id-domain} {
+                    reverse_proxy 127.0.0.1:1411
+                  }
                 '';
                 owner = "caddy";
                 group = "caddy";
@@ -236,6 +290,13 @@ in
               systemd.services.caddy.restartTriggers = [
                 config.sops.secrets.cloudflare-api-key.path
                 config.sops.secrets.beszel-domain.path
+                config.sops.secrets.pocket-id-domain.path
+                # A sops template is rewritten on every activation but keeps the same
+                # path, so a change to the template itself is invisible to systemd and
+                # Caddy would go on serving the old config until something else
+                # restarted it. This store path is keyed by the template's own text,
+                # so it changes exactly when the Caddyfile does.
+                (pkgs.writeText "caddyfile-source" config.sops.templates."caddyfile".content)
               ];
 
               nix = {

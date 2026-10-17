@@ -139,6 +139,11 @@ variable "beszel_domain" {
   type        = string
 }
 
+variable "pocket_id_domain" {
+  description = "Public name for Pocket ID, the passkey identity provider the hub delegates its logins to (set via TF_VAR_pocket_id_domain). Served from dathomir too."
+  type        = string
+}
+
 variable "home_assistant_tailnet_ip" {
   description = "Coruscant's Tailscale address. The record points here deliberately: the name resolves publicly but is routable only from inside the tailnet. Update it if that node ever re-registers."
   type        = string
