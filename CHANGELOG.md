@@ -30,6 +30,7 @@ commit kinds that are exempt, live in
 - refactor(caddy): share the Cloudflare-plugin Caddy build via nix-caddy.nix
 - refactor(beszel): move the hub off the Pi hosts, add agents on dathomir and coruscant
 - refactor(beszel): authenticate agents with a universal token instead of per-system keys
+- chore(infra): commit the provider lockfile for the Cloudflare provider
 
 ### Fixed
 
