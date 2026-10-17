@@ -350,9 +350,11 @@ key-only (`PermitRootLogin = "prohibit-password"`), which is what
 `just nixos-deploy` needs — a change from the previous design, which forbade
 root login entirely because nothing deployed to the box.
 
-If the tailnet name comes back as `dathomir-1`, the pre-conversion node still
-holds `dathomir`: delete that stale node in the Tailscale admin console and the
-plain name returns. `scripts/dathomir-convert.sh` prints this when it happens.
+If the tailnet name comes back as `dathomir-1`, note that deleting the stale node
+does not rename the live one: the suffix was fixed when this node registered while
+`dathomir` was taken. Rename the device in the Tailscale admin console (Devices →
+this host) and MagicDNS follows — the host's own hostname is already `dathomir`, so
+nothing on the box needs changing.
 
 ## Beszel hub (tailnet-only, with a real TLS name)
 
