@@ -25,7 +25,11 @@ NIXOS_INFECT_SHA256="4354bd68773b41da65c0e815202c43c8549713b3ed3ff6381c71fbc0b0a
 NIXOS_INFECT_URL="https://raw.githubusercontent.com/elitak/nixos-infect/${NIXOS_INFECT_REV}/nixos-infect"
 
 TARGET="${1:-dathomir}"
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# BASH_SOURCE is unset when the script is piped or pasted into a shell, and the $0
+# fallback then names the shell rather than this file — so the result is checked
+# below rather than trusted.
+SELF="${BASH_SOURCE[0]:-$0}"
+REPO_ROOT="$(cd "$(dirname "$SELF")/.." && pwd)"
 IMPORT_MODULE="$REPO_ROOT/infra/dathomir-infect-import.nix"
 BOOT_TIMEOUT_SECONDS="${BOOT_TIMEOUT_SECONDS:-900}"
 
@@ -50,6 +54,11 @@ die() {
 	printf 'ERROR: %s\n' "$*" >&2
 	exit 1
 }
+
+# Both of these are derived from this file's own location, so a piped or pasted
+# run has to fail loudly here rather than half-work with an empty REPO_ROOT.
+[[ -f $IMPORT_MODULE ]] ||
+	die "cannot find infra/dathomir-infect-import.nix relative to '${SELF}' — run this as a file (bash scripts/dathomir-convert.sh [target]), not piped or pasted"
 
 # SC2029 is about *unintended* client-side expansion. Here it is the point: callers
 # pass fully-formed remote commands, and the arguments are already quoted at each
@@ -97,9 +106,15 @@ NODE="$TARGET"
 if is_nixos "$TARGET"; then
 	log "$TARGET is already NixOS — skipping the conversion"
 else
-	log "Checking $TARGET is the Oracle platform image (Ubuntu)"
+	# Reachability first, and separately: an unresolvable name, an unauthorized
+	# key, and being on a different tailnet all make the Ubuntu check below fail,
+	# and its message then sends you looking in entirely the wrong place.
+	log "Checking $TARGET is reachable, and is the Oracle platform image (Ubuntu)"
+	ssh_as ubuntu "$TARGET" true ||
+		die "$TARGET is not reachable as ubuntu@$TARGET — does the name resolve (are you on the same tailnet as the host?) and is your SSH key authorized on it?"
+
 	ssh_as ubuntu "$TARGET" 'grep -q Ubuntu /etc/os-release' ||
-		die "$TARGET does not look like the Ubuntu platform image; not converting it"
+		die "$TARGET answers over SSH but is not the Ubuntu platform image; not converting it"
 
 	# The auth key cloud-init wrote must exist *before* the pivot: it is the only
 	# way back in, since the instance has no public IP. Checked with sudo because

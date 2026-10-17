@@ -46,6 +46,7 @@ commit kinds that are exempt, live in
 - fix(just): verify a deploy by the host's running generation, and accept a target
 - fix(dathomir): cap boot generations so the 900MB /boot cannot fill
 - fix(pre-commit): use `excludes`, the option git-hooks.nix actually reads
+- fix(dathomir-convert): refuse piped runs and say why a target is unreachable
 
 ## [2026.10.07.3] - 2026-10-07
 
