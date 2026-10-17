@@ -3,9 +3,9 @@
   system = "aarch64-linux";
 
   # Reports to the beszel hub this host itself runs (see flake-parts/nixos.nix).
-  # Off until `beszel-agent-key` is in secrets/dathomir.yaml — the hub mints it
-  # when the system is added there, and a declared-but-missing secret fails
-  # activation. Flip to true in the same change that adds the key.
+  # Off until `beszel-token` (a universal token, created once at the hub's
+  # /settings/tokens) is in secrets/dathomir.yaml — a declared-but-missing secret
+  # fails activation. Flip to true in the same change that adds the token.
   beszelAgent = false;
 
   sshPublicKeys = [

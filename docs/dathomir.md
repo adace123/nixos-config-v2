@@ -381,12 +381,13 @@ The hub itself stays on `127.0.0.1:8090`, so only Caddy is reachable. Clients mu
 be on the same tailnet as dathomir — including any host that should *report* to
 the hub, since Tailscale-only cuts both ways.
 
-dathomir also runs the **agent** (reporting to its own hub), and coruscant runs
-one pointed at this hub over the tailnet. Each agent needs its own
-`beszel-agent-key` in that host's secrets file — the hub mints one when you add
-the system in its UI — and a missing value fails activation, so add it before
-deploying. The hub polls each agent on 45876: coruscant's is reachable because its
-firewall trusts `tailscale0`, dathomir's over loopback.
+dathomir also runs the **agent**, and coruscant runs one pointed at this hub over
+the tailnet. Both authenticate with a **universal token** — create it once at
+`/settings/tokens` and put the same value in each host's `beszel-token` secret —
+and dial the hub over an outgoing WebSocket connection. So nothing has to reach the
+agent, the hub needs no per-system key, and provisioning an agent is a shared
+secret plus a deploy rather than a click in the UI. A missing secret fails
+activation, so add it before deploying.
 
 ## Destroying the VPS
 

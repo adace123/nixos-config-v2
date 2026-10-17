@@ -235,7 +235,7 @@ double-checking.
 |------|------|---------|
 | `endor.yaml` | `tinyfish-api-key`, `opencode-api-key` | Pi/hermes AI agents (home-manager) |
 | `coruscant.yaml` / `threepio.yaml` | `ts-auth-key`, `cloudflare-api-key`, `home-assistant-external-domain`, `beszel-domain`, `alexa-notify-me-api-key` | Tailscale auth, Caddy DNS-01, HA vhost, Alexa. `beszel-domain` is now served from dathomir's file; the copy here is left over from when coruscant ran the hub |
-| `dathomir.yaml` | `beszel-domain`, `cloudflare-api-key`, `beszel-agent-key` (+ the Tailscale key still comes from `/etc/nixos/tailscale-authkey`, seeded during the conversion) | Caddy DNS-01 for the beszel hub it now hosts, and its own agent's key |
+| `dathomir.yaml` | `beszel-domain`, `cloudflare-api-key`, `beszel-token` (+ the Tailscale key still comes from `/etc/nixos/tailscale-authkey`, seeded during the conversion) | Caddy DNS-01 for the beszel hub it now hosts, and the universal token its agent authenticates with |
 | `cloudflare.yaml` | R2 endpoint/keys/bucket, `restic-password` | Restic backups (`home-assistant/restic.nix`) |
 | `oci.yaml` | OCI + OpenTofu state credentials | CI deploy workflow only |
 
