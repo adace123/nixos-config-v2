@@ -25,6 +25,7 @@ commit kinds that are exempt, live in
 - feat(beszel): enable agents on dathomir and coruscant with a universal token
 - feat(beszel): run hub and agents from upstream 0.21.0 release binaries for the service-logs panel
 - feat(omniwm): send Dia to the TV and pin Dia and Ghostty to their workspaces
+- feat(omniwm): bind the bracket keys to the previous and next workspace
 
 ### Changed
 

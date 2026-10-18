@@ -312,6 +312,17 @@ in
       # AeroSpace's alt-0, paired with the tenth workspace declared above.
       "switchWorkspace.9" = "Option+0";
       "moveToWorkspace.9" = "Option+Shift+0";
+
+      # Step through the monitor's workspaces in order, where OmniWM leaves both
+      # unassigned and AeroSpace had them on the same keys.
+      #
+      # Both are Option chords, so OmniWM pauses them while macOS Secure Input
+      # is active — a password field, 1Password, Ghostty's Secure Keyboard
+      # Entry. It pauses every shortcut that would type a character unless the
+      # chord uses Control or Command, and these would type “ and ”. Bind
+      # Control+Left Bracket / Control+Right Bracket instead if that bites.
+      "switchWorkspace.previous" = "Option+Left Bracket";
+      "switchWorkspace.next" = "Option+Right Bracket";
     };
 
     # Owned by the machine rather than this repo: every one of these is keyed by

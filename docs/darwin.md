@@ -203,9 +203,9 @@ OmniWM (`modules/home/omniwm.nix`) is the tiling window manager: Niri-style
 scrolling columns, ten workspaces named `1`–`10` mostly assigned to the main
 display, and Option-based bindings in the shape of the AeroSpace config it
 replaced (`Option+H/J/K/L` to focus, `Option+Shift+…` to move, `Option+1`–`0`
-for workspaces). Its `appRules` put browsers, terminals, editors, chat and media
-on their own workspaces and float Finder, 1Password, System Settings and
-Activity Monitor.
+for workspaces, `Option+[` / `Option+]` to step through them). Its `appRules` put
+browsers, terminals, editors, chat and media on their own workspaces and float
+Finder, 1Password, System Settings and Activity Monitor.
 
 The workspace bar rides in the macOS menu-bar strip. `notchMode =
 "splitActiveLeft"` splits it around the notch with the active workspace docked
@@ -257,6 +257,11 @@ Two consequences worth knowing:
   by display UUID. Configure them once per desk with OmniWM's own Monitors
   settings; each activation carries the live values over into the regenerated
   file.
+- **A shortcut that types a character stops while Secure Input is on.** OmniWM
+  pauses any shortcut whose key would type something unless the chord uses
+  Control or Command, so a password field, 1Password or Ghostty's Secure
+  Keyboard Entry takes `Option+[` / `Option+]` — and the `Option+H/J/K/L` focus
+  and move keys — with it. `Control`-based chords keep working.
 - **The first launch needs two permissions granted by hand.** OmniWM asks for
   Accessibility and Input Monitoring — both required at launch — plus optional
   Screen Recording (Overview thumbnails, drag previews) and Full Disk Access
