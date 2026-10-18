@@ -50,6 +50,7 @@ commit kinds that are exempt, live in
 - fix(dathomir): mark the Tailscale state for preservation before nixos-infect runs
 - fix(dathomir): set NODE on the already-NixOS convergence path
 - fix(just): pass the deploy target to nixos-remote-build positionally
+- fix(omniwm): stop move.right and the layout toggle sharing Option+Shift+L
 - fix(darwin): install sofka as a homebrew-core formula, not a nonexistent cask
 - fix(just): verify a deploy by the host's running generation, and accept a target
 - fix(dathomir): cap boot generations so the 900MB /boot cannot fill

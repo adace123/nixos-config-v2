@@ -302,6 +302,12 @@ in
       "move.up" = "Option+Shift+K";
       "move.right" = "Option+Shift+L";
 
+      # OmniWM ships the workspace layout toggle on Option+Shift+L, the chord
+      # move.right just took. When two actions claim one chord OmniWM drops
+      # *both* from its registration, so neither fires; the toggle gives the key
+      # up, the way focusPrevious gives up Option+Tab below.
+      "toggleWorkspaceLayout" = "Unassigned";
+
       # AeroSpace's alt-tab switched to the previous workspace. OmniWM gives
       # that action Control+Option+Tab and binds Option+Tab to the previous
       # *window*; since one shortcut can only drive one action, focusPrevious

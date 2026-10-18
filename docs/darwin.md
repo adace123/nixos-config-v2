@@ -262,6 +262,12 @@ Two consequences worth knowing:
   Control or Command, so a password field, 1Password or Ghostty's Secure
   Keyboard Entry takes `Option+[` / `Option+]` — and the `Option+H/J/K/L` focus
   and move keys — with it. `Control`-based chords keep working.
+- **Two actions on one chord are both dead.** OmniWM drops every action whose
+  chord another action also claims, so the shared key does nothing rather than
+  driving one of them. It ships `toggleWorkspaceLayout` on `Option+Shift+L`,
+  which is `move.right` here; the toggle is `Unassigned` in the module for that
+  reason. Its **Settings > Keyboard Shortcuts** window lists the actions it
+  failed to register.
 - **The first launch needs two permissions granted by hand.** OmniWM asks for
   Accessibility and Input Monitoring — both required at launch — plus optional
   Screen Recording (Overview thumbnails, drag previews) and Full Disk Access
