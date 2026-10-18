@@ -1,6 +1,8 @@
 {
+  config,
   inputs,
   lib,
+  pkgs,
   ...
 }:
 
@@ -25,6 +27,9 @@
 let
   omniwmLib = inputs.omniwm.lib;
 
+  # The package the module below installs. The TV watcher runs its `omniwmctl`.
+  omniwm = config.programs.omniwm.package;
+
   # OmniWM's shipped minimum sizes for apps with known resize floors. Declaring
   # `appRules` replaces OmniWM's list wholesale instead of extending it, so they
   # are reproduced here; values are from the packaged version's
@@ -36,12 +41,12 @@ let
   # replaces — browsers on 1, terminals on 2, editors on 3, chat on 4, media on
   # 5, and the four windows that were floated rather than tiled.
   appRules = {
-    # Upstream defaults, reproduced verbatim.
+    # Upstream defaults, reproduced verbatim — except Dia, which the browser group
+    # below owns.
     "com.openai.codex" = floor 800.0 600.0;
     "com.eltima.cmd1.pro.mas" = floor 950.0 550.0;
     "com.apple.Safari" = floor 574.0 220.0;
     "app.zen-browser.zen" = floor 500.0 495.0;
-    "company.thebrowser.dia" = floor 500.0 420.0;
     "com.microsoft.Outlook" = floor 930.0 650.0;
     "com.apple.MobileSMS" = floor 660.0 320.0;
 
@@ -53,6 +58,11 @@ let
       assignToWorkspace = "1";
     };
     "company.thebrowser.Browser" = {
+      assignToWorkspace = "1";
+    };
+    # Dia keeps its floor and joins the group. Its workspace is also the one the
+    # TV overrides, so `diaWorkspace` below reads it back out of here.
+    "company.thebrowser.dia" = (floor 500.0 420.0) // {
       assignToWorkspace = "1";
     };
 
@@ -115,6 +125,107 @@ let
       layout = "float";
     };
   };
+
+  # The apps whose windows this file keeps on their own workspace even after the
+  # first one. OmniWM's `assignToWorkspace` only applies while an app has no
+  # tracked windows, so a second window opens on whatever workspace was active;
+  # AeroSpace's on-window-detected rules applied to every window, and
+  # `appWorkspacesHandler` below is what restores that.
+  #
+  # Dia is the one the TV argues with: while the TV is connected as a display,
+  # every Dia window belongs on the workspace that display is showing, and they
+  # go back to the browsers' workspace when it does.
+  #
+  # OmniWM cannot express the TV half in `settings` either — an app rule assigns
+  # a *workspace*, and which display that workspace lands on is decided by its
+  # home monitor, so a rule would pin Dia to one fixed TV workspace even with
+  # the TV unplugged.
+  diaBundleId = "company.thebrowser.dia";
+  ghosttyBundleId = "com.mitchellh.ghostty";
+  diaWorkspace = appRules."${diaBundleId}".assignToWorkspace;
+  ghosttyWorkspace = appRules."${ghosttyBundleId}".assignToWorkspace;
+
+  # Workspace specs by position — `omniwmLib.workspaces` takes `name` from the
+  # position, which is what the `assignToWorkspace` rules above address.
+  workspaceSpecs = [
+    { }
+    { }
+    { }
+    { }
+    { }
+    {
+      displayName = "❤️";
+      monitorAssignment.type = "secondary";
+    }
+    {
+      displayName = "🚀";
+      monitorAssignment.type = "secondary";
+    }
+    { }
+    { }
+    { }
+  ];
+
+  # Runs once per OmniWM event, from the launchd agent further down. Everything
+  # it wants to know is read live over IPC rather than out of the event payload,
+  # so it finds the state it is looking for and does nothing when the event was
+  # about a window or a display it has no opinion on.
+  #
+  # `omniwmctl` needs `general.ipcEnabled` (set below). OmniWM's IPC socket is
+  # same-user only — 0600 in ~/Library/Application Support, plus a token file —
+  # which is the trust boundary its documentation states.
+  appWorkspacesHandler = pkgs.writeShellApplication {
+    name = "omniwm-app-workspaces";
+    runtimeInputs = [
+      omniwm
+      pkgs.jq
+    ];
+    text = ''
+      # `omniwmctl watch` writes one event envelope to this process's stdin and
+      # waits for it to exit. Drain it: the reconcile below wants live state,
+      # and a child that leaves the pipe unread upsets the writer.
+      cat >/dev/null || true
+
+      displays=$(omniwmctl query displays --fields id,name,active-workspace --format json) || exit 0
+
+      # The TV is whichever connected display's name mentions it. Dia belongs on
+      # the workspace that display is showing — a workspace belongs to one
+      # display at a time, so naming that workspace is the same as naming the TV
+      # — and on the browsers' workspace when there is no such display.
+      tv_workspace=$(printf '%s' "$displays" | jq -r '
+        [.result.payload.displays[]? | select((.name // "") | test("tv"; "i"))]
+        | first // {}
+        | .activeWorkspace.rawName // ""')
+
+      dia_bundle="${diaBundleId}"
+      dia_home="${diaWorkspace}"
+      ghostty_bundle="${ghosttyBundleId}"
+      ghostty_home="${ghosttyWorkspace}"
+
+      windows=$(omniwmctl query windows --fields id,app,workspace --format json) || exit 0
+
+      # One line per window that is in the wrong place: its id, and the workspace
+      # it belongs on. A window that is already home costs nothing but the
+      # query, and a move that changes nothing reports `no_change`.
+      while IFS=$'\t' read -r window target; do
+        if [ -z "$window" ]; then continue; fi
+        omniwmctl window move-to-workspace "$window" "$target" >/dev/null 2>&1 || true
+      done < <(printf '%s' "$windows" | jq -r \
+        --arg dia "$dia_bundle" --arg dia_home "$dia_home" \
+        --arg tv_workspace "$tv_workspace" \
+        --arg ghostty "$ghostty_bundle" --arg ghostty_home "$ghostty_home" '
+        .result.payload.windows[]?
+        | select(.app.bundleId? == $dia or .app.bundleId? == $ghostty)
+        | (if .app.bundleId == $dia and $tv_workspace != ""
+           then $tv_workspace
+           elif .app.bundleId == $dia
+           then $dia_home
+           else $ghostty_home
+           end) as $target
+        | select((.workspace.rawName // "") != $target)
+        | [.id, $target] | @tsv')
+    '';
+  };
 in
 {
   imports = [ inputs.omniwm.homeManagerModules.default ];
@@ -133,6 +244,10 @@ in
     settings.general = {
       updateChecksEnabled = false;
       defaultLayoutType = "niri";
+
+      # `omniwmctl` talks to OmniWM over a same-user Unix socket, and the Dia/TV
+      # watcher below is its only caller here. Off by default.
+      ipcEnabled = true;
     };
 
     # AeroSpace's gap geometry: 8pt between windows, 8pt at every screen edge.
@@ -164,25 +279,9 @@ in
     # Ten workspaces named 1–10, assigned to the main display except 6 and 7 on
     # the secondary one — the same shape OmniWM ships, plus the tenth workspace
     # AeroSpace's alt-0 bound. Roles are used rather than display UUIDs so
-    # swapping monitors needs no change here.
-    settings.workspaces = omniwmLib.workspaces [
-      { }
-      { }
-      { }
-      { }
-      { }
-      {
-        displayName = "❤️";
-        monitorAssignment.type = "secondary";
-      }
-      {
-        displayName = "🚀";
-        monitorAssignment.type = "secondary";
-      }
-      { }
-      { }
-      { }
-    ];
+    # swapping monitors needs no change here. `workspaceSpecs` also tells the
+    # TV watcher which workspaces the TV owns.
+    settings.workspaces = omniwmLib.workspaces workspaceSpecs;
 
     settings.appRules = lib.mapAttrsToList omniwmLib.appRule appRules;
 
@@ -229,5 +328,36 @@ in
       "monitorNiriOverrides"
       "monitorOrientationOverrides"
     ];
+  };
+
+  # The reconcile runs on both directions of the TV: `display-changed` fires as
+  # the TV is adopted or dropped, `windows-changed` catches a Dia or Ghostty
+  # window that opens (or lands) somewhere else. The initial snapshots (no
+  # `--no-send-initial`) reconcile once at login, and `--reconnect` rides out an
+  # OmniWM restart. KeepAlive covers the window before OmniWM's own agent has its
+  # IPC server up; the launchd module wraps ProgramArguments in
+  # `wait4path /nix/store`, so this does not race the store mount either.
+  launchd.agents.omniwm-app-workspaces = {
+    enable = config.programs.omniwm.enable;
+
+    config = {
+      ProgramArguments = [
+        "${omniwm}/bin/omniwmctl"
+        "watch"
+        "display-changed,windows-changed"
+        "--reconnect"
+        "--exec"
+        "${appWorkspacesHandler}/bin/omniwm-app-workspaces"
+      ];
+
+      # `omniwmctl` reads the IPC token from `~/Library/Application Support`,
+      # and a launchd agent starts with none of the shell's environment.
+      EnvironmentVariables.HOME = config.home.homeDirectory;
+
+      RunAtLoad = true;
+      KeepAlive = true;
+      StandardOutPath = "${config.home.homeDirectory}/Library/Logs/omniwm-app-workspaces.log";
+      StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/omniwm-app-workspaces.err.log";
+    };
   };
 }

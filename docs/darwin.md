@@ -228,6 +228,24 @@ defaults file it merges over is generated from the version the input packages;
 taking the binary from nixpkgs instead would pair one version's schema with
 another version's binary.
 
+`assignToWorkspace` only applies while an app has no tracked windows, so an
+app's *second* window opens on whatever workspace was active — where AeroSpace's
+`on-window-detected` rules applied to every window. The
+`omniwm-app-workspaces` launchd agent closes that gap: it runs `omniwmctl watch
+display-changed,windows-changed` over OmniWM's IPC socket
+(`general.ipcEnabled`) and moves the windows that are in the wrong place. Dia
+goes to the workspace the TV is showing while a display whose name contains
+*TV* is connected, and back to workspace 1 when it is not; Ghostty always goes
+to workspace 2. Everything else, and every window already where it belongs, is
+left alone.
+
+That agent reconciles on every window change, so those two apps cannot be
+parked on another workspace while it runs. It logs to
+`~/Library/Logs/omniwm-app-workspaces.{log,err.log}`. OmniWM's IPC socket is a
+same-user trust boundary — `0600` under
+`~/Library/Application Support/com.barut.OmniWM/`, plus a random token — and
+`omniwmctl` is its only client here.
+
 Two consequences worth knowing:
 
 - **Declared settings are owned by the module.** OmniWM rewrites
