@@ -207,6 +207,14 @@ for workspaces). Its `appRules` put browsers, terminals, editors, chat and media
 on their own workspaces and float Finder, 1Password, System Settings and
 Activity Monitor.
 
+The workspace bar rides in the macOS menu-bar strip. `notchMode =
+"splitActiveLeft"` splits it around the notch with the active workspace docked
+on its left, and `system.defaults.NSGlobalDomain._HIHideMenuBar` auto-hides
+macOS's own bar so it is the only one up there — pushing the pointer to the top
+edge still reveals the real menus. The packaged default, `moveBelowMenuBar`,
+dodges the notch by dropping the island onto a second row instead, which is what
+stacked two bars on the built-in display.
+
 The module imports `inputs.omniwm.homeManagerModules.default` — **not** the
 module home-manager ships. OmniWM rejects any `settings.toml` that is not its
 complete schema, and the stock module writes exactly the attrset it is given, so

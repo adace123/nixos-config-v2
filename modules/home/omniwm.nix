@@ -147,6 +147,16 @@ in
       };
     };
 
+    # The bar rides in the macOS menu-bar strip, split around the notch with the
+    # active workspace docked on its left. The packaged default,
+    # "moveBelowMenuBar", dodges the notch by dropping the island onto a second
+    # row instead, which is what put two bars under the notch on the built-in
+    # display. macOS's own bar is auto-hidden (`_HIHideMenuBar` in
+    # modules/darwin/default.nix), so this is the only one up there.
+    settings.workspaceBar = {
+      notchMode = "splitActiveLeft";
+    };
+
     # AeroSpace had no drop-down terminal, and OmniWM's binds Option+` by
     # default. Flip this to true to get its Ghostty-backed quake terminal.
     settings.quakeTerminal.enabled = false;

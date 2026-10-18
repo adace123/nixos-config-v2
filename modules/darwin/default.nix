@@ -69,6 +69,11 @@
         AppleShowAllExtensions = true;
         InitialKeyRepeat = 15;
         KeyRepeat = 2;
+        # "Automatically hide and show the menu bar". The OmniWM workspace bar
+        # occupies that strip instead — split around the notch, see
+        # modules/home/omniwm.nix. Pushing the pointer to the top edge still
+        # reveals the real menus.
+        _HIHideMenuBar = true;
         "com.apple.mouse.tapBehavior" = 1;
         "com.apple.trackpad.enableSecondaryClick" = true;
         "com.apple.swipescrolldirection" = false;
