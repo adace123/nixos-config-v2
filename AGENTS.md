@@ -12,7 +12,7 @@ This is a Nix flake-based configuration for managing macOS systems using nix-dar
 
 - `just check` - Run all checks (flake check, format, lint, pre-commit)
 - `nix flake check --all-systems` - Check flake for errors across all systems
-- `nh darwin build` - Build configuration without activating (requires manual activation via `just switch` which needs password)
+- `nh darwin build .#darwinConfigurations.endor` - Build configuration without activating (requires manual activation via `just switch` which needs password)
 - `nh clean` - Enhanced garbage collection with better UX
 - `nh search <pkg>` - Fast package search via Elasticsearch
 
@@ -49,7 +49,7 @@ This is a Nix flake-based configuration for managing macOS systems using nix-dar
 There is no unit-test suite; validation is layered:
 
 - `just check` - pre-commit hooks over the whole tree, `nix flake check`, then a
-  dry Darwin evaluation (`nh darwin build --dry`), which catches home-manager
+  dry Darwin evaluation (`nh darwin build --dry .#darwinConfigurations.endor`), which catches home-manager
   type errors.
 - `nix flake check --all-systems` - evaluates every system's checks; the
   `checks.*.pre-commit` derivation re-runs the full hook suite. That is what CI
@@ -62,7 +62,7 @@ There is no unit-test suite; validation is layered:
 - Post-deploy tests - `modules/home/ai/skills/post-deploy-test/tests/`
   (`run-all.sh` plus numbered checks) verify a deployed NixOS host; see the
   `post-deploy-test` skill.
-- Real configuration is exercised by building and activating: `nh darwin build`
+- Real configuration is exercised by building and activating: `nh darwin build .#darwinConfigurations.endor`
   / `just switch` locally, `just nixos-deploy` for the hosts.
 
 ## Code Style Guidelines
@@ -246,12 +246,17 @@ The configuration targets a specific Darwin host. The default host is `endor` (s
 
 ```bash
 # Build for the default host (endor)
-nh darwin build
+nh darwin build .#darwinConfigurations.endor
 
 # Override the hostname explicitly
 nh darwin switch -- --flake .#endor
 nix build .#darwinConfigurations.endor.system
 ```
+
+Bare `nh darwin build` resolves the *local* hostname as the flake attribute, and
+that hostname (`enervee-ltqcw2y7pv`) is not a host in this flake — it fails with
+`flake ... does not provide attribute 'packages.aarch64-darwin.darwinConfigurations.<hostname>...'`.
+Always name the configuration (or let a `just` recipe interpolate `$HOST`).
 
 ## Development Workflow
 
@@ -263,7 +268,7 @@ nix build .#darwinConfigurations.endor.system
 4. Run `just check` to validate changes
 5. **Update the documentation to match your changes (required before committing).** Any change that affects how the repo is used — new/removed modules, new/changed host(s), new workflows or commands, services, infrastructure, secrets, CI, or architecture — must be reflected in the docs. See [Documentation Map](#documentation-map) below for what lives where. When in doubt, update the docs.
 6. **Add the `CHANGELOG.md` entry in the same commit (required before committing).** Every commit that changes behaviour gets an entry under `## [Unreleased]`, and a CalVer version heading when the change is released. See [Changelog & Versioning](#changelog--versioning) for the rules and the exemptions.
-7. Build with `nh darwin build` (user must run `just switch` to activate)
+7. Build with `nh darwin build .#darwinConfigurations.endor` (user must run `just switch` to activate)
 
 ### Documentation Map
 
