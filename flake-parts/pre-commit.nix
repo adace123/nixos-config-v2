@@ -43,11 +43,18 @@
         deadnix.enable = true;
 
         # Detect accidentally committed secrets and credentials
+        #
+        # Do NOT set `entry` here. git-hooks.nix's gitleaks hook already carries
+        # `args = [ "git" "--pre-commit" "--redact" "--staged" "--verbose" ]`,
+        # which pre-commit appends after the entry. Overriding the entry with a
+        # full `gitleaks git --pre-commit --staged --redact` command made the
+        # argv read `gitleaks git --pre-commit --staged --redact git ...`, and
+        # gitleaks took the trailing `git` as the path to scan — every commit
+        # died with `FTL stat git: no such file or directory`.
         gitleaks = {
           enable = true;
           name = "gitleaks";
           description = "Detect hardcoded secrets in staged changes";
-          entry = "${pkgs.gitleaks}/bin/gitleaks git --pre-commit --staged --redact";
           pass_filenames = false; # scans the staged diff itself
         };
 
