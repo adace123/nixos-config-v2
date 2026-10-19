@@ -103,6 +103,13 @@ Edit `modules/darwin/homebrew.nix`:
 - **Mac App Store** → `masApps` attribute set (needs numeric app ID from
   `mas search "App Name"`)
 
+Hand-installed binaries dropped into `~/.local/bin` (for example `cliamp`, the
+terminal music player installed from its own release) still need their Homebrew
+runtime libraries listed in `brews`: `cleanup = "zap"` uninstalls anything not
+declared there on the next activation, and a binary that links
+`/opt/homebrew/opt/<lib>/lib/...` aborts with `dyld: Library not loaded` once
+that library is gone.
+
 ## Customising the Host
 
 Machine-specific identity values are defined in `hosts/endor/default.nix` and

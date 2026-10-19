@@ -62,6 +62,7 @@ commit kinds that are exempt, live in
 - fix(beszel): give agents the hub SSH public key (KEY), required alongside the universal token
 - fix(beszel): give the agent journal access so service logs show in the hub UI
 - fix(omniwm): split the workspace bar around the notch and auto-hide the macOS menu bar
+- fix(darwin): pin cliamp's homebrew runtime libraries so cleanup stops zapping them
 
 ## [2026.10.07.3] - 2026-10-07
 

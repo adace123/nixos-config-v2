@@ -35,6 +35,13 @@ _: {
       "cryptography"
       "libcbor"
       "libfido2"
+
+      # Runtime libraries for the manually installed ~/.local/bin/cliamp release
+      # binary, which links these by absolute /opt/homebrew path
+      "mpg123"
+      "flac"
+      "libvorbis"
+      "libogg"
       "fwdcloudsec/granted/granted" # Granted AWS access
     ];
 
