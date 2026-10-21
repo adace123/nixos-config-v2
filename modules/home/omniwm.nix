@@ -41,23 +41,19 @@ let
   # replaces — browsers on 1, terminals on 2, editors on 3, chat on 4, media on
   # 5, and the four windows that were floated rather than tiled.
   appRules = {
-    # Upstream defaults, reproduced verbatim — except Dia, which the browser group
-    # below owns.
+    # OmniWM's own floors, minus the entries for apps this machine does not have
+    # — Commander One, Outlook, Firefox, Arc, iTerm2, kitty, Alacritty, Zed, VS
+    # Code and Cursor. A rule for an absent app only fires if it is installed,
+    # so leaving them was dead weight rather than a bug; they are gone so the
+    # list reads as what this desk actually runs. Dia is the addition upstream
+    # does not carry.
     "com.openai.codex" = floor 800.0 600.0;
-    "com.eltima.cmd1.pro.mas" = floor 950.0 550.0;
     "com.apple.Safari" = floor 574.0 220.0;
     "app.zen-browser.zen" = floor 500.0 495.0;
-    "com.microsoft.Outlook" = floor 930.0 650.0;
     "com.apple.MobileSMS" = floor 660.0 320.0;
 
     # Browsers — workspace 1.
     "com.google.Chrome" = (floor 500.0 375.0) // {
-      assignToWorkspace = "1";
-    };
-    "org.mozilla.firefox" = (floor 500.0 120.0) // {
-      assignToWorkspace = "1";
-    };
-    "company.thebrowser.Browser" = {
       assignToWorkspace = "1";
     };
     # Dia keeps its floor and joins the group. Its workspace is also the one the
@@ -72,26 +68,6 @@ let
     };
     "com.apple.Terminal" = {
       assignToWorkspace = "2";
-    };
-    "com.googlecode.iterm2" = {
-      assignToWorkspace = "2";
-    };
-    "net.kovidgoyal.kitty" = {
-      assignToWorkspace = "2";
-    };
-    "io.alacritty" = {
-      assignToWorkspace = "2";
-    };
-
-    # Editors and IDEs — workspace 3.
-    "dev.zed.Zed" = (floor 360.0 240.0) // {
-      assignToWorkspace = "3";
-    };
-    "com.microsoft.VSCode" = {
-      assignToWorkspace = "3";
-    };
-    "com.todesktop.230313mzl4w4u92" = {
-      assignToWorkspace = "3";
     };
 
     # Chat and calls — workspace 4.
