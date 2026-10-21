@@ -69,6 +69,7 @@ commit kinds that are exempt, live in
 - fix(darwin): pin cliamp's homebrew runtime libraries so cleanup stops zapping them
 - fix(pre-commit): stop the gitleaks hook passing its own arguments twice
 - fix(omniwm): rescue windows stranded on a display that disconnects
+- fix(omniwm): keep the TV workspaces off the work monitor
 
 ## [2026.10.07.3] - 2026-10-07
 

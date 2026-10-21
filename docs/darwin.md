@@ -275,7 +275,7 @@ Two consequences worth knowing:
   settings; each activation carries the live values over into the regenerated
   file. `monitors.ranking` — the **Monitor Roles** order — is the one to get
   right: `workspaceSpecs` assigns eight workspaces to `main` and ❤️/🚀 to
-  `secondary`, and those roles decide which monitor each workspace lands on.
+  `tertiary`, and those roles decide which monitor each workspace lands on.
   With no ranking, `main` is whatever macOS calls the main display and the rest
   follow arrangement order, so a virtual display sitting left of the physical
   monitor (Muse's, at `x=1728`) outranks it and inherits `main` the moment the

@@ -155,11 +155,11 @@ let
     { }
     {
       displayName = "❤️";
-      monitorAssignment.type = "secondary";
+      monitorAssignment.type = "tertiary";
     }
     {
       displayName = "🚀";
-      monitorAssignment.type = "secondary";
+      monitorAssignment.type = "tertiary";
     }
     { }
     { }
@@ -286,10 +286,16 @@ in
     settings.quakeTerminal.enabled = false;
 
     # Ten workspaces named 1–10, assigned to the main display except 6 and 7 on
-    # the secondary one — the same shape OmniWM ships, plus the tenth workspace
+    # the tertiary one — the same shape OmniWM ships, plus the tenth workspace
     # AeroSpace's alt-0 bound. Roles are used rather than display UUIDs so
     # swapping monitors needs no change here. `workspaceSpecs` also tells the
     # TV watcher which workspaces the TV owns.
+    #
+    # The TV workspaces are tertiary so that the *second* display — the monitor
+    # the desk actually uses — carries only main workspaces. While the lid is
+    # open that leaves it showing an idle workspace instead of parking the TV's
+    # empty ❤️ on it; when the lid closes it inherits the main role and with it
+    # every work workspace, which is the point.
     settings.workspaces = omniwmLib.workspaces workspaceSpecs;
 
     settings.appRules = lib.mapAttrsToList omniwmLib.appRule appRules;
