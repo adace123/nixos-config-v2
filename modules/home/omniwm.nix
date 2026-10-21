@@ -154,13 +154,10 @@ let
     { }
     { }
     {
-      displayName = "❤️";
+      displayName = "📺";
       monitorAssignment.type = "tertiary";
     }
-    {
-      displayName = "🚀";
-      monitorAssignment.type = "tertiary";
-    }
+    { }
     { }
     { }
     { }
@@ -331,17 +328,20 @@ in
     # default. Flip this to true to get its Ghostty-backed quake terminal.
     settings.quakeTerminal.enabled = false;
 
-    # Ten workspaces named 1–10, assigned to the main display except 6 and 7 on
-    # the tertiary one — the same shape OmniWM ships, plus the tenth workspace
-    # AeroSpace's alt-0 bound. Roles are used rather than display UUIDs so
-    # swapping monitors needs no change here. `workspaceSpecs` also tells the
-    # TV watcher which workspaces the TV owns.
+    # Ten workspaces named 1–10, assigned to the main display except 6, which is
+    # the TV workspace and takes the tertiary role — the same shape OmniWM
+    # ships, plus the tenth workspace AeroSpace's alt-0 bound. Roles are used
+    # rather than display UUIDs so swapping monitors needs no change here.
+    # `workspaceSpecs` also tells the TV watcher which workspace the TV owns.
     #
-    # The TV workspaces are tertiary so that the *second* display — the monitor
-    # the desk actually uses — carries only main workspaces. While the lid is
-    # open that leaves it showing an idle workspace instead of parking the TV's
-    # empty ❤️ on it; when the lid closes it inherits the main role and with it
-    # every work workspace, which is the point.
+    # One TV workspace is enough: the watcher sends every Dia window to whatever
+    # workspace the TV is showing, and back to the browsers' workspace when it
+    # goes. `tertiary` is what lands it on the TV — the TV is deliberately left
+    # out of the Monitor Roles ranking, so it sorts after the built-in display
+    # and the monitor and takes the third role. With no TV connected that role
+    # has no display and the workspace falls back to the monitor, which costs
+    # nothing for an empty workspace but does mean ranking the TV would break
+    # this: a ranked TV becomes secondary and the monitor becomes tertiary.
     settings.workspaces = omniwmLib.workspaces workspaceSpecs;
 
     settings.appRules = lib.mapAttrsToList omniwmLib.appRule appRules;

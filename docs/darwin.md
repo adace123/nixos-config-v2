@@ -274,10 +274,17 @@ last showing — usually the terminals — leaving the browser on a workspace no
 is looking at. On a `display-changed` event with the lid closed, the agent
 focuses the browsers' workspace, so the monitor shows the browser instead. The
 gate is the event channel rather than the lid alone: a window event cannot
-re-trigger it, and switching workspace afterwards stays where it is put. ❤️/🚀
-are `tertiary` for the same reason — that leaves the second display carrying
-only main workspaces while the lid is open, instead of parking the TV's empty ❤️
-on the monitor the desk uses.
+re-trigger it, and switching workspace afterwards stays where it is put.
+
+Workspace 6 is the TV workspace, `📺`. One is enough: the agent sends every Dia
+window to whatever workspace the TV is showing, and back to the browsers'
+workspace when the TV goes. It is `tertiary`, which is what lands it on the TV —
+the TV is deliberately left out of the Monitor Roles ranking so it sorts after
+the built-in display and the monitor, taking the third role. With no TV
+connected that role has no display and the workspace falls back to the monitor,
+which costs nothing for an empty workspace. The corollary is that **ranking the
+TV would break it**: a ranked TV becomes secondary and pushes the monitor to
+tertiary, so `📺` would then open on the monitor.
 
 That agent reconciles on every window change, so those two apps cannot be
 parked on another workspace while it runs. It logs to
@@ -297,7 +304,7 @@ Two consequences worth knowing:
   by display UUID. Configure them once per desk with OmniWM's own Monitors
   settings; each activation carries the live values over into the regenerated
   file. `monitors.ranking` — the **Monitor Roles** order — is the one to get
-  right: `workspaceSpecs` assigns eight workspaces to `main` and ❤️/🚀 to
+  right: `workspaceSpecs` assigns nine workspaces to `main` and `📺` to
   `tertiary`, and those roles decide which monitor each workspace lands on.
   With no ranking, `main` is whatever macOS calls the main display and the rest
   follow arrangement order, so a virtual display sitting left of the physical

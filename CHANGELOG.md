@@ -31,6 +31,7 @@ commit kinds that are exempt, live in
 - feat(omniwm): bind Option+S to the command palette
 - feat(home): add android-tools for adb access to the Fire TV
 - feat(omniwm): focus the browsers' workspace when the lid closes
+- feat(omniwm): replace the two TV workspaces with one 📺 workspace
 
 ### Changed
 
