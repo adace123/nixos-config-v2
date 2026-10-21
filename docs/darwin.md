@@ -247,6 +247,15 @@ goes to the workspace the TV is showing while a display whose name contains
 to workspace 2. Everything else, and every window already where it belongs, is
 left alone.
 
+Each run also ends with `omniwmctl command rescue-offscreen-windows`. A display
+that goes away — the lid closing, a monitor being unplugged — takes its
+workspaces with it, and the windows on them stay alive with no display left to
+draw them on: the app is running, its Dock icon activates it, and nothing
+appears. The rescue returns the windows whose frames fell off every remaining
+display. OmniWM answers `no_change` when there are none, so it costs one no-op
+IPC call and never moves a window that was parked somewhere on purpose.
+`Control+Option+Shift+R` runs the same rescue by hand.
+
 That agent reconciles on every window change, so those two apps cannot be
 parked on another workspace while it runs. It logs to
 `~/Library/Logs/omniwm-app-workspaces.{log,err.log}`. OmniWM's IPC socket is a
@@ -264,7 +273,15 @@ Two consequences worth knowing:
   lists `routing`, `monitors` and the `monitor*Overrides` tables, which are keyed
   by display UUID. Configure them once per desk with OmniWM's own Monitors
   settings; each activation carries the live values over into the regenerated
-  file.
+  file. `monitors.ranking` — the **Monitor Roles** order — is the one to get
+  right: `workspaceSpecs` assigns eight workspaces to `main` and ❤️/🚀 to
+  `secondary`, and those roles decide which monitor each workspace lands on.
+  With no ranking, `main` is whatever macOS calls the main display and the rest
+  follow arrangement order, so a virtual display sitting left of the physical
+  monitor (Muse's, at `x=1728`) outranks it and inherits `main` the moment the
+  built-in display disconnects on lid close — leaving the physical monitor on an
+  empty workspace while the browser is drawn on a display nobody can see. Rank
+  them built-in, then the monitor, then Muse.
 - **A shortcut that types a character stops while Secure Input is on.** OmniWM
   pauses any shortcut whose key would type something unless the chord uses
   Control or Command, so a password field, 1Password or Ghostty's Secure

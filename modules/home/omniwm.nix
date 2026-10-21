@@ -186,6 +186,15 @@ let
       # and a child that leaves the pipe unread upsets the writer.
       cat >/dev/null || true
 
+      # A display that goes away — lid closed, monitor unplugged — takes its
+      # workspaces with it. The windows survive, but they have no display left
+      # to be drawn on, which reads as "the app is running and clicking its Dock
+      # icon does nothing". This pulls back the ones whose frames ended up off
+      # every remaining display. OmniWM answers `no_change` when there are none,
+      # so running it on every event costs one no-op IPC call and never moves a
+      # window the user parked somewhere on purpose.
+      omniwmctl command rescue-offscreen-windows >/dev/null 2>&1 || true
+
       displays=$(omniwmctl query displays --fields id,name,active-workspace --format json) || exit 0
 
       # The TV is whichever connected display's name mentions it. Dia belongs on
