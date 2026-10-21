@@ -312,15 +312,15 @@ in
       notchMode = "splitActiveLeft";
 
       # `position` is `overlappingMenuBar`, so the bar floats over the top of the
-      # display instead of taking a row of its own. Without this, the tiled work
-      # area still runs to the top edge: the 8pt outer plus 8pt inner gap leave
-      # a 16pt inset, while the bar is 24pt tall, so the top 8pt of every window
-      # sits behind the bar. Reserving layout space pushes the work area down by
-      # the bar's height, which gives a 40pt inset and clears it.
+      # display instead of taking a row of its own. Without reserving layout
+      # space the tiled work area still runs to the top edge and the top of every
+      # window ends up behind the bar; reserving it pushes the work area down by
+      # the bar's height.
       #
-      # Native-fullscreen windows still cover the bar — fullscreen deliberately
-      # fills the display, and `gaps.fullscreenUsesOuterGaps` only adds 8pt,
-      # which is less than the bar. Leave fullscreen with Option+Return.
+      # A real macOS fullscreen Space is composited above everything, so a bar
+      # that stays put is simply covered. Native fullscreen is the one case the
+      # reservation cannot help, so the bar steps aside instead.
+      hideInNativeFullscreen = true;
       reserveLayoutSpace = true;
     };
 

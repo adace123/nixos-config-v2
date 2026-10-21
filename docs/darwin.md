@@ -234,6 +234,10 @@ down — the 24pt bar plus 10pt of outer gap plus 8pt of inner gap — leaving 1
 of clear space under the bar. `gaps.fullscreenUsesOuterGaps = true` gives a
 fullscreen window the same outer gaps so it leaves the same strip, instead of
 sitting at 24pt with the bar as its only separation from the display edge.
+That covers OmniWM's own fullscreen (`Option+Return`). A real macOS fullscreen
+Space — the green button, or `Ctrl+Cmd+F` — is composited above everything and
+cannot be worked around, which is what `workspaceBar.hideInNativeFullscreen`
+is for: the bar steps aside instead of being covered.
 
 The module imports `inputs.omniwm.homeManagerModules.default` — **not** the
 module home-manager ships. OmniWM rejects any `settings.toml` that is not its
