@@ -256,6 +256,17 @@ display. OmniWM answers `no_change` when there are none, so it costs one no-op
 IPC call and never moves a window that was parked somewhere on purpose.
 `Control+Option+Shift+R` runs the same rescue by hand.
 
+The agent also handles the lid. Closing it migrates the work workspaces to the
+external monitor, but that monitor comes back up on whichever workspace it was
+last showing — usually the terminals — leaving the browser on a workspace nobody
+is looking at. On a `display-changed` event with the lid closed, the agent
+focuses the browsers' workspace, so the monitor shows the browser instead. The
+gate is the event channel rather than the lid alone: a window event cannot
+re-trigger it, and switching workspace afterwards stays where it is put. ❤️/🚀
+are `tertiary` for the same reason — that leaves the second display carrying
+only main workspaces while the lid is open, instead of parking the TV's empty ❤️
+on the monitor the desk uses.
+
 That agent reconciles on every window change, so those two apps cannot be
 parked on another workspace while it runs. It logs to
 `~/Library/Logs/omniwm-app-workspaces.{log,err.log}`. OmniWM's IPC socket is a

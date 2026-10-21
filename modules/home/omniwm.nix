@@ -183,8 +183,11 @@ let
     text = ''
       # `omniwmctl watch` writes one event envelope to this process's stdin and
       # waits for it to exit. Drain it: the reconcile below wants live state,
-      # and a child that leaves the pipe unread upsets the writer.
-      cat >/dev/null || true
+      # and a child that leaves the pipe unread upsets the writer. Keep the
+      # envelope rather than discarding it, because its `channel` is what tells
+      # the lid handler at the bottom that a display actually came or went,
+      # rather than a window merely moving.
+      event=$(cat) || event=""
 
       # A display that goes away — lid closed, monitor unplugged — takes its
       # workspaces with it. The windows survive, but they have no display left
@@ -233,6 +236,26 @@ let
            end) as $target
         | select((.workspace.rawName // "") != $target)
         | [.id, $target] | @tsv')
+
+      # Closing the lid gets the browser onto the monitor, but the monitor comes
+      # back up on whichever workspace it was last showing — usually the
+      # terminals — so the browser that just migrated is on a workspace nobody
+      # is looking at. Put it on the browsers' workspace, once per display
+      # change and only in clamshell: keying on the event channel rather than
+      # the lid alone is what keeps this out of the way, because a window event
+      # cannot re-trigger it and switching workspace afterwards stays put.
+      #
+      # `/usr/sbin/ioreg` is written out in full: `writeShellApplication` puts
+      # only `runtimeInputs` on PATH, and ioreg is an Apple binary, not a
+      # package.
+      case "$event" in
+        *display-changed*)
+          if /usr/sbin/ioreg -r -k AppleClamshellState -d 4 2>/dev/null |
+            grep -q '"AppleClamshellState" = Yes'; then
+            omniwmctl workspace focus-name "$dia_home" >/dev/null 2>&1 || true
+          fi
+          ;;
+      esac
     '';
   };
 in

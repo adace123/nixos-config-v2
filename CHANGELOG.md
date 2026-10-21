@@ -30,6 +30,7 @@ commit kinds that are exempt, live in
 - feat(omniwm): bind Option+Q to close the focused window
 - feat(omniwm): bind Option+S to the command palette
 - feat(home): add android-tools for adb access to the Fire TV
+- feat(omniwm): focus the browsers' workspace when the lid closes
 
 ### Changed
 
