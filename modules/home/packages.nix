@@ -30,6 +30,11 @@
     opentofu
     sops
 
+    # Fire TV / Android device access over ADB — `adb connect <tv-ip>:5555`.
+    # Needed by the dumbtv debloat pass (see .pi/plans/firetv-dumbtv.md);
+    # pulls in the Android platform tools only, no SDK.
+    android-tools
+
     # Pre-commit tooling, so linting and `pre-commit run` also work in a shell
     # that never loaded the flake dev shell — the herdr-kanban dispatch tabs,
     # which skip direnv (modules/home/zsh.nix; see adace123/herdr-kanban). The hook

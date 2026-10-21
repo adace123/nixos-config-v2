@@ -191,5 +191,6 @@ _:
   # Shell aliases for Ghostty
   programs.zsh.shellAliases = {
     gt = "ghostty";
+    k9s = "sofka";
   };
 }

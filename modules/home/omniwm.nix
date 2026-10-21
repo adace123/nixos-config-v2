@@ -329,6 +329,21 @@ in
       # Control+Left Bracket / Control+Right Bracket instead if that bites.
       "switchWorkspace.previous" = "Option+Left Bracket";
       "switchWorkspace.next" = "Option+Right Bracket";
+
+      # Closing a window, which OmniWM ships unassigned. It is an Option chord
+      # like the two above, so the Secure Input caveat applies here too.
+      "closeFocusedWindow" = "Option+q";
+
+      # The command palette, which OmniWM ships on Control+Option+Space. Also an
+      # Option chord that types a character — Option+S is ß — so it pauses under
+      # Secure Input with the rest.
+      #
+      # It opens on whatever mode was last used, and Windows is only the default
+      # of a fresh state: browsed apps once and Applications keeps coming back.
+      # 0.7.6 has no key that pins the opening mode. When a release carries the
+      # per-mode actions, binding `openCommandPalette.windows` instead opens
+      # straight into the window search every time.
+      "openCommandPalette" = "Option+S";
     };
 
     # Owned by the machine rather than this repo: every one of these is keyed by

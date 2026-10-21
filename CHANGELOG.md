@@ -26,6 +26,9 @@ commit kinds that are exempt, live in
 - feat(beszel): run hub and agents from upstream 0.21.0 release binaries for the service-logs panel
 - feat(omniwm): send Dia to the TV and pin Dia and Ghostty to their workspaces
 - feat(omniwm): bind the bracket keys to the previous and next workspace
+- feat(omniwm): bind Option+Q to close the focused window
+- feat(omniwm): bind Option+S to the command palette
+- feat(home): add android-tools for adb access to the Fire TV
 
 ### Changed
 
