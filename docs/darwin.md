@@ -227,10 +227,13 @@ stacked two bars on the built-in display.
 floats over the top of the display (`position = "overlappingMenuBar"`) rather
 than taking a row of its own, so without reservation the tiled work area still
 starts at the top edge: the 8pt outer and 8pt inner gaps leave a 16pt inset
-against a 24pt bar, and the top 8pt of every window ends up behind it. With it
-reserved every window gets a 40pt inset. Native-fullscreen windows still cover
-the bar, because fullscreen deliberately fills the display; leave fullscreen
-with `Option+Return`.
+against a 24pt bar, and the top 8pt of every window ends up behind it.
+
+With the bar reserved and `gaps.outer.top = 10`, a window's top edge lands 42pt
+down — the 24pt bar plus 10pt of outer gap plus 8pt of inner gap — leaving 18pt
+of clear space under the bar. `gaps.fullscreenUsesOuterGaps = true` gives a
+fullscreen window the same outer gaps so it leaves the same strip, instead of
+sitting at 24pt with the bar as its only separation from the display edge.
 
 The module imports `inputs.omniwm.homeManagerModules.default` — **not** the
 module home-manager ships. OmniWM rejects any `settings.toml` that is not its

@@ -72,6 +72,7 @@ commit kinds that are exempt, live in
 - fix(omniwm): rescue windows stranded on a display that disconnects
 - fix(omniwm): keep the TV workspaces off the work monitor
 - fix(omniwm): reserve layout space so windows clear the workspace bar
+- fix(omniwm): widen the gap between the workspace bar and the window
 
 ## [2026.10.07.3] - 2026-10-07
 

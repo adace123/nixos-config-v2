@@ -282,14 +282,25 @@ in
       ipcEnabled = true;
     };
 
-    # AeroSpace's gap geometry: 8pt between windows, 8pt at every screen edge.
-    # OmniWM ships 16pt inner gaps and no outer gaps.
+    # AeroSpace's gap geometry: 8pt between windows, 8pt at every screen edge —
+    # except the top. OmniWM ships 16pt inner gaps and no outer gaps.
+    #
+    # `outer.top` is 10 rather than 8 because the workspace bar is reserved but
+    # the 8pt outer plus 8pt inner gap left only 16pt of clear space under a
+    # 24pt bar, which reads as the window touching it. 10pt gives 18pt under the
+    # bar; the other three edges stay at AeroSpace's 8.
+    #
+    # `fullscreenUsesOuterGaps` is on for the same reason: a fullscreen window
+    # otherwise fills the display right up to the bar (the bar stays reserved,
+    # so it lands 24pt down with nothing between the two). With it, fullscreen
+    # takes the same outer gaps as a tiled window and leaves the same strip.
     settings.gaps = {
       size = 8.0;
+      fullscreenUsesOuterGaps = true;
       outer = {
         left = 8.0;
         right = 8.0;
-        top = 8.0;
+        top = 10.0;
         bottom = 8.0;
       };
     };
