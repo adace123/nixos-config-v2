@@ -223,6 +223,15 @@ edge still reveals the real menus. The packaged default, `moveBelowMenuBar`,
 dodges the notch by dropping the island onto a second row instead, which is what
 stacked two bars on the built-in display.
 
+`reserveLayoutSpace = true` is what keeps windows out from under it. The bar
+floats over the top of the display (`position = "overlappingMenuBar"`) rather
+than taking a row of its own, so without reservation the tiled work area still
+starts at the top edge: the 8pt outer and 8pt inner gaps leave a 16pt inset
+against a 24pt bar, and the top 8pt of every window ends up behind it. With it
+reserved every window gets a 40pt inset. Native-fullscreen windows still cover
+the bar, because fullscreen deliberately fills the display; leave fullscreen
+with `Option+Return`.
+
 The module imports `inputs.omniwm.homeManagerModules.default` — **not** the
 module home-manager ships. OmniWM rejects any `settings.toml` that is not its
 complete schema, and the stock module writes exactly the attrset it is given, so

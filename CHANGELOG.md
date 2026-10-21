@@ -71,6 +71,7 @@ commit kinds that are exempt, live in
 - fix(pre-commit): stop the gitleaks hook passing its own arguments twice
 - fix(omniwm): rescue windows stranded on a display that disconnects
 - fix(omniwm): keep the TV workspaces off the work monitor
+- fix(omniwm): reserve layout space so windows clear the workspace bar
 
 ## [2026.10.07.3] - 2026-10-07
 

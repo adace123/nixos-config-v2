@@ -302,6 +302,18 @@ in
     # modules/darwin/default.nix), so this is the only one up there.
     settings.workspaceBar = {
       notchMode = "splitActiveLeft";
+
+      # `position` is `overlappingMenuBar`, so the bar floats over the top of the
+      # display instead of taking a row of its own. Without this, the tiled work
+      # area still runs to the top edge: the 8pt outer plus 8pt inner gap leave
+      # a 16pt inset, while the bar is 24pt tall, so the top 8pt of every window
+      # sits behind the bar. Reserving layout space pushes the work area down by
+      # the bar's height, which gives a 40pt inset and clears it.
+      #
+      # Native-fullscreen windows still cover the bar — fullscreen deliberately
+      # fills the display, and `gaps.fullscreenUsesOuterGaps` only adds 8pt,
+      # which is less than the bar. Leave fullscreen with Option+Return.
+      reserveLayoutSpace = true;
     };
 
     # AeroSpace had no drop-down terminal, and OmniWM's binds Option+` by
