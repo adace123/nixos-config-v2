@@ -324,6 +324,13 @@ in
       reserveLayoutSpace = true;
     };
 
+    # A lone window used to expand edge to edge, dropping its 8pt side and bottom
+    # gaps — which reads as fullscreen even though the bar's strip is reserved.
+    # `preserve` keeps the configured margins in the single-window case, in both
+    # layouts, so one window on a workspace looks the same as several.
+    settings.niri.singleWindowFit = "preserve";
+    settings.dwindle.singleWindowFit = "preserve";
+
     # AeroSpace had no drop-down terminal, and OmniWM's binds Option+` by
     # default. Flip this to true to get its Ghostty-backed quake terminal.
     settings.quakeTerminal.enabled = false;
