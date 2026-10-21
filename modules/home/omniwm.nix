@@ -353,6 +353,15 @@ in
       # per-mode actions, binding `openCommandPalette.windows` instead opens
       # straight into the window search every time.
       "openCommandPalette" = "Option+S";
+
+      # OmniWM ships this one unassigned. It returns windows stranded on a
+      # display that has gone away to the connected ones: the recovery key for
+      # anything the `rescue-offscreen-windows` call in the watcher above could
+      # not reach, and for a display that vanished without OmniWM noticing.
+      # `Control+Option+R` is `resetWindowSecondarySpan`, so this takes the Shift
+      # chord; it is Control-based, which keeps it firing while Secure Input has
+      # the Option chords paused.
+      "rescueOffscreenWindows" = "Control+Option+Shift+R";
     };
 
     # Owned by the machine rather than this repo: every one of these is keyed by

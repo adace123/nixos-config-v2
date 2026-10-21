@@ -11,6 +11,7 @@ commit kinds that are exempt, live in
 
 ### Added
 
+- feat(omniwm): bind Control+Option+Shift+R to rescue offscreen windows
 - feat(darwin): run Ollama as a per-user launchd agent, replacing LM Studio
 - feat(claude): route subagent models by role (Explore on Haiku 5.5, review on Sonnet 5.5)
 - feat(just): notify on sudo auth during switch whether or not the lid is closed
