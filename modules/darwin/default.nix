@@ -101,4 +101,20 @@
     auth       sufficient     /opt/homebrew/lib/pam/pam_u2f.so cue
   '';
 
+  # The eight eMudhra/emSign intermediate CAs disclosed on 2026-10-17 had their
+  # private keys recoverable from the public certificates, so a forged cert for
+  # any domain validates against any trust store that still anchors them
+  # (https://emudhra.we-have-a-problem.com/). macOS, Chrome and Firefox block
+  # them on their own; this fixes the nix bundle at
+  # /etc/ssl/certs/ca-certificates.crt that NIX_SSL_CERT_FILE points at, which
+  # otherwise accepted a forged chain for the public checker host.
+  #
+  # The names are NSS nicknames, which `buildcatrust` matches exactly — the
+  # wrapped root is `Comodo AAA Services root`, not `AAA Certificate Services`
+  # (that is the certificate's CN, which the blacklist ignores).
+  security.pki.caCertificateBlacklist = [
+    "Comodo AAA Services root"
+    "emSign ECC Root CA - G3"
+  ];
+
 }

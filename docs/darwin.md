@@ -204,6 +204,41 @@ resolver, so Cloudflare is what reaches the public internet.
 
 Applied by `just switch`; there is nothing else to run.
 
+## TLS trust store
+
+`security.pki.caCertificateBlacklist` in `modules/darwin/default.nix` drops
+roots from the bundle nix-darwin writes to `/etc/ssl/certs/ca-certificates.crt`,
+which `NIX_SSL_CERT_FILE` points at. It currently distrusts `Comodo AAA Services
+root` and `emSign ECC Root CA - G3` because the eight eMudhra/emSign intermediate
+CAs disclosed on 2026-10-17 had private keys recoverable from the public
+certificates, so a forged certificate for any domain validated against them
+(<https://emudhra.we-have-a-problem.com/>).
+
+Entries are **NSS nicknames**, matched exactly — `Comodo AAA Services root`, not
+the certificate's `CN=AAA Certificate Services`. A name that matches nothing is
+reported by `buildcatrust` as `Certs in blocklist but not in cert store` and
+silently protects nothing.
+
+This bundle covers nix-built tools (`git`, `python3`, `curl`, `uv`). It does **not**
+cover Apple's `/etc/ssl/cert.pem` (used by `/usr/bin/openssl` and `SSL_CERT_FILE`) or
+Homebrew's `/opt/homebrew/opt/ca-certificates/share/ca-certificates/cacert.pem`;
+those need the system bundle workaround or `brew upgrade ca-certificates`
+respectively.
+
+macOS's own trust evaluation, Safari and Chrome block the eMudhra intermediates
+independently and need nothing. One exception is not fixable from here:
+`/usr/bin/curl` is built `(SecureTransport)` and verifies through the system
+keychain, so it ignores `--cacert`, `SSL_CERT_FILE` and `/etc/ssl/cert.pem` alike
+— on this machine it still accepts a forged eMudhra chain, and only Apple can
+change that. Test with the nix `curl`, not Apple's.
+
+Verify a fix with the public checker — a certificate error means the client no
+longer trusts the compromised intermediates:
+
+```bash
+curl https://dv-g3b-emudhra.we-have-a-problem.com/   # exit 60 = fixed
+```
+
 ## Window Management
 
 OmniWM (`modules/home/omniwm.nix`) is the tiling window manager: Niri-style

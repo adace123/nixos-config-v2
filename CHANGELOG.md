@@ -77,6 +77,7 @@ commit kinds that are exempt, live in
 - fix(omniwm): widen the gap between the workspace bar and the window
 - fix(omniwm): keep the gaps when a single window fills a workspace
 - fix(omniwm): hide the workspace bar in native fullscreen
+- fix(darwin): distrust the compromised eMudhra roots in the nix trust store
 
 ## [2026.10.07.3] - 2026-10-07
 
