@@ -139,6 +139,16 @@ let
     { }
   ];
 
+  # The workspace the TV owns, read back out of `workspaceSpecs` by the role it is
+  # assigned — so moving the 📺 entry is enough to move this with it. It is what
+  # `appWorkspacesHandler` moves onto a TV that is connected but showing nothing.
+  tvWorkspace = toString (
+    lib.lists.findFirstIndex (
+      spec: (spec.monitorAssignment.type or null) == "tertiary"
+    ) (throw "omniwm: no workspace in `workspaceSpecs` is assigned to the tertiary role") workspaceSpecs
+    + 1
+  );
+
   # Runs once per OmniWM event, from the launchd agent further down. Everything
   # it wants to know is read live over IPC rather than out of the event payload,
   # so it finds the state it is looking for and does nothing when the event was
@@ -173,19 +183,61 @@ let
 
       displays=$(omniwmctl query displays --fields id,name,active-workspace --format json) || exit 0
 
-      # The TV is whichever connected display's name mentions it. Dia belongs on
-      # the workspace that display is showing — a workspace belongs to one
-      # display at a time, so naming that workspace is the same as naming the TV
-      # — and on the browsers' workspace when there is no such display.
-      tv_workspace=$(printf '%s' "$displays" | jq -r '
-        [.result.payload.displays[]? | select((.name // "") | test("tv"; "i"))]
-        | first // {}
-        | .activeWorkspace.rawName // ""')
-
       dia_bundle="${diaBundleId}"
       dia_home="${diaWorkspace}"
       ghostty_bundle="${ghosttyBundleId}"
       ghostty_home="${ghosttyWorkspace}"
+      tv_home="${tvWorkspace}"
+
+      # Name of the workspace a displays payload says the TV is showing — empty
+      # when no display is named like a TV, and empty when the TV is showing
+      # nothing at all.
+      tv_showing() {
+        printf '%s' "$1" | jq -r '
+          [.result.payload.displays[]? | select((.name // "") | test("tv"; "i"))]
+          | first // {}
+          | .activeWorkspace.rawName // ""'
+      }
+
+      # The TV is whichever connected display's name mentions it. Dia belongs on
+      # the workspace that display is showing — a workspace belongs to one
+      # display at a time, so naming that workspace is the same as naming the TV
+      # — and on the browsers' workspace when there is no such display.
+      tv_connected=$(printf '%s' "$displays" | jq -r '
+        [.result.payload.displays[]? | select((.name // "") | test("tv"; "i"))]
+        | length > 0')
+      tv_workspace=$(tv_showing "$displays")
+
+      # A TV that is connected and showing nothing gets the TV workspace put on
+      # it. Roles are positional, so the `tertiary` assignment the specs give
+      # that workspace only reaches the TV when three displays are up — the
+      # built-in, the monitor and the TV. With the monitor away or the lid closed
+      # the TV sorts second and takes `secondary`, `tertiary` has no display at
+      # all, and the TV workspace falls back to the built-in: the TV is left
+      # blank, `tv_workspace` above comes back empty, and the reconcile below has
+      # nothing to aim Dia at, so it parks the browser on the browsers'
+      # workspace instead. Naming the workspace outright is the only placement
+      # that does not depend on how many displays happen to be connected.
+      #
+      # `move-to-monitor` walks the routing grid rather than the display frames,
+      # so which direction reaches the TV depends on how the desk is arranged in
+      # OmniWM's own Monitors settings — a grid preserved from the live file
+      # rather than committed here. Try each until one lands: a direction with no
+      # display behind it answers `not_found` and moves nothing, and the loop
+      # stops as soon as the TV reports a workspace, so this costs one IPC call
+      # in the common case and nothing at all once the TV has its workspace.
+      # `--force` overrides the configured assignment for this placement only;
+      # the settings file keeps `tertiary`, so the next display change starts the
+      # loop over rather than leaving a stale override behind.
+      if [ "$tv_connected" = true ] && [ -z "$tv_workspace" ]; then
+        for direction in up right down left; do
+          omniwmctl workspace move-to-monitor "$tv_home" "$direction" --force >/dev/null 2>&1 || true
+          tv_workspace=$(tv_showing "$(omniwmctl query displays --fields id,name,active-workspace --format json)")
+          if [ -n "$tv_workspace" ]; then
+            break
+          fi
+        done
+      fi
 
       windows=$(omniwmctl query windows --fields id,app,workspace --format json) || exit 0
 
@@ -325,6 +377,12 @@ in
     # has no display and the workspace falls back to the monitor, which costs
     # nothing for an empty workspace but does mean ranking the TV would break
     # this: a ranked TV becomes secondary and the monitor becomes tertiary.
+    #
+    # The role only holds up on the full three-display desk. With the monitor
+    # away the TV sorts second and takes `secondary`, `tertiary` is left without
+    # a display, and this workspace falls back to the built-in — leaving the TV
+    # blank. That is why the watcher does not simply trust the role: it moves
+    # the workspace onto a TV that is showing nothing before reconciling.
     settings.workspaces = omniwmLib.workspaces workspaceSpecs;
 
     settings.appRules = lib.mapAttrsToList omniwmLib.appRule appRules;

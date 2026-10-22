@@ -319,11 +319,23 @@ Workspace 6 is the TV workspace, `📺`. One is enough: the agent sends every Di
 window to whatever workspace the TV is showing, and back to the browsers'
 workspace when the TV goes. It is `tertiary`, which is what lands it on the TV —
 the TV is deliberately left out of the Monitor Roles ranking so it sorts after
-the built-in display and the monitor, taking the third role. With no TV
-connected that role has no display and the workspace falls back to the monitor,
-which costs nothing for an empty workspace. The corollary is that **ranking the
-TV would break it**: a ranked TV becomes secondary and pushes the monitor to
-tertiary, so `📺` would then open on the monitor.
+the built-in display and the monitor, taking the third role. The corollary is
+that **ranking the TV would break it**: a ranked TV becomes secondary and pushes
+the monitor to tertiary, so `📺` would then open on the monitor.
+
+That role only holds on the full three-display desk. Roles are positional —
+Main is the display with the macOS menu bar, Secondary and Tertiary the next two
+in ranking order — so with the monitor away or the lid closed the TV sorts
+second and takes `secondary`, `tertiary` is left without a display, and `📺`
+falls back to the built-in: the TV is blank and the agent has no workspace to aim
+Dia at. So the agent does not stop at reading the TV's workspace. When a TV is
+connected and showing nothing, it force-moves `📺` there
+(`omniwmctl workspace move-to-monitor … --force`) and re-reads the result before
+reconciling. The direction is tried in turn — `up`, `right`, `down`, `left` —
+because `move-to-monitor` walks the routing grid, not the display frames, and
+which way the TV lies in that grid is preserved per desk rather than committed
+here. `--force` overrides the assignment for that placement only; the settings
+file keeps `tertiary`, so the next display change decides again.
 
 That agent reconciles on every window change, so those two apps cannot be
 parked on another workspace while it runs. It logs to
