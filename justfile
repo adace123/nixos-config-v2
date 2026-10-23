@@ -699,12 +699,16 @@ nixos-deploy TARGET="":
         echo "switch exited $switch_status — checking the host's state before calling it a failure"
         sleep 5
         running=$(ssh -o BatchMode=yes "${ssh_opts[@]}" root@"$TARGET" 'readlink -f /run/current-system')
-        profile=$(ssh -o BatchMode=yes "${ssh_opts[@]}" root@"$TARGET" 'readlink -f /nix/var/nix/profiles/system')
-        profile_age=$(($(date -u +%s) - $(ssh -o BatchMode=yes "${ssh_opts[@]}" root@"$TARGET" 'stat -c %Y /nix/var/nix/profiles/system')))
-        if [ "$running" = "$profile" ] && [ "$profile_age" -lt 900 ]; then
-            echo "verified: the host is running the newly activated generation ($running)"
+        # Compare against the generation *this flake builds*, not against the host's
+        # own profile. `/run/current-system == /nix/var/nix/profiles/system` is also
+        # true when the switch never ran at all, so it reported success on a deploy
+        # that changed nothing (coruscant, 2026-10-23: ssh dropped with 255, the new
+        # generation was never activated, and this branch still exited 0).
+        expected=$(nix eval --raw .#nixosConfigurations.{{ NHOST }}.config.system.build.toplevel)
+        if [ "$running" = "$expected" ]; then
+            echo "verified: the host is running the generation this flake builds ($running)"
         else
-            echo "ERROR: switch did not take — running=$running profile=$profile profile_age=${profile_age}s" >&2
+            echo "ERROR: switch did not take — host runs $running, flake builds $expected" >&2
             exit 1
         fi
     fi
