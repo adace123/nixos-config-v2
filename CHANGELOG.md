@@ -55,6 +55,7 @@ commit kinds that are exempt, live in
 - fix(dathomir): add the NAT gateway the public-IP-less instance needs for egress
 - fix(secrets): replace dathomir's revoked Tailscale auth key
 - fix(dathomir): make the conversion script executable
+- fix(ha): keep zigbee2mqtt's coordinator alive by opening the device cgroup
 - fix(dathomir): read the Tailscale key file as root in the conversion guard
 - fix(dathomir): mark the Tailscale state for preservation before nixos-infect runs
 - fix(dathomir): set NODE on the already-NixOS convergence path
@@ -81,6 +82,7 @@ commit kinds that are exempt, live in
 - fix(omniwm): hide the workspace bar in native fullscreen
 - fix(darwin): distrust the compromised eMudhra roots in the nix trust store
 - fix(omniwm): drop the singleWindowFit value OmniWM cannot decode
+- fix(omniwm): leave 1pt under the bar, even the notch gaps, halve the focus ring
 
 ## [2026.10.07.3] - 2026-10-07
 

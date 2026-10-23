@@ -307,3 +307,22 @@ Ensure `copy-hass-config.service` succeeded (it copies the SOPS-rendered
 `hardware.bluetooth.enable = true` is set in `base.nix`. If HA cannot see
 Bluetooth, verify the USB Bluetooth adapter is present and the `dialout`/`gpio`
 groups are assigned to the `hass` user.
+
+### Zigbee devices drop off after a reboot
+
+Check that `zigbee2mqtt` actually started, not just that systemd calls it active:
+
+```bash
+systemctl is-active zigbee2mqtt            # says "active" even when broken
+journalctl -u zigbee2mqtt -b | grep -i "Failed to init port"
+ss -ltn | grep 8091                        # the z2m frontend
+```
+
+A `Failed to init port … Operation not permitted` in the boot log means the unit
+was loaded before udev published `/dev/serial/by-id/…`: systemd resolves the
+`DeviceAllow=` path when it loads the unit, so `DevicePolicy=closed` then denies
+the dongle for the whole boot, while the process stays alive in that broken state
+and `Restart=on-failure` never fires. `modules/nixos/home-assistant/default.nix`
+overrides the device policy to avoid the race. A manual
+`systemctl restart zigbee2mqtt` fixes it in the meantime — if a restart does not
+help, the dongle or its `dialout` access is the problem, not the race.

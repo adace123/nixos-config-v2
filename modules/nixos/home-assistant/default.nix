@@ -1,5 +1,6 @@
 {
   config,
+  lib,
   pkgs,
   ...
 }:
@@ -214,6 +215,22 @@ in
       };
       frontend.port = 8091;
     };
+  };
+
+  # Keep the coordinator alive across boots. The nixpkgs module hardens this unit
+  # with `DevicePolicy = "closed"` plus `DeviceAllow = <the by-id path>`, and
+  # systemd resolves that path when it *loads* the unit — which at boot happens
+  # before udev has published /dev/serial/by-id/. The closed policy then denies
+  # the port with EPERM for the rest of the boot, but zigbee2mqtt stays alive in
+  # that broken state, so `Restart = on-failure` never fires and the Zigbee
+  # network is silently dead while systemd still reports the unit `active`
+  # (coruscant, 2026-10-23: `Failed to init port: Operation not permitted`,
+  # HOST_FATAL_ERROR, nothing on 8091; a manual restart fixed it). Opening the
+  # device cgroup avoids the race entirely; the module's other sandboxing
+  # (PrivateUsers, ProtectSystem=strict, syscall filter) is untouched.
+  systemd.services.zigbee2mqtt.serviceConfig = {
+    DevicePolicy = lib.mkForce "auto";
+    DeviceAllow = lib.mkForce [ ];
   };
 
   # Disabled: upstream ESPHome removed the built-in dashboard, but nixpkgs'
