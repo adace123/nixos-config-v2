@@ -41,6 +41,17 @@ Defined in `modules/nixos/home-assistant/restic.nix`:
 | Backup + prune | Daily 03:30 (`Persistent`, +15 min randomized delay) | `restic backup` then `restic forget --prune` |
 | Repository check | Weekly Sunday 04:30 (+30 min randomized delay) | `restic check` |
 
+Both jobs pass `--retry-lock` (5 min for the backup, 15 min for the check) and wait
+for the repository lock instead of failing. This matters because the Pi hosts boot
+without an RTC: when the clock is stepped forward, every missed `OnCalendar` timer
+elapses at once, and `RandomizedDelaySec` does not separate those catch-up runs — so
+the backup and the check could grab the lock within seconds of each other and the
+loser aborted with `repository is already locked` (coruscant, 2026-10-23).
+
+Note the backup deliberately stops `podman-home-assistant.service` first (and
+restarts it via a shell `trap`) so the snapshot is consistent; that is the reason
+Home Assistant briefly stops around 03:30.
+
 ## Retention
 
 `restic forget --prune` keeps:

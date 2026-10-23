@@ -49,13 +49,18 @@
       systemctl stop podman-home-assistant.service
       trap 'systemctl start podman-home-assistant.service' EXIT
 
-      restic -o s3.bucket-lookup=path backup /var/lib/hass \
+      # --retry-lock: the check job can hold the exclusive lock, and after a boot
+      # the clock step makes both timers elapse at once (RandomizedDelaySec does
+      # not separate catch-up runs), so without this the backup lost the race and
+      # failed outright (coruscant, 2026-10-23). Bounded so HA is not left stopped
+      # for long.
+      restic -o s3.bucket-lookup=path --retry-lock 5m backup /var/lib/hass \
         --tag home-assistant \
         --exclude=/var/lib/hass/deps \
         --exclude=/var/lib/hass/logs \
         --exclude=/var/lib/hass/tts
 
-      restic -o s3.bucket-lookup=path forget \
+      restic -o s3.bucket-lookup=path --retry-lock 5m forget \
         --tag home-assistant \
         --keep-daily 14 \
         --keep-weekly 8 \
@@ -86,7 +91,8 @@
     };
     script = ''
       set -euo pipefail
-      restic -o s3.bucket-lookup=path check
+      # Waits rather than failing if a backup holds the lock.
+      restic -o s3.bucket-lookup=path --retry-lock 15m check
     '';
   };
 
