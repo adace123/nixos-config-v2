@@ -134,20 +134,32 @@ if [[ $MODE == "uninstall" ]]; then
 	exit 0
 fi
 
+# The installer only drops the bundle into /Applications. A DriverKit extension
+# does not exist as far as System Settings is concerned until its host app
+# submits an activation request, so without this the Driver Extensions list
+# stays empty and the driver looks broken.
+if [[ -d /Applications/ASIX_USB_Device_App.app ]]; then
+	echo "Registering the extension with the system..."
+	open -a /Applications/ASIX_USB_Device_App.app 2>/dev/null || true
+	sleep 3
+fi
+
 cat <<'EOF'
-Driver installed. Two manual steps remain — neither can be automated:
+Driver installed. Manual steps remain — none of them can be automated:
 
   1. Approve the extension:
        System Settings -> General -> Login Items & Extensions
        -> Driver Extensions -> allow "ASIX ELECTRONICS CORPORATION"
 
-     If that toggle is greyed out, this Mac is MDM-managed (Jamf) and the
-     approval is policy-blocked — that is an IT request, not a local fix.
+     If it is not listed, or the toggle is greyed out, this Mac is MDM-managed
+     (Jamf) and the approval is policy-blocked — that is an IT request, not a
+     local fix.
 
-  2. Reboot (the installer requires it; the extension will not load until then).
+  2. Reboot (the extension will not load until then).
 
-Verify after rebooting:
+Check the state with:
 
-  ifconfig -a | grep -A3 '^en[0-9]'   # a new en* with a burned-in MAC appears
-  networksetup -listallhardwareports  # adapter shows as a real USB LAN device
+  systemextensionsctl list | grep -i asix
+    [activated waiting for user]  = approval still pending in Settings
+    [activated enabled]           = done
 EOF

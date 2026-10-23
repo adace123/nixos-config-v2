@@ -130,11 +130,25 @@ just setup-asix-ethernet                          # install
 ```
 
 It downloads ASIX's 2.5.0 package, verifies a pinned SHA-256 before installing
-anything, and checks the package signature. Two manual steps follow, neither of
-which can be automated: approve the extension in **System Settings → General →
-Login Items & Extensions → Driver Extensions**, then reboot. If that toggle is
-greyed out, this Mac is Jamf-managed and the approval is policy-blocked — an IT
-request, not a local fix.
+anything, checks the package signature, then launches
+`/Applications/ASIX_USB_Device_App.app` to register the extension.
+
+That launch is not optional. The installer only drops
+`com.asix.dext.usbdevice.dext` inside the app bundle, and a DriverKit extension
+is invisible to System Settings until its host app submits an activation
+request — without it the Driver Extensions panel stays empty and the driver
+looks broken. After that, approve it in **System Settings → General → Login
+Items & Extensions → Driver Extensions** and reboot. If it never appears there,
+or the toggle is greyed out, this Mac is Jamf-managed and the approval is
+policy-blocked — an IT request, not a local fix.
+
+To see where it stands:
+
+```bash
+systemextensionsctl list | grep -i asix
+# [activated waiting for user]  approval still pending in Settings
+# [activated enabled]           done
+```
 
 Re-run after a major macOS upgrade, since the DriverKit extension can stop
 loading. To tell a real adapter from a phantom, use

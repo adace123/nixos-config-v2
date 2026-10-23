@@ -154,9 +154,11 @@ refuses disabled casks, so it cannot live in `modules/darwin/homebrew.nix`
 without failing adoption. The script vendors the package instead, pinned by
 SHA-256 and signature-checked before installing.
 
-Approving the DriverKit extension and rebooting are manual steps. On a
-Jamf-managed Mac that approval can be policy-blocked. See
-[docs/darwin.md](../docs/darwin.md).
+The script then launches the vendor app, because a DriverKit extension stays
+invisible to System Settings until its host app submits an activation request —
+the installer alone leaves the Driver Extensions panel empty. Approving the
+extension and rebooting are manual. On a Jamf-managed Mac that approval can be
+policy-blocked. See [docs/darwin.md](../docs/darwin.md).
 
 ## SSH Configuration
 
