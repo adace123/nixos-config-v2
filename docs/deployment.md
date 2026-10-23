@@ -82,35 +82,47 @@ just nixos-deploy 192.168.1.50
 TARGET=coruscant.tailnet-name.ts.net just nixos-deploy
 ```
 
-`just nixos-deploy` builds on the host first, then activates. In two steps it
-runs:
+`just nixos-deploy` builds on **dathomir** first, then copies and activates on the
+target. In two steps it runs:
 
 ```bash
-# step 1 - build on the Pi (aarch64-linux native) - `just nixos-remote-build`
+# step 1 - build on dathomir (aarch64-linux native) - `just nixos-remote-build`
 nix run nixpkgs#nixos-rebuild -- build \
-  --flake .#coruscant --target-host root@<TARGET> --build-host root@<TARGET>
+  --flake .#coruscant --target-host root@<TARGET> --build-host root@dathomir-1
 
-# step 2 - activate
+# step 2 - copy the closure to the target and activate it
 nix run nixpkgs#nixos-rebuild -- switch \
-  --flake .#coruscant --target-host root@<TARGET> --build-host root@<TARGET>
+  --flake .#coruscant --target-host root@<TARGET> --build-host root@dathomir-1
 ```
 
-The build happens **on the Pi**, so no local cross-compilation or QEMU setup is
-needed, and the two steps are kept apart so the host is not restarting all its
-services (HA, zigbee2mqtt, esphome, …) while it is still compiling.
+**Builds do not run on the Pi** (see `BUILD_HOST` in the `justfile`). A Pi 4
+compiling a system on a USB root takes ~25 minutes cold, and that load is what
+hard-stopped `coruscant` on 2026-10-23; on dathomir the same build takes ~18
+seconds once its store is warm. The two steps are also kept apart so the target
+is not restarting all its services (HA, zigbee2mqtt, …) while it is still
+compiling.
+
+```bash
+BUILD_HOST=local just nixos-deploy   # build on the target itself (old behaviour)
+BUILD_HOST=other-arm-host just nixos-deploy
+```
+
+A cold dathomir store costs ~25 minutes the first time; after that only the
+changed derivations are rebuilt. Do **not** run a destructive `nix-collect-garbage`
+on dathomir without a binary cache in place — it is the build cache.
 
 ### Pre-build without activating
 
-The build half has its own recipe, which is useful for warming the host's store
-ahead of a deploy at a quiet moment:
+The build half has its own recipe, which is useful for warming the build host's
+store ahead of a deploy at a quiet moment:
 
 ```bash
-just nixos-remote-build             # default: coruscant.local
-just nixos-remote-build 10.0.0.2
+just nixos-remote-build             # builds coruscant on dathomir by default
+just nixos-remote-build 10.0.0.2    # other target, same build host
 ```
 
-A later `just nixos-deploy` then only has to activate, since the store paths are
-already cached on the host.
+A later `just nixos-deploy` then only has to copy and activate, since the store
+paths are already built.
 
 ### View remote generations
 

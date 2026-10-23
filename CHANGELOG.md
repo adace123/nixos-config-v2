@@ -33,6 +33,8 @@ commit kinds that are exempt, live in
 - feat(omniwm): focus the browsers' workspace when the lid closes
 - feat(omniwm): replace the two TV workspaces with one 📺 workspace
 
+- feat(just): build NixOS configurations on dathomir instead of the target host
+
 ### Changed
 
 - refactor(kanban): move the board into its own repo and consume it as a flake input
