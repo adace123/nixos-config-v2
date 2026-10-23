@@ -52,8 +52,36 @@ appears unresponsive, always try its LAN address (`coruscant.local`) before
 concluding it is down, and give a cold boot several minutes.
 
 A hardware watchdog is enabled for the same reason: `bcm2835_wdt` plus
-`RuntimeWatchdogSec`/`RebootWatchdogSec` means a frozen kernel reboots itself
-rather than hanging until power is pulled.
+`RuntimeWatchdogSec=10s` means a frozen kernel reboots itself rather than hanging
+until power is pulled. `RebootWatchdogSec` is deliberately left unset — the chip
+cannot hold a long timeout (silently ignored) and a short one would reset the
+board mid-shutdown while podman is still stopping Home Assistant.
+
+## Storage hardening on the USB root
+
+A systemd runtime watchdog only fires when PID 1 stops petting it, so it does *not*
+cover the failure the Pi hosts actually had on 2026-10-23: PID 1 stayed alive and
+logged `Failed to spawn … Input/output error` while the root device silently stopped
+accepting writes — three store paths ended up 0-byte yet still registered as valid in
+the Nix database. `modules/nixos/rpi-boot.nix` therefore adds:
+
+- `usb-storage.quirks=0bda:9201:u` — the Ugreen/Realtek bridge's UAS driver is the
+  flaky part; `u` keeps the device on the bulk-only driver. Safe because
+  `CONFIG_USB_STORAGE=y` (builtin) while `CONFIG_USB_UAS=m`.
+- `usbcore.autosuspend=-1` — no USB autosuspend on the root path.
+- a udev rule forcing `cache_type="write through"` on `scsi_disk` devices, because
+  the enclosure otherwise advertises a write-back cache with `FUA=0`, which is how
+  an `fsync()` gets acknowledged and then lost on power cut.
+- **`storage-canary.service`**: a `Type=notify` loop that fork-execs, writes and
+  fsyncs a probe file, and only then pets systemd, with `FailureAction=reboot-force`
+  — `reboot-force` calls `reboot(2)` directly, so it still works when forking is
+  broken. Its watchdog is 5 minutes and probe failures inside the first 5 minutes of
+  uptime do not reboot, so a machine that is already broken at boot cannot
+  reboot-loop faster than you can log in and stop the unit.
+
+If a deploy leaves the box unbootable, the previous generation is still on the boot
+partition: point `os_prefix` in `config.txt` at it from any machine (see
+[Troubleshooting](#troubleshooting)).
 
 ## Services
 

@@ -63,6 +63,7 @@ commit kinds that are exempt, live in
 - fix(just): verify a deploy against the flake's build, not the host's own profile
 - fix(ha): make the restic jobs wait for the repo lock instead of failing
 - fix(beszel): give the hub an APP_URL so alert links do not point at localhost
+- fix(pi): harden the USB root path and add a storage canary that reboots on write failure
 - fix(dathomir): read the Tailscale key file as root in the conversion guard
 - fix(dathomir): mark the Tailscale state for preservation before nixos-infect runs
 - fix(dathomir): set NODE on the already-NixOS convergence path
