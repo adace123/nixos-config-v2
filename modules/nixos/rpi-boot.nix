@@ -20,13 +20,17 @@
   # boot (it appears in the journal as bcm2835-wdt/bcm2835-pm), so let systemd
   # drive it: if the manager stops petting the device, the board reboots itself
   # instead of hanging silently.
-  #
-  # RebootWatchdogSec is deliberately NOT set: bcm2835_wdt cannot hold a long
-  # timeout, so a large value is silently ignored, and a short one (the hardware
-  # tops out around 15 s) would hard-reset the board in the middle of a shutdown
-  # while podman is still stopping Home Assistant. The runtime watchdog plus the
-  # canary below are what actually cover the failures seen here.
-  systemd.settings.Manager.RuntimeWatchdogSec = "10s";
+  # RebootWatchdogSec is set to 0 to actually disable it. Leaving it unset does NOT
+  # disable it — systemd's default is 10 minutes, which bcm2835_wdt cannot hold, so
+  # it is silently ignored and gives a false sense of protection (observed on
+  # coruscant after a switch that merely removed the setting). A hardware-realistic
+  # value would be worse: the chip tops out around 15 s, so it would hard-reset the
+  # board mid-shutdown while podman is still stopping Home Assistant. The runtime
+  # watchdog plus the canary below are what actually cover the failures seen here.
+  systemd.settings.Manager = {
+    RuntimeWatchdogSec = "10s";
+    RebootWatchdogSec = "0";
+  };
 
   # Kernel-side insurance for the USB root device. On 2026-10-23 coruscant lost
   # writes while reporting success: three store paths ended up 0-byte yet still
