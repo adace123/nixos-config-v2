@@ -381,6 +381,11 @@ The hub itself stays on `127.0.0.1:8090`, so only Caddy is reachable. Clients mu
 be on the same tailnet as dathomir — including any host that should *report* to
 the hub, since Tailscale-only cuts both ways.
 
+The hub reads `APP_URL` from a sops-rendered env file (`beszel-hub-env`) so the
+links it puts in notifications point at `https://<beszel-domain>` rather than the
+built-in `http://localhost:8090` fallback, which is useless from a phone. If you
+change the hub's public name, the alert links follow the secret automatically.
+
 dathomir also runs the **agent**, and coruscant runs one pointed at this hub over
 the tailnet. Both authenticate with a **universal token** — create it once at
 `/settings/tokens` and put the same value in each host's `beszel-token` secret —

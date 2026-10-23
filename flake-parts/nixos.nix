@@ -251,6 +251,20 @@ in
                 # DISABLE_PASSWORD_AUTH is deliberately NOT set yet: turning it on
                 # before a passkey login has been verified locks everyone out.
                 environment.USER_CREATION = "true";
+                # The hub builds notification links from APP_URL and falls back to
+                # http://localhost:8090, which is useless from a phone: every beszel
+                # alert carried a dead link until this was set (2026-10-23). It comes
+                # from the beszel-domain secret via a template so the name stays out
+                # of the repo; systemd reads EnvironmentFile as root, so the hub's
+                # DynamicUser can stay.
+                environmentFile = config.sops.templates."beszel-hub-env".path;
+              };
+
+              sops.templates."beszel-hub-env" = {
+                content = ''
+                  APP_URL=https://${config.sops.placeholder.beszel-domain}
+                '';
+                mode = "0400";
               };
 
               sops.templates."caddy-env" = {
