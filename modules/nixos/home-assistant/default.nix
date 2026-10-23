@@ -207,7 +207,12 @@ in
       permit_join = false;
       mqtt = {
         base_topic = "zigbee2mqtt";
-        server = "mqtt://localhost:1883";
+        # 127.0.0.1, not `localhost`: on these hosts `localhost` resolves to ::1
+        # only, and mosquitto listens on `listener 1883 127.0.0.1`, so
+        # `mqtt://localhost:1883` fails with `ECONNREFUSED ::1:1883` whenever the
+        # resolver picks IPv6 — which is how the coordinator came up dead on boot
+        # with the unit reported active (coruscant, 2026-10-23).
+        server = "mqtt://127.0.0.1:1883";
       };
       serial = {
         port = zigbeeDongle;

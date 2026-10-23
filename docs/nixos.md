@@ -326,9 +326,14 @@ is dead, and both are worked around in
   unit with `DevicePolicy=closed` plus `DeviceAllow=<the by-id path>`, and systemd
   resolves that path when it *loads* the unit, which at boot is before udev
   publishes `/dev/serial/by-id/…`. The device policy is overridden to `auto`.
-- `MQTT failed to connect, exiting` — the module only orders the unit after
-  `network.target`, so it could start before mosquitto and (unlike most services)
-  it exits instead of retrying. It is now ordered after `mosquitto.service`.
+- `MQTT failed to connect, exiting` — two independent causes, both fixed. The
+  module only ordered the unit after `network.target`, so it could start before
+  mosquitto and (unlike most services) it exits instead of retrying; it is now
+  ordered after `mosquitto.service`. And the broker address was
+  `mqtt://localhost:1883`, while `localhost` resolves to `::1` on these hosts and
+  mosquitto listens on `listener 1883 127.0.0.1` — so it failed with
+  `ECONNREFUSED ::1:1883` whenever the resolver picked IPv6. The address is now
+  `mqtt://127.0.0.1:1883`.
 
 A manual `systemctl restart zigbee2mqtt` fixes either in the meantime.
 

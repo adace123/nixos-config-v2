@@ -57,6 +57,7 @@ commit kinds that are exempt, live in
 - fix(dathomir): make the conversion script executable
 - fix(ha): keep zigbee2mqtt's coordinator alive by opening the device cgroup
 - fix(ha): order zigbee2mqtt after mosquitto so the coordinator survives a boot
+- fix(ha): point zigbee2mqtt at 127.0.0.1, because localhost resolves to ::1 here
 - fix(dathomir): read the Tailscale key file as root in the conversion guard
 - fix(dathomir): mark the Tailscale state for preservation before nixos-infect runs
 - fix(dathomir): set NODE on the already-NixOS convergence path
