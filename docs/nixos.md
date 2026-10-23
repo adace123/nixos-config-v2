@@ -314,15 +314,33 @@ Check that `zigbee2mqtt` actually started, not just that systemd calls it active
 
 ```bash
 systemctl is-active zigbee2mqtt            # says "active" even when broken
-journalctl -u zigbee2mqtt -b | grep -i "Failed to init port"
+journalctl -u zigbee2mqtt -b | grep -iE "Failed to init port|MQTT failed"
 ss -ltn | grep 8091                        # the z2m frontend
 ```
 
-A `Failed to init port … Operation not permitted` in the boot log means the unit
-was loaded before udev published `/dev/serial/by-id/…`: systemd resolves the
-`DeviceAllow=` path when it loads the unit, so `DevicePolicy=closed` then denies
-the dongle for the whole boot, while the process stays alive in that broken state
-and `Restart=on-failure` never fires. `modules/nixos/home-assistant/default.nix`
-overrides the device policy to avoid the race. A manual
-`systemctl restart zigbee2mqtt` fixes it in the meantime — if a restart does not
-help, the dongle or its `dialout` access is the problem, not the race.
+Two races have bitten this unit, both leaving it `active` while the Zigbee network
+is dead, and both are worked around in
+`modules/nixos/home-assistant/default.nix`:
+
+- `Failed to init port … Operation not permitted` — the nixpkgs module hardens the
+  unit with `DevicePolicy=closed` plus `DeviceAllow=<the by-id path>`, and systemd
+  resolves that path when it *loads* the unit, which at boot is before udev
+  publishes `/dev/serial/by-id/…`. The device policy is overridden to `auto`.
+- `MQTT failed to connect, exiting` — the module only orders the unit after
+  `network.target`, so it could start before mosquitto and (unlike most services)
+  it exits instead of retrying. It is now ordered after `mosquitto.service`.
+
+A manual `systemctl restart zigbee2mqtt` fixes either in the meantime.
+
+### Services restart by themselves minutes after boot
+
+That is the clock step. The Pi hosts have no RTC, so they boot months in the past
+and `chronyd` then steps the clock forward. systemd fires **every** calendar timer
+whose elapse time went by during the jump, all at once — on coruscant
+(2026-10-23) that meant nix-gc, `fstrim`, the Restic backup *and* its verification
+job, `logrotate`, `podman-prune` and `podman-auto-update` starting together about
+70 s into the boot, on a Pi 4. `podman auto-update` is what stopped Home Assistant
+in that window: it stops the unit to replace the container, and here the container
+came back only on a manual start. Expect transient service churn for a minute
+around the step, and do not debug those services until `timedatectl` reads
+correctly.

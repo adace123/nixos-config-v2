@@ -228,9 +228,18 @@ in
   # HOST_FATAL_ERROR, nothing on 8091; a manual restart fixed it). Opening the
   # device cgroup avoids the race entirely; the module's other sandboxing
   # (PrivateUsers, ProtectSystem=strict, syscall filter) is untouched.
-  systemd.services.zigbee2mqtt.serviceConfig = {
-    DevicePolicy = lib.mkForce "auto";
-    DeviceAllow = lib.mkForce [ ];
+  systemd.services.zigbee2mqtt = {
+    # The module only orders this after network.target, but zigbee2mqtt exits
+    # rather than retrying when MQTT is unreachable ("MQTT failed to connect,
+    # exiting"). At boot mosquitto comes up a second or two later, so the
+    # coordinator died on every boot while the unit stayed put in a broken
+    # state (coruscant, 2026-10-23).
+    after = [ "mosquitto.service" ];
+    requires = [ "mosquitto.service" ];
+    serviceConfig = {
+      DevicePolicy = lib.mkForce "auto";
+      DeviceAllow = lib.mkForce [ ];
+    };
   };
 
   # Disabled: upstream ESPHome removed the built-in dashboard, but nixpkgs'
