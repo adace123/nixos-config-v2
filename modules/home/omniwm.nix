@@ -352,12 +352,21 @@ in
       reserveLayoutSpace = true;
     };
 
-    # A lone window used to expand edge to edge, dropping its 8pt side and bottom
-    # gaps — which reads as fullscreen even though the bar's strip is reserved.
-    # `preserve` keeps the configured margins in the single-window case, in both
-    # layouts, so one window on a workspace looks the same as several.
-    settings.niri.singleWindowFit = "preserve";
-    settings.dwindle.singleWindowFit = "preserve";
+    # `singleWindowFit` is left at OmniWM's default, "fill": a lone window keeps
+    # its 8pt side and bottom gaps anyway, because `fullscreenUsesOuterGaps` above
+    # lands a fill window on the working frame those gaps were subtracted from.
+    # One window on a workspace looks the same as several, in both layouts.
+    #
+    # Do not give it a value OmniWM does not define — the only ones it decodes are
+    # "fill", "container_primary_span" (Niri only) and an explicit "WxH" size.
+    # A commit here once set "preserve", which no OmniWM release defines, and a
+    # single undecodable value makes OmniWM reject the *whole* settings file and
+    # run on its packaged defaults: the bar dropped below the notch on a second
+    # row, the gaps and hotkeys reverted, and `ipcEnabled` went back to false,
+    # which is what left `omniwmctl` unable to reach the app. Nothing in the app
+    # says so; the rejection is only in the unified log:
+    #
+    #   log show --predicate 'subsystem == "com.barut.OmniWM"' --last 10m
 
     # AeroSpace had no drop-down terminal, and OmniWM's binds Option+` by
     # default. Flip this to true to get its Ghostty-backed quake terminal.

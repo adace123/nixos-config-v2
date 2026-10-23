@@ -321,6 +321,24 @@ Space — the green button, or `Ctrl+Cmd+F` — is composited above everything a
 cannot be worked around, which is what `workspaceBar.hideInNativeFullscreen`
 is for: the bar steps aside instead of being covered.
 
+`singleWindowFit` is deliberately left at the default `"fill"`. A lone window
+still keeps its 8pt side and bottom gaps, because `fullscreenUsesOuterGaps`
+lands a fill window on the working frame those gaps were subtracted from, so one
+window looks like several. The values OmniWM decodes there are only `"fill"`,
+`"container_primary_span"` (Niri only) and an explicit `"WxH"` size — and a
+value it does not decode makes it **ignore the entire settings file** and run on
+its packaged defaults, which is how `"preserve"` turned the split notch bar back
+into a second row below the notch and switched `ipcEnabled` off along with it.
+The app says nothing about it; the rejection is only in the unified log:
+
+```bash
+log show --predicate 'subsystem == "com.barut.OmniWM"' --last 10m
+```
+
+`omniwmctl: ... No such file or directory` is the same failure seen from the
+other side: with `ipcEnabled` back at its default `false`, the agent's socket is
+not there at all.
+
 The module imports `inputs.omniwm.homeManagerModules.default` — **not** the
 module home-manager ships. OmniWM rejects any `settings.toml` that is not its
 complete schema, and the stock module writes exactly the attrset it is given, so
