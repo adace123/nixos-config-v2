@@ -30,8 +30,30 @@ modules/nixos/                       # host-specific modules
 
 - Raspberry Pi 4 (aarch64-linux)
 - Boot device: USB SSD (recommended) or SD card
+- Kernel: `pkgs.linuxPackages` (LTS), **not** `linuxPackages_latest` — see
+  [Kernel and time](#kernel-and-time)
 - Hostname: `coruscant`
 - Network: Ethernet (DHCP) + optional WiFi
+
+## Kernel and time
+
+The Pi hosts are pinned to the LTS kernel (`modules/nixos/rpi-boot.nix`).
+`linuxPackages_latest` was in use until October 2026, when `coruscant` began
+hard-hanging with nothing in its journal — no panic, OOM, under-voltage or I/O
+error — starting with the first boot on mainline 7.2.2, having run 7.1.8 for
+weeks. If you bump the kernel, boot the host and leave it up for a few hours
+before trusting it.
+
+Because a Pi has no RTC, the clock comes up wrong on every boot and is corrected
+by `chrony` (`modules/nixos/common.nix`, `makestep 1.0 3`). Until it is stepped,
+TLS validation fails, so **Tailscale never joins the tailnet** and the host looks
+dead remotely while its LAN interface is perfectly fine. When a NixOS host
+appears unresponsive, always try its LAN address (`coruscant.local`) before
+concluding it is down, and give a cold boot several minutes.
+
+A hardware watchdog is enabled for the same reason: `bcm2835_wdt` plus
+`RuntimeWatchdogSec`/`RebootWatchdogSec` means a frozen kernel reboots itself
+rather than hanging until power is pulled.
 
 ## Services
 
@@ -40,7 +62,7 @@ modules/nixos/                       # host-specific modules
 | Home Assistant | 8123 | `home-assistant/` (podman) |
 | Mosquitto (MQTT) | 1883 | `home-assistant/` |
 | Zigbee2MQTT | 8091 | `home-assistant/` |
-| ESPHome | 6052 | `home-assistant/` |
+| ESPHome | — | disabled — upstream removed the built-in dashboard, see `home-assistant/` |
 | Beszel agent | 45876 | `nixos/beszel-agent.nix` (hub runs on dathomir) |
 | Caddy (HTTPS proxy) | 443 | `caddy.nix` |
 | Podman (container engine) | socket | `podman.nix` |

@@ -47,6 +47,7 @@ commit kinds that are exempt, live in
 
 ### Fixed
 
+- fix(nixos): stabilise the Pi hosts with an LTS kernel, chrony, a watchdog and no esphome
 - fix(omniwm): put the TV workspace on the TV when the monitor is away
 - fix(claude): read auto-format hook input from stdin, register context7 at user scope, drop dead settings
 - fix(claude): remove outputStyle, which matched no built-in style and had no effect

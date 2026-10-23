@@ -70,10 +70,17 @@ in
   # Timezone
   time.timeZone = "America/Los_Angeles";
 
-  # Enable NTP
-  services.ntp = {
+  # Keep the clock in step, and make it step hard at boot. The Pi hosts have no
+  # RTC, so they come up on a bogus date until NTP corrects them; while the clock
+  # is wrong every TLS handshake fails (certificates look not-yet-valid), which
+  # takes Tailscale down with it and makes the host unreachable on the tailnet
+  # even though its LAN is fine. ntpd only slews, so a freshly booted box could
+  # sit unreachable for minutes; chrony steps the clock on its first few updates.
+  # See .pi/plans/coruscant-unresponsive-diagnosis.md
+  services.chrony = {
     enable = true;
     servers = [ "pool.ntp.org" ];
+    extraConfig = "makestep 1.0 3";
   };
 
   # Enable log rotation

@@ -216,9 +216,13 @@ in
     };
   };
 
+  # Disabled: upstream ESPHome removed the built-in dashboard, but nixpkgs'
+  # module still execs `esphome dashboard`, so the unit exits 1 every ~2s and
+  # systemd restarts it forever (the restart counter reached 250 on coruscant's
+  # last boot — pure process churn for a service that cannot start). Run ESPHome
+  # Device Builder (as a podman container beside HA) if the UI is wanted again.
   services.esphome = {
-    enable = true;
-    openFirewall = true;
+    enable = false;
   };
 
   environment.systemPackages = with pkgs; [
