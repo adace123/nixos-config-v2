@@ -306,20 +306,33 @@ dodges the notch by dropping the island onto a second row instead, which is what
 stacked two bars on the built-in display.
 
 `reserveLayoutSpace = true` is what keeps windows out from under it. The bar
-floats over the top of the display (`position = "overlappingMenuBar"`) rather
-than taking a row of its own, so without reservation the tiled work area still
-starts at the top edge: the 8pt outer and 8pt inner gaps leave a 16pt inset
-against a 24pt bar, and the top 8pt of every window ends up behind it.
+floats over the top of the display (`position = "overlappingMenuBar"`), inside
+the strip macOS already reserves for its own (auto-hidden) menu bar: on the
+built-in display `visibleFrame` stops below the 32pt notch band and the 24pt bar
+sits in it, bottom-aligned to that edge. `workspaceBar.yOffset = 1` lifts the bar
+1pt off it, which is the one point of background visible between the bar and the
+window under it.
 
-With the bar reserved and `gaps.outer.top = 10`, a window's top edge lands 42pt
-down — the 24pt bar plus 10pt of outer gap plus 8pt of inner gap — leaving 18pt
-of clear space under the bar. `gaps.fullscreenUsesOuterGaps = true` gives a
+Nothing else carves that space out: `reserveLayoutSpace` only adds a row in
+`belowMenuBar` mode, and `gaps.outer.top` is applied after the menu-bar band is
+subtracted (`max(0, 10 − 32)` on the built-in display), so the side and bottom
+gaps are the ones that show. `gaps.fullscreenUsesOuterGaps = true` gives a
 fullscreen window the same outer gaps so it leaves the same strip, instead of
-sitting at 24pt with the bar as its only separation from the display edge.
-That covers OmniWM's own fullscreen (`Option+Return`). A real macOS fullscreen
-Space — the green button, or `Ctrl+Cmd+F` — is composited above everything and
-cannot be worked around, which is what `workspaceBar.hideInNativeFullscreen`
-is for: the bar steps aside instead of being covered.
+sitting at the display edge. That covers OmniWM's own fullscreen
+(`Option+Return`). A real macOS fullscreen Space — the green button, or
+`Ctrl+Cmd+F` — is composited above everything and cannot be worked around, which
+is what `workspaceBar.hideInNativeFullscreen` is for: the bar steps aside
+instead of being covered.
+
+`workspaceBar.notchActiveZoneWidth = 60` — the floor the app clamps to — is what
+keeps the split symmetric. The active island is centred inside a zone that wide
+when it fits there, and its right edge lands on the 8pt notch gap when it does
+not. At the packaged 180pt it was centred instead, and sat roughly 21pt from the
+notch while the passive island sat 8pt from it.
+
+`borders.width = 2.5` halves OmniWM's 5pt focus ring. It moves nothing: the ring
+is drawn in the gap between windows, and every gap is already wider than either
+width.
 
 `singleWindowFit` is deliberately left at the default `"fill"`. A lone window
 still keeps its 8pt side and bottom gaps, because `fullscreenUsesOuterGaps`

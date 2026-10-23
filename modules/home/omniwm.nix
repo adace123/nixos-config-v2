@@ -339,18 +339,39 @@ in
     settings.workspaceBar = {
       notchMode = "splitActiveLeft";
 
+      # The split islands sit `notchGap` (8pt, hard-coded in OmniWM) off their
+      # side of the notch — but only when the active island is wider than the
+      # zone it is allowed to be centred in. At the packaged 180pt the active
+      # island was centred inside that zone and so ended ~21pt from the notch
+      # while the passive island sat 8pt from it. 60 is the floor the app clamps
+      # this to, which puts both sides on the same 8pt gap for any island wider
+      # than 60pt.
+      notchActiveZoneWidth = 60.0;
+
       # `position` is `overlappingMenuBar`, so the bar floats over the top of the
-      # display instead of taking a row of its own. Without reserving layout
-      # space the tiled work area still runs to the top edge and the top of every
-      # window ends up behind the bar; reserving it pushes the work area down by
-      # the bar's height.
+      # display instead of taking a row of its own — inside the strip macOS keeps
+      # for its (auto-hidden) menu bar, which is what leaves the tiled work area
+      # starting at the bottom of that strip. The bar is 24pt in a 32pt strip and
+      # bottom-aligned to it, so a window would otherwise start flush against
+      # the bar; 1pt of offset lifts the bar off it and leaves one point of
+      # background between the two.
+      #
+      # `reserveLayoutSpace` only matters in `belowMenuBar` mode, where the bar
+      # takes a row that has to be carved out of the work area; kept on because
+      # the settings below are written for this layout either way.
       #
       # A real macOS fullscreen Space is composited above everything, so a bar
       # that stays put is simply covered. Native fullscreen is the one case the
-      # reservation cannot help, so the bar steps aside instead.
+      # layout cannot help, so the bar steps aside instead.
       hideInNativeFullscreen = true;
       reserveLayoutSpace = true;
+      yOffset = 1.0;
     };
+
+    # OmniWM ships a 5pt focus ring, which reads heavy against 8pt gaps. Half of
+    # it is still a clear outline, and it changes no layout: the ring is drawn in
+    # the gap between windows, and each gap is already wider than either width.
+    settings.borders.width = 2.5;
 
     # `singleWindowFit` is left at OmniWM's default, "fill": a lone window keeps
     # its 8pt side and bottom gaps anyway, because `fullscreenUsesOuterGaps` above
