@@ -922,6 +922,11 @@ diff:
 setup-work-ssh:
     ./scripts/setup-work-ssh.sh
 
+# Install the ASIX AX88179 USB->Ethernet driver (Homebrew's cask is disabled)
+[group('workflow')]
+setup-asix-ethernet:
+    ./scripts/setup-asix-ethernet.sh
+
 # Check for available updates (pulls if flake.lock changed, notifies via macOS)
 [group('workflow')]
 check-updates:

@@ -110,6 +110,39 @@ declared there on the next activation, and a binary that links
 `/opt/homebrew/opt/<lib>/lib/...` aborts with `dyld: Library not loaded` once
 that library is gone.
 
+### USB Ethernet (ASIX AX88179)
+
+The USB 3.0 gigabit dongle (ASIX `AX88179`, USB ID `0b95:1790`) needs a vendor
+driver. The chip is USB **vendor-class** (`bDeviceClass 0xFF`), not
+class-compliant, so macOS publishes the USB interface and then binds nothing to
+it: no `en*` interface is created and the adapter is absent from Network
+settings. That looks like a dead adapter but is a missing driver. The newer
+`AX88179A` speaks native CDC-NCM and needs none of this.
+
+Homebrew's `asix-ax88179` cask would install it, but is disabled upstream
+(`disable! date: "2026-09-01", because: :fails_gatekeeper_check`). `brew`
+refuses disabled casks, so listing it in `modules/darwin/homebrew.nix` would
+fail adoption on every `just switch`. Use the script instead:
+
+```bash
+just setup-asix-ethernet                          # install
+./scripts/setup-asix-ethernet.sh --uninstall      # remove
+```
+
+It downloads ASIX's 2.5.0 package, verifies a pinned SHA-256 before installing
+anything, and checks the package signature. Two manual steps follow, neither of
+which can be automated: approve the extension in **System Settings → General →
+Login Items & Extensions → Driver Extensions**, then reboot. If that toggle is
+greyed out, this Mac is Jamf-managed and the approval is policy-blocked — an IT
+request, not a local fix.
+
+Re-run after a major macOS upgrade, since the DriverKit extension can stop
+loading. To tell a real adapter from a phantom, use
+`networksetup -listallhardwareports`: a working adapter appears as an `en*`
+with a burned-in MAC. The synthetic, sequentially allocated `e6:e9:8d:...`
+addresses belong to macOS's placeholder "Ethernet Adapter" slots, which have no
+hardware behind them.
+
 ## Customising the Host
 
 Machine-specific identity values are defined in `hosts/endor/default.nix` and

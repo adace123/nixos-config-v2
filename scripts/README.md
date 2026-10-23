@@ -7,6 +7,8 @@ This directory contains utility scripts for the Nix configuration.
 - `ai-selector.sh` - Interactive AI assistant picker (`gum`-based); installed to
   `~/.local/bin/ai-selector` (see `modules/home/base.nix`)
 - `setup-work-ssh.sh` - Configure separate SSH keys for work repositories
+- `setup-asix-ethernet.sh` - Install the ASIX AX88179 USB→Ethernet driver
+  (`just setup-asix-ethernet`); Homebrew's cask is disabled upstream
 - `setup-yubikey-sudo.sh` - Configure YubiKey for sudo authentication
 - `yubikey-sudo-shim.sh` - Notify when sudo auth is required (used by `just switch`; only installed when the laptop lid is closed)
 - `check-for-updates.sh` - Check `flake.lock` for upstream changes and notify (`just check-updates`)
@@ -132,6 +134,29 @@ host (nothing unverified is piped into a root shell), runs it with
 `NIXOS_IMPORT=./dathomir-import.nix` (the module copied in from
 `infra/dathomir-infect-import.nix`), reboots into NixOS, then runs
 `NHOST=dathomir just nixos-deploy <target>`. See [docs/dathomir.md](../docs/dathomir.md).
+
+## USB Ethernet driver
+
+`setup-asix-ethernet.sh` installs the vendor driver for the ASIX AX88179 USB 3.0
+gigabit dongle (USB ID `0b95:1790`):
+
+```bash
+just setup-asix-ethernet                          # install
+./scripts/setup-asix-ethernet.sh --uninstall      # remove
+```
+
+The chip is USB vendor-class (`bDeviceClass 0xFF`), so macOS publishes the USB
+interface and then binds nothing to it — no `en*`, nothing in Network settings,
+which reads as a dead adapter but is a missing driver. Homebrew's
+`asix-ax88179` cask would install the same package, but it is disabled upstream
+(`disable! date: "2026-09-01", because: :fails_gatekeeper_check`) and `brew`
+refuses disabled casks, so it cannot live in `modules/darwin/homebrew.nix`
+without failing adoption. The script vendors the package instead, pinned by
+SHA-256 and signature-checked before installing.
+
+Approving the DriverKit extension and rebooting are manual steps. On a
+Jamf-managed Mac that approval can be policy-blocked. See
+[docs/darwin.md](../docs/darwin.md).
 
 ## SSH Configuration
 
