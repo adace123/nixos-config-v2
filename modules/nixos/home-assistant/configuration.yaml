@@ -4,10 +4,23 @@ logger:
   logs:
     homeassistant: info
     homeassistant.components: warning
+    # Logs under its own name, so the components filter above misses it.
+    # Its INFO retry chatter was the largest single contributor to
+    # coruscant's journal in Oct 2026. warning keeps real failures
+    # visible; drop to error if the cached-value warnings are still
+    # too noisy.
+    aioamazondevices: warning
 system_log:
   fire_event: true
 recorder:
-  purge_keep_days: 60
+  # 60 days of history took the DB to 960M in Oct 2026. 30 days
+  # roughly halves steady-state size. auto_repack matters as much
+  # as the purge: without it, purge deletes rows but the SQLite
+  # file keeps its size. (auto_purge is already the default;
+  # stated so the pair is explicit.)
+  purge_keep_days: 30
+  auto_purge: true
+  auto_repack: true
   db_url: sqlite:////config/home-assistant_v2.db
 history:
 logbook:
