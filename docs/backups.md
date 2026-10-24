@@ -15,6 +15,13 @@ the NixOS host — and requires no manual action in steady state.
 The backup **excludes** `deps`, `logs`, and `tts` (regenerable/cache data)
 under `/var/lib/hass`.
 
+The snapshot size is dominated by the recorder database
+(`home-assistant_v2.db`): 960M of the 1.1G directory in October 2026. Its
+retention is 30 days — see
+[docs/home-assistant.md → Recorder and history retention](home-assistant.md#recorder-and-history-retention)
+— so shortening that horizon is the cheapest way to shrink both the snapshot and
+each nightly upload.
+
 During a backup, the Home Assistant Podman container is **stopped** so the
 snapshot is consistent, then started again (restart is guaranteed via a trap
 even if the backup fails).

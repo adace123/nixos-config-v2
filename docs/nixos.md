@@ -53,9 +53,11 @@ concluding it is down, and give a cold boot several minutes.
 
 A hardware watchdog is enabled for the same reason: `bcm2835_wdt` plus
 `RuntimeWatchdogSec=10s` means a frozen kernel reboots itself rather than hanging
-until power is pulled. `RebootWatchdogSec` is deliberately left unset — the chip
-cannot hold a long timeout (silently ignored) and a short one would reset the
-board mid-shutdown while podman is still stopping Home Assistant.
+until power is pulled. `RebootWatchdogSec` is explicitly `0`, not unset: leaving
+it unset does **not** disable it — systemd's default is 10 minutes, which the chip
+cannot hold, so it is silently ignored and only looks like protection. Any value
+the chip can actually hold (it tops out near 15 s) would hard-reset the board
+mid-shutdown while podman is still stopping Home Assistant.
 
 ## Storage hardening on the USB root
 
@@ -83,6 +85,42 @@ If a deploy leaves the box unbootable, the previous generation is still on the b
 partition: point `os_prefix` in `config.txt` at it from any machine (see
 [Troubleshooting](#troubleshooting)).
 
+## Health monitoring
+
+Two units cover the failures that used to be invisible on the Pi hosts.
+
+**SMART** (`modules/nixos/ssd.nix`, SSD hosts only): `smartd` watches `/dev/sda`
+with `-d sat`, because the 870 EVO hangs off a USB-SATA bridge and needs the SAT
+translation layer. A short self-test runs daily at 02:00 and a long one on Sundays
+at 04:00; warnings and failures go to the journal — no mail target is configured,
+so the journal is the only place to look. If the bridge ever rejects SAT, try
+`-d sat,12` before falling back to `-d auto`. The device is listed explicitly
+(`autodetect = false`), so if it ever stops being `/dev/sda` the unit fails at
+start instead of silently monitoring nothing: `systemctl status smartd`.
+
+**Under-voltage** (`modules/nixos/rpi-boot.nix`, every Pi host):
+`rpi-voltage-check.timer` polls `in0_lcrit_alarm` from `raspberrypi_hwmon` every
+five minutes and logs at `user.err` when the supply sags. `vcgencmd` cannot do
+this job here — it needs `/dev/vcio` from the `bcm2835-vcio` driver, which this
+kernel does not build (the driver lives only in Raspberry Pi's downstream tree).
+The poll sees the *current* alarm, not the firmware's sticky "has throttled since
+boot" bit, so a dip that starts and ends between two polls is missed: it is there
+to catch a marginal supply, not to time a brownout.
+
+## Journal size
+
+`modules/nixos/common.nix` caps the journal on **every** NixOS host:
+`SystemMaxUse=512M` plus `SystemKeepFree=1G`, on top of `MaxRetentionSec=1month`.
+Retention alone does not bound size — `coruscant`'s journal reached 2.1G in October
+2026, mostly Home Assistant container stdout: the Alexa devices library retrying
+Amazon per device, which logs as `aioamazondevices` and is why that logger is
+pinned to `warning` in the HA config. With the cap in place the oldest entries are
+dropped rather than the root filesystem filling up.
+
+`journalctl --disk-usage` shows the size on disk. A spike is almost always one
+unit logging per-request, which `journalctl --since -1h | cut -d' ' -f5 | sort |
+uniq -c | sort -rn | head` narrows down before the cap hides the evidence.
+
 ## Services
 
 | Service | Port | NixOS module |
@@ -94,6 +132,8 @@ partition: point `os_prefix` in `config.txt` at it from any machine (see
 | Beszel agent | 45876 | `nixos/beszel-agent.nix` (hub runs on dathomir) |
 | Caddy (HTTPS proxy) | 443 | `caddy.nix` |
 | Podman (container engine) | socket | `podman.nix` |
+| SMART (`smartd`) | — | `nixos/ssd.nix` |
+| Under-voltage poll | — | `nixos/rpi-boot.nix` (`rpi-voltage-check`) |
 | Tailscale | — | `nixos/common.nix` |
 
 ## Initial Provisioning
@@ -209,6 +249,8 @@ updates with `NHOST=threepio just nixos-deploy`.
 | Rollback remote host | `just nixos-rollback` |
 | Tail Home Assistant logs | `just hass-logs` |
 | Tail HA logs with filter | `just hass-logs FILTER="error\|recorder"` |
+| Boot SSD health | `smartctl -d sat -H /dev/sda` |
+| Journal size on disk | `journalctl --disk-usage` |
 
 ## WiFi Configuration
 
