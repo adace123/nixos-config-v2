@@ -36,6 +36,7 @@ commit kinds that are exempt, live in
 - feat(just): build NixOS configurations on dathomir instead of the target host
 - feat(beszel): collect SMART in the agent on hosts that run smartd
 - feat(beszel): back the hub's PocketBase state up to R2
+- fix(beszel): initialise the hub's restic repository on first backup
 
 ### Changed
 

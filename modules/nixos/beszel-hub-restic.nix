@@ -69,6 +69,14 @@ in
       # unconditionally, as the Home Assistant job does for podman.
       trap 'systemctl start beszel-hub.service' EXIT
 
+      # A fresh bucket path has no repository yet, and restic refuses to back up
+      # into one. Create it on first run so a rebuilt VPS does not stall on a
+      # manual `restic init` — which is exactly what the first deploy hit
+      # (dathomir, 2026-10-25: "Fatal: repository does not exist").
+      if ! restic -o s3.bucket-lookup=path cat config >/dev/null 2>&1; then
+        restic -o s3.bucket-lookup=path init
+      fi
+
       # --retry-lock: the weekly check holds an exclusive lock, and a VPS without
       # an RTC can fire both at once after a clock step.
       restic -o s3.bucket-lookup=path --retry-lock 10m backup ${stateDir} \
