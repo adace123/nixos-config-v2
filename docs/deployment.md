@@ -283,8 +283,9 @@ Pacific. `.github/workflows/dependabot-auto-merge.yml` squash-merges it once the
 `flake-check.yml` also runs `darwin-build`, which realises
 `darwinConfigurations.endor.system` instead of only evaluating it. That is the
 only check that catches the failure an input bump actually produces — a package
-that no longer builds — so watch its runtime and then add it to the `Main`
-ruleset's required checks.
+that no longer builds. It is a required check on `main` alongside the other
+three; measured at ~15 minutes cold, and macOS runner minutes are free here
+because the repository is public.
 
 Manual equivalents: `just update` and `just update-input <input>`.
 

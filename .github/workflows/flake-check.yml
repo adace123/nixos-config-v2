@@ -65,9 +65,10 @@ jobs:
   # produces: a package that no longer builds, or an activation script that
   # breaks. Realising the system output is the only thing that catches it.
   #
-  # Advisory on purpose — it is NOT in the `Main` ruleset's required checks yet.
-  # A cold macOS build is slow enough to become a flaky gate, so watch a few runs
-  # for runtime and timeouts before promoting it.
+  # This is a required check in the `Main` ruleset: measured at ~15 minutes cold
+  # on a public repo, where macOS runner minutes are free. Repository admins
+  # bypass the ruleset, so a slow or flaky run here blocks Dependabot PRs, not
+  # local pushes.
   darwin-build:
     runs-on: macos-latest
     timeout-minutes: 90
