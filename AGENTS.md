@@ -258,11 +258,46 @@ that hostname (`enervee-ltqcw2y7pv`) is not a host in this flake — it fails wi
 `flake ... does not provide attribute 'packages.aarch64-darwin.darwinConfigurations.<hostname>...'`.
 Always name the configuration (or let a `just` recipe interpolate `$HOST`).
 
+## Deploying a New Service
+
+Before adding any long-running service, container, or timer to a host, pick the
+host deliberately. These rules apply to services added by an agent on its own
+initiative as much as to ones it is asked for.
+
+### Host selection
+
+- **Check headroom first.** Read current RAM, disk, and CPU for the candidate host
+  in the **Beszel hub** (tailnet-only; it is published by Caddy under the
+  `beszel-domain` sops secret, and clients must be on the tailnet — see
+  [docs/dathomir.md](docs/dathomir.md#beszel-hub-tailnet-only-with-a-real-tls-name)),
+  and list what is **already running** there. Static specs (GPU, total RAM and disk,
+  always-on status) are in [docs/nixos.md](docs/nixos.md) for the Pi hosts and
+  [docs/dathomir.md](docs/dathomir.md) for the VPS. Do **not** fill a host past
+  ~80% RAM — leave the remainder for page cache, Nix builds, and podman overhead.
+- **Resource-heavy means stop, not squeeze.** Treat a service as heavy if it needs
+  >2 GB RAM, a GPU, sustained CPU, or large persistent storage. If the service is
+  heavy, or no host has the headroom, **stop and suggest alternatives** — a lighter
+  equivalent, a trimmed config, on-demand scheduling, or new hardware — instead of
+  deploying it to whatever host is closest to fitting.
+- **Only deploy to hosts monitored by Beszel.** In this repo that is a host setting
+  `beszelAgent = true` in `hosts/<name>/default.nix`: today **`coruscant`** and
+  **`dathomir`**. `threepio` is not a target until its agent is enabled (see
+  [docs/nixos.md](docs/nixos.md) and `modules/nixos/beszel-agent.nix`).
+- **Never deploy to `endor`** (this macOS laptop: not always on, not monitored)
+  unless the user explicitly asks. A darwin-side service also has to be a
+  `home-manager`/`launchd` thing, not a NixOS module — see
+  [docs/darwin.md](docs/darwin.md).
+- **Dependencies count.** A service that pulls in a database, queue, or cache needs
+  the headroom for those too, on the same host, and they may not be deployed to an
+  excluded host either. Do not split a service from its dependencies across hosts
+  without the user's agreement.
+
 ## Development Workflow
 
 ### Making Changes
 
-1. Edit configuration files
+1. Edit configuration files. If you are adding a service to a host, pick the host
+   first — see [Deploying a New Service](#deploying-a-new-service).
 2. Run `git add` for any **new files** — Nix flakes can only resolve git-tracked files
 3. Run `just fmt` to format Nix files (required before committing)
 4. Run `just check` to validate changes
