@@ -87,6 +87,16 @@
     # pinned to the last release. nixpkgs follows ours so the lock keeps a
     # single nixpkgs (upstream's own pin stays lower in the lock but is only
     # used for its x86_64-darwin package, which this flake never evaluates).
+    # OMP (the coding agent; this machine runs the brew binary today). The
+    # upstream flake's homeManagerModules.default owns ~/.omp/agent/config.yml
+    # declaratively — consumed in modules/home/ai/omp.nix so `just switch`
+    # writes the model roles and advisor config below. nixpkgs follows ours so
+    # the lock keeps a single nixpkgs.
+    omp = {
+      url = "github:can1357/oh-my-pi/main";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     pi = {
       url = "github:earendil-works/pi/main";
       inputs.nixpkgs.follows = "nixpkgs";

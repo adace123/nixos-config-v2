@@ -6,10 +6,8 @@ lives under `modules/home/ai/`:
 ```text
 modules/home/ai/
 ├── default.nix     # imports all agents below
-├── claude.nix      # Claude Code
+├── omp.nix         # OMP: package + ~/.omp/agent/config.yml (roles, advisor)
 ├── pi.nix          # Pi (pi-coding-agent) + its MCP + skills
-├── pi-extensions/  # Pi-only extensions (OpenCode session headers)
-├── hermes.nix      # Hermes (a Pi-compatible agent)
 ├── herdr/          # Herdr terminal multiplexer
 │   ├── herdr.nix   #   config.toml + plugin/extension/skill deployment
 │   ├── kanban-config.toml # our herdr-kanban settings (workspace codes, models)
@@ -33,7 +31,42 @@ under [docs/darwin.md → Ollama](darwin.md#ollama).
 | `cc` / `cca` | `claude --permission-mode=auto` / `claude agents` |
 | — | `pi` (Pi) |
 | — | `hermes` |
+| — | `omp` (OMP) |
 | `ai-selector` | Interactive picker (see [scripts/README.md](../scripts/README.md)) |
+
+## OMP (`omp.nix`)
+
+OMP (oh-my-pi) is Nix-managed: the `omp` flake input
+(`github:can1357/oh-my-pi`) ships `homeManagerModules.default`, which installs
+the package and writes `~/.omp/agent/config.yml` declaratively on every switch
+(writable file, so OMP's runtime rewrites work and are re-asserted next
+switch). The package itself is overridden to the `llm-agents` build —
+prebuilt from cache.numtide.com instead of a ~15min bun compile (currently
+18.12.2 in the lock vs 18.12.6 on upstream main; `just update-input llm-agents`
+moves it). The brew `omp` it replaces can be uninstalled once the nix bin lands
+in PATH.
+
+Model roles (`modelRoles`, thinking suffix after `:`):
+
+- **`default` — `opencode-go/glm-5.3-flash:high`**: normal interactive work.
+  Strongest cheap Go default (native vision, 1M context).
+- **`smol` — `opencode-go/mimo-v2.5`**: fast/cheap utility work — reads,
+  searches, titles, prewalk handoffs. Nothing reasons from its output, so the
+  cheapest bulk model wins.
+- **`slow` — `opencode-go/glm-5.3:max`**: thorough reasoning where latency is
+  fine (reviewer agent, hard problems). Must score *above* default or the
+  escalation is a downgrade.
+- **`advisor` — `opencode-go/muse-spark-1.3-contributor:low`** with
+  `advisor.enabled = true`: passive per-turn review, deliberately
+  cross-family from default for independent judgment. Raise to `:max` if notes
+  feel shallow. Needs the "paid endpoints that train on request data" opt-in
+  in the OpenCode Console privacy settings.
+
+Display: `hideThinkingBlock = true` hides reasoning;
+`display.hideToolActivity = true` keeps tool calls/results (including
+`web_search` output) out of the transcript. There is no per-tool "hide
+web_search results" knob — `web_search.enabled = false` removes the tool
+entirely.
 
 ## Shared configuration (`shared.nix`)
 
