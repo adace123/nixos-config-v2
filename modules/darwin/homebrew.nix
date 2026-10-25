@@ -94,8 +94,10 @@ _: {
     masApps = {
       # Format: "App Name" = app_id;
       # Find app IDs with: mas search "App Name"
-      # Example:
       "Tailscale" = 1475387142;
+      "Numbers" = 361304891;
+      # App Store name for 1474276998; what `mas search "HP"` returns
+      "HP: Print and Support" = 1474276998;
     };
   };
 }
