@@ -53,9 +53,10 @@ Model roles (`modelRoles`, thinking suffix after `:`):
 - **`smol` — `opencode-go/mimo-v2.5`**: fast/cheap utility work — reads,
   searches, titles, prewalk handoffs. Nothing reasons from its output, so the
   cheapest bulk model wins.
-- **`slow` — `opencode-go/glm-5.3:max`**: thorough reasoning where latency is
-  fine (reviewer agent, hard problems). Must score *above* default or the
-  escalation is a downgrade.
+- **`slow` — `opencode-go/muse-spark-1.3-contributor:high`**: thorough reasoning
+  where latency is fine (reviewer agent, hard problems). Full-size but lightly
+  served (45k req/5h vs 220 for `glm-5.3:max`), agentic-tuned, cross-family
+  from the GLM default. Same training-data opt-in as the advisor entry.
 - **`advisor` — `opencode-go/muse-spark-1.3-contributor:low`** with
   `advisor.enabled = true`: passive per-turn review, deliberately
   cross-family from default for independent judgment. Raise to `:max` if notes

@@ -39,6 +39,7 @@ commit kinds that are exempt, live in
 - fix(beszel): initialise the hub's restic repository on first backup
 - feat(darwin): build before switching and hand failures to pi in the agent and just switch
 - feat(omp): manage omp via nix with glm-5.3-flash default and muse-spark-1.3 advisor
+- feat(omp): use muse-spark-1.3 for the slow tier instead of glm-5.3 (latency)
 - feat(darwin): add Numbers and HP Print and Support to the Mac App Store apps
 
 ### Changed

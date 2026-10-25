@@ -41,8 +41,11 @@
         # reasons from its output, so the cheapest bulk model wins.
         smol = "opencode-go/mimo-v2.5";
         # Thorough reasoning where latency is fine: reviewer agent, hard
-        # problems. Must score *above* default or the escalation is a downgrade.
-        slow = "opencode-go/glm-5.3:max";
+        # problems. Muse is full-size but lightly served (45k req/5h on Go vs
+        # 220 for glm-5.3:max), agentic-tuned, and cross-family from the GLM
+        # default. Needs the "paid endpoints that train on request data" opt-in
+        # in the OpenCode Console privacy settings.
+        slow = "opencode-go/muse-spark-1.3-contributor:high";
         # Passive per-turn review (see `advisor` below): deliberately
         # cross-family from default for independent judgment. Still cheap
         # ($0.10/$0.20, 45k req/5h on Go); low effort because most turns
