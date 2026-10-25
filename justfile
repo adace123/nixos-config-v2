@@ -32,7 +32,7 @@ export VERIFY_ONLY := "0"
 # runtime, so recipes stay single-line and the fork logic lives in one place.
 DARWIN_BUILD := "if command -v nh >/dev/null 2>&1; then nh darwin build .#darwinConfigurations.$HOST; else darwin-rebuild build --flake .#darwinConfigurations.$HOST; fi"
 DARWIN_CHECK := "if command -v nh >/dev/null 2>&1; then nh darwin build --dry .#darwinConfigurations.$HOST; else darwin-rebuild build --flake .#darwinConfigurations.$HOST; fi"
-DARWIN_SWITCH := "if command -v nh >/dev/null 2>&1; then nh darwin switch .#darwinConfigurations.$HOST; else sudo darwin-rebuild switch --flake .#darwinConfigurations.$HOST; fi"
+DARWIN_SWITCH := "if command -v nh >/dev/null 2>&1; then nh darwin switch --no-nom .#darwinConfigurations.$HOST; else sudo darwin-rebuild switch --flake .#darwinConfigurations.$HOST; fi"
 DARWIN_GENERATIONS := "if command -v nh >/dev/null 2>&1; then nh darwin generations; else darwin-rebuild --list-generations; fi"
 DARWIN_ROLLBACK := "if command -v nh >/dev/null 2>&1; then nh darwin rollback; else darwin-rebuild --rollback; fi"
 CLEAN_30D := "if command -v nh >/dev/null 2>&1; then nh clean all --keep-since 30d; else sudo nix-collect-garbage --delete-older-than 30d; fi"
@@ -184,7 +184,29 @@ switch:
         fi
     fi
 
-    {{ DARWIN_SWITCH }}
+    # Log the run so a failure can be handed to pi. --no-nom (in DARWIN_SWITCH)
+    # keeps nix-output-monitor's TUI out of the log: its escape sequences are
+    # unreadable for a model and useless after the fact.
+    LOG="$(mktemp -t darwin-switch.XXXXXX)"
+    STATUS=0
+    {{ DARWIN_SWITCH }} 2>&1 | tee "$LOG" || STATUS=${PIPESTATUS[0]}
+
+    if [ "$STATUS" -ne 0 ]; then
+        # 130 (Ctrl-C) and signal-killed builds (e.g. 134/SIGABRT) are not
+        # configuration errors, so they get no pi run.
+        if [ "$STATUS" -gt 128 ]; then
+            echo ""
+            echo "Interrupted ($STATUS) - not calling pi. Log: $LOG"
+            exit "$STATUS"
+        fi
+        echo ""
+        echo "Build log kept at: $LOG"
+        if scripts/pi-fix.sh "$LOG" build; then
+            echo ""
+            echo "pi reports a fix. It is uncommitted: review 'git diff', then re-run 'just switch'."
+        fi
+        exit "$STATUS"
+    fi
 
     # Send system notification on successful completion
     if command -v terminal-notifier &> /dev/null; then

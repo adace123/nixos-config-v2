@@ -84,10 +84,16 @@
   # Shell configuration
   programs.zsh.enable = true;
 
-  # Disabled for now. When re-enabled, the launchd service rebuilds from the
-  # flake below and (optionally) auto-switches.
+  # Daily: pull main, and only if it moved, build then activate. Commits reach
+  # main through a gated Dependabot/CI path, so this agent applies reviewed
+  # input bumps instead of hunting for updates itself — it never runs
+  # `nix flake update`.
+  #
+  # Activation needs non-interactive root; without a sudoers rule the agent still
+  # builds and notifies, and leaves the switch to `just switch`. See
+  # docs/deployment.md#auto-updates.
   services.nix-config-auto-update = {
-    enable = false;
+    enable = true;
     darwinConfigName = host.hostName;
   };
 

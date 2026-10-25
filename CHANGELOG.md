@@ -37,6 +37,7 @@ commit kinds that are exempt, live in
 - feat(beszel): collect SMART in the agent on hosts that run smartd
 - feat(beszel): back the hub's PocketBase state up to R2
 - fix(beszel): initialise the hub's restic repository on first backup
+- feat(darwin): build before switching and hand failures to pi in the agent and just switch
 
 ### Changed
 

@@ -11,6 +11,7 @@ This directory contains utility scripts for the Nix configuration.
   (`just setup-asix-ethernet`); Homebrew's cask is disabled upstream
 - `setup-yubikey-sudo.sh` - Configure YubiKey for sudo authentication
 - `yubikey-sudo-shim.sh` - Notify when sudo auth is required (used by `just switch`; only installed when the laptop lid is closed)
+- `pi-fix.sh` - Hand a failed build or activation log to `pi` for repair (`just switch` and the daily auto-update agent; `PI_FIX=0` skips)
 - `check-for-updates.sh` - Check `flake.lock` for upstream changes and notify (`just check-updates`)
 - `check-npm-cache.sh` - Report stale npm metadata that breaks `npm install
   <pkg>@latest` and `pi update --extensions` (`just npm-cache-check`)
@@ -34,16 +35,20 @@ ai-selector
 
 ## Auto-Update Service
 
-The automatic update functionality lives in `modules/darwin/auto-update.nix` as a nix-darwin launchd service, but is **currently disabled** (`services.nix-config-auto-update.enable = false` in `modules/darwin/default.nix`).
+The automatic update functionality lives in `modules/darwin/auto-update.nix` as a nix-darwin launchd agent, enabled in `modules/darwin/default.nix` (`services.nix-config-auto-update.enable = true`). Full behaviour is documented in [docs/deployment.md → Auto-updates](../docs/deployment.md#auto-updates).
 
-For a manual check, run `just check-updates` (which calls `check-for-updates.sh`).
+`check-for-updates.sh` remains the manual, read-only check: `just check-updates` reports whether `flake.lock` has upstream changes without touching the working tree.
 
-### How It Works (when enabled)
+### How It Works
 
 - **Schedule**: Runs daily at 10:00 AM
-- **Function**: Checks if `flake.lock` has changes on `origin/main`
-- **Notification**: Sends persistent macOS notification when updates are available
-- **Action Required**: You manually run `just switch` to apply updates
+- **Guard**: Skips when the checkout is not on `main`, or when tracked files are modified — local work is never pulled or switched out from under you
+- **Pull**: `git pull --ff-only origin main`; exits quietly when `main` did not move
+- **Build**: `nh darwin build` — a commit that does not build is reported and never activated
+- **Repair**: a failed build or activation goes to `pi` through `pi-fix.sh`, which rebuilds and re-switches once. The repair stays uncommitted, so later runs then skip the repo until you review it (`autoFix = false` disables)
+- **Switch**: `sudo -n nh darwin switch`; without a sudoers rule this fails immediately (no terminal for Touch ID) and the agent notifies you to run `just switch`
+- **Notification**: One persistent notification per outcome: applied, repaired, built-only, build failed, switch failed
+- **Never**: runs `nix flake update` — the lockfile is bumped in CI, not on the host
 
 ### Checking Service Status
 
@@ -62,14 +67,6 @@ launchctl start nix-config-auto-update
 ```bash
 tail -f /tmp/nix-darwin-update.log
 ```
-
-### Features
-
-- Only notifies on `flake.lock` changes (dependency updates)
-- Waits for network availability
-- Persistent notifications (stay until clicked)
-- Click notification to open Terminal
-- No automatic rebuild (avoids sudo/Touch ID issues)
 
 ## npm Cache Check
 

@@ -26,7 +26,8 @@ terminal in synchronized-output mode (no visible output) if it dies mid-build.
 If the build/activation fails, the recipe prints the failure and pipes the log
 into `pi` (`pi -p --no-session --approve @<log> ...`) for automated diagnosis
 and fixing. Pi edits the repo to address the root cause but does not re-run the
-switch itself — re-run `just switch` after it reports back.
+switch itself — re-run `just switch` after it reports back. The helper is
+`scripts/pi-fix.sh`, and the daily auto-update agent calls the same script.
 
 - `PI_FIX=0 just switch` — skip the auto-fix; the log path is printed so you can
   inspect it yourself.
@@ -267,17 +268,62 @@ just nixos-deploy
 
 ## Auto-updates
 
+Two layers, deliberately separate. **CI moves `flake.lock`; hosts only consume
+`main`.** No host runs `nix flake update` — the one time the lock was bumped
+locally it was reverted within the hour.
+
+### CI (the lockfile)
+
+Dependabot's `nix` ecosystem (`.github/dependabot.yml`) opens one grouped
+`chore(flake): bump the flake-input-updates group…` PR every Monday 08:00
+Pacific. `.github/workflows/dependabot-auto-merge.yml` squash-merges it once the
+`Main` ruleset's required checks pass, so a bump that fails `smoke`,
+`linux-check` or `darwin-check` cannot reach `main`.
+
+`flake-check.yml` also runs `darwin-build`, which realises
+`darwinConfigurations.endor.system` instead of only evaluating it. That is the
+only check that catches the failure an input bump actually produces — a package
+that no longer builds — so watch its runtime and then add it to the `Main`
+ruleset's required checks.
+
+Manual equivalents: `just update` and `just update-input <input>`.
+
 ### Darwin
 
-The launchd auto-update service (`services.nix-config-auto-update`) is defined
-in `modules/darwin/auto-update.nix` but is **currently disabled** in
-`modules/darwin/default.nix` (`enable = false`). For a manual update check, use
-`just check-updates`, which runs `scripts/check-for-updates.sh` to pull
-`flake.lock` changes and notify you.
+`services.nix-config-auto-update` (`modules/darwin/auto-update.nix`, enabled in
+`modules/darwin/default.nix`) runs daily at 10:00 as a launchd **user** agent:
+
+1. exits immediately when the working tree is dirty, so local work is never
+   pulled or switched out from under you;
+2. `git pull --ff-only origin main`, then exits quietly when `main` did not move;
+3. otherwise `nh darwin build` — a commit that evaluates but does not build is
+   reported and never activated;
+4. then `sudo -n nh darwin switch`;
+5. if either stage fails, the log goes to `pi` via `scripts/pi-fix.sh` — the same
+   helper `just switch` uses — which rebuilds and re-switches once. The repair is
+   left uncommitted on purpose, so every later run skips this repository until
+   you review it. `services.nix-config-auto-update.autoFix = false` turns it off.
+
+`sudo -n` is deliberate: the agent has no terminal, so Touch ID and YubiKey
+cannot answer a password prompt. Without a sudoers rule step 4 fails at once,
+the agent still builds and notifies, and `just switch` finishes the job. To let
+it activate unattended, put `nh` on a stable path and whitelist that path:
+
+```nix
+environment.systemPackages = [ pkgs.nh ];
+security.sudo.extraConfig = ''
+  <user> ALL=(root) NOPASSWD: /run/current-system/sw/bin/nh
+'';
+```
+
+That grants passwordless root activation from your account — only worth it if
+full auto-apply is what you want.
 
 ```bash
-just check-updates         # manual check for flake.lock updates
-just auto-update-status    # view the (disabled) service status
+just auto-update-status                  # launchd service status
+launchctl start nix-config-auto-update   # trigger a run now
+tail -f /tmp/nix-darwin-update.log       # what the agent did
+just check-updates                       # manual flake.lock check
 ```
 
 ### NixOS (coruscant)
@@ -286,6 +332,12 @@ just auto-update-status    # view the (disabled) service status
 flake-relative flag could not build on the host, so updates were silently
 failing nightly. Deploy intentionally: `just nixos-deploy` (or rsync the flake
 and run `nixos-rebuild switch` manually).
+
+If it is ever enabled, point `flake` at a URL (`github:adace123/nixos-config-v2`,
+never `inputs.self` — that resolves to the store copy of the config being
+evaluated and so never sees a newer commit), keep `flags = [ "--refresh" ]`,
+add jitter via `randomizedDelaySec`, and wire `onFailure` to a notification
+*before* turning it on: silent failure is that module's dominant mode.
 
 ---
 

@@ -468,7 +468,7 @@ Two consequences worth knowing:
 | `modules/darwin/default.nix` | System packages, macOS defaults, Touch ID sudo |
 | `modules/darwin/homebrew.nix` | Homebrew formulae, casks, and MAS apps |
 | `modules/darwin/fonts.nix` | Nerd Font packages |
-| `modules/darwin/auto-update.nix` | Daily update-check launchd service |
+| `modules/darwin/auto-update.nix` | Daily pull → build → switch launchd agent (see `docs/deployment.md#auto-updates`) |
 | `modules/home/` | User-level modules (see `default.nix` for the import list) |
 | `modules/home/base.nix` | User identity, PATH, session variables (EDITOR, NH_FLAKE) |
 | `modules/home/packages.nix` | CLI tools and dev utilities |
