@@ -267,6 +267,42 @@ in
                 mode = "0400";
               };
 
+              # External liveness check for coruscant, run from a *different* machine.
+              # The hub only knows what the agent tells it, so a host whose agent is
+              # healthy while its services are dead reads "up" — that is the gap that
+              # let the 2026-10-18 outage sit unnoticed for five days. This pokes the
+              # tailnet address and the SSH port; it exits non-zero on failure, and a
+              # failed unit is what the beszel SystemdFailed alert turns into a phone
+              # notification.
+              #
+              # No SSH key on purpose (only a TCP connect), so the check cannot rot
+              # when credentials are rotated. Limitation: a box whose filesystem has
+              # stopped accepting writes can still complete a TCP handshake — that is
+              # what the storage canary on the host itself is for.
+              systemd.services.coruscant-reachability = {
+                description = "Check that coruscant answers over the tailnet";
+                path = with pkgs; [
+                  bash
+                  coreutils
+                  iputils
+                ];
+                serviceConfig.Type = "oneshot";
+                script = ''
+                  set -eu
+                  ping -c2 -W2 100.66.226.84 >/dev/null
+                  timeout 5 bash -c 'exec 3<>/dev/tcp/100.66.226.84/22'
+                '';
+              };
+              systemd.timers.coruscant-reachability = {
+                wantedBy = [ "timers.target" ];
+                timerConfig = {
+                  OnBootSec = "10m";
+                  OnUnitActiveSec = "10m";
+                  RandomizedDelaySec = "1m";
+                  Unit = "coruscant-reachability.service";
+                };
+              };
+
               sops.templates."caddy-env" = {
                 content = ''
                   CLOUDFLARE_API_TOKEN=${config.sops.placeholder.cloudflare-api-key}

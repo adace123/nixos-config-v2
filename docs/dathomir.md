@@ -381,6 +381,16 @@ The hub itself stays on `127.0.0.1:8090`, so only Caddy is reachable. Clients mu
 be on the same tailnet as dathomir — including any host that should *report* to
 the hub, since Tailscale-only cuts both ways.
 
+dathomir also runs an **external liveness check** for coruscant
+(`coruscant-reachability.timer`, every 10 minutes): it pings coruscant's tailnet
+address and completes a TCP handshake on port 22. The hub only knows what the agent
+reports, so a host whose agent is healthy while its services are dead still reads
+`up` — this closes that gap, and it fails a *unit*, which the beszel `SystemdFailed`
+alert turns into a phone notification. It deliberately uses no SSH key (only a TCP
+connect), so rotating credentials cannot silently break it. Limitation: a box whose
+filesystem has stopped accepting writes can still complete a TCP handshake; that is
+what the storage canary on the host itself is for.
+
 The hub reads `APP_URL` from a sops-rendered env file (`beszel-hub-env`) so the
 links it puts in notifications point at `https://<beszel-domain>` rather than the
 built-in `http://localhost:8090` fallback, which is useless from a phone. If you
