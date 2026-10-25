@@ -386,6 +386,14 @@ links it puts in notifications point at `https://<beszel-domain>` rather than th
 built-in `http://localhost:8090` fallback, which is useless from a phone. If you
 change the hub's public name, the alert links follow the secret automatically.
 
+Everything else about the hub lives in its database, not in this repo: users,
+notification channels, alert rules and thresholds, history, and the keypair agents
+verify. `modules/nixos/beszel-hub-restic.nix` therefore backs
+`/var/lib/private/beszel-hub` up nightly to the same R2 bucket under its own
+`dathomir` repository — see [docs/backups.md](backups.md#the-beszel-hubs-state-dathomir).
+Alerts still have to be created in the UI; a rebuilt hub restores them from the last
+snapshot, not from a deploy.
+
 dathomir also runs the **agent**, and coruscant runs one pointed at this hub over
 the tailnet. Both authenticate with a **universal token** — create it once at
 `/settings/tokens` and put the same value in each host's `beszel-token` secret —

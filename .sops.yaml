@@ -18,8 +18,11 @@ keys:
   - &threepio age1g7385yzmn7sa6h92wzjkd33mfhjs7gvv2jkddpn8635rh62le96q8e4ynz
   - &dathomir age1t3vx37eg9upxskh20mfg78v46d0upefj4ea05ldqhx3j326t99xqy528dp
 creation_rules:
-  # Restic → Cloudflare R2 credentials, used by home-assistant/restic.nix on
-  # both Pi/Turing Pi hosts and by GitHub Actions.
+  # Restic → Cloudflare R2 credentials. Used by home-assistant/restic.nix on the
+  # Pi/Turing Pi hosts, by beszel-hub-restic.nix on dathomir (the hub's PocketBase
+  # state and alert rules live nowhere else), and by GitHub Actions. The credentials
+  # are bucket-scoped, not repository-scoped, so dathomir can also delete the Home
+  # Assistant snapshots — see the note in docs/backups.md.
   - path_regex: secrets/cloudflare.yaml$
     key_groups:
       - age:
@@ -27,6 +30,7 @@ creation_rules:
           - *github_actions_oci
           - *coruscant
           - *threepio
+          - *dathomir
   # OpenTofu/OCI secrets — CI only, no host decrypts these at runtime.
   - path_regex: secrets/oci.yaml$
     key_groups:

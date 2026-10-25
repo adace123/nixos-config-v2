@@ -339,8 +339,11 @@ in
         # key is minted by the hub and a declared-but-missing secret fails
         # activation — so the hub has to be deployed, and a system added to it,
         # before the agent can be switched on here.
-        ++ inputs.nixpkgs.lib.optional (dathomirHost.beszelAgent or false
-        ) ../modules/nixos/beszel-agent.nix;
+        ++ inputs.nixpkgs.lib.optional (dathomirHost.beszelAgent or false) ../modules/nixos/beszel-agent.nix
+        # The hub's own state — users, alert rules, and the keypair every agent
+        # verifies — exists only in its PocketBase data dir, so it gets a restic job
+        # of its own. Unconditional: the hub always runs on this host.
+        ++ [ ../modules/nixos/beszel-hub-restic.nix ];
       };
     };
 }

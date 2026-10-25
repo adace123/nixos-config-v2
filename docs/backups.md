@@ -1,16 +1,21 @@
 # Backups (Restic → Cloudflare R2)
 
-Home Assistant on `coruscant` is backed up automatically with
-[Restic](https://restic.net/) to a private S3-compatible
+Home Assistant on `coruscant` and the beszel hub's state on `dathomir` are backed
+up automatically with [Restic](https://restic.net/) to a private S3-compatible
 [Cloudflare R2](https://www.cloudflare.com/products/r2/) bucket. The backup is
-declarative — managed entirely by `modules/nixos/home-assistant/restic.nix` on
-the NixOS host — and requires no manual action in steady state.
+declarative — `modules/nixos/home-assistant/restic.nix` on the Pi hosts and
+`modules/nixos/beszel-hub-restic.nix` on dathomir — and requires no manual action
+in steady state.
+
+Each host writes to its **own repository** inside the bucket (`coruscant`,
+`dathomir`), so one never prunes the other's snapshots.
 
 ## What is backed up
 
-| Item | Path | Notes |
-|------|------|-------|
-| Home Assistant data | `/var/lib/hass` | The persistent HA config, DB, and automations dir |
+| Item | Host | Path | Repository |
+|------|------|------|------------|
+| Home Assistant data | coruscant | `/var/lib/hass` | `coruscant` |
+| Beszel hub state | dathomir | `/var/lib/private/beszel-hub` | `dathomir` |
 
 The backup **excludes** `deps`, `logs`, and `tts` (regenerable/cache data)
 under `/var/lib/hass`.
@@ -31,33 +36,70 @@ even if the backup fails).
 Restic writes to:
 
 ```text
-s3:<cloudflare-endpoint>/<cloudflare-bucket>/coruscant
+s3:<cloudflare-endpoint>/<cloudflare-bucket>/coruscant   # Home Assistant
+s3:<cloudflare-endpoint>/<cloudflare-bucket>/dathomir    # beszel hub
 ```
 
-- Repository subpath: `coruscant` (keeps room for future hosts in the same bucket).
+- Repository subpath: `coruscant` and `dathomir` (keeps room for future hosts in
+  the same bucket).
 - R2 credentials, bucket name, endpoint, and the `restic-password` live in
-  `secrets/cloudflare.yaml` (see [docs/secrets.md](secrets.md)).
-- Every snapshot is tagged `home-assistant`.
+  `secrets/cloudflare.yaml` (see [docs/secrets.md](secrets.md)). Every host that
+  backs up is listed as an age recipient of that file.
+- Snapshots are tagged `home-assistant` or `beszel-hub`.
 
 ## Schedule
 
-Defined in `modules/nixos/home-assistant/restic.nix`:
+Defined in `modules/nixos/home-assistant/restic.nix` (Home Assistant) and
+`modules/nixos/beszel-hub-restic.nix` (beszel hub):
 
 | Job | When | Command |
 |-----|------|---------|
-| Backup + prune | Daily 03:30 (`Persistent`, +15 min randomized delay) | `restic backup` then `restic forget --prune` |
-| Repository check | Weekly Sunday 04:30 (+30 min randomized delay) | `restic check` |
+| HA backup + prune | Daily 03:30 (`Persistent`, +15 min randomized delay) | `restic backup` then `restic forget --prune` |
+| HA repository check | Weekly Sunday 04:30 (+30 min randomized delay) | `restic check` |
+| Hub backup + prune | Daily 03:45 (`Persistent`, +15 min randomized delay) | `restic backup` then `restic forget --prune` |
+| Hub repository check | Weekly Sunday 05:00 (+30 min randomized delay) | `restic check` |
 
-Both jobs pass `--retry-lock` (5 min for the backup, 15 min for the check) and wait
-for the repository lock instead of failing. This matters because the Pi hosts boot
-without an RTC: when the clock is stepped forward, every missed `OnCalendar` timer
-elapses at once, and `RandomizedDelaySec` does not separate those catch-up runs — so
-the backup and the check could grab the lock within seconds of each other and the
-loser aborted with `repository is already locked` (coruscant, 2026-10-23).
+Both hosts pass `--retry-lock` and wait for the repository lock instead of failing.
+This matters because the Pi hosts boot without an RTC: when the clock is stepped
+forward, every missed `OnCalendar` timer elapses at once, and `RandomizedDelaySec`
+does not separate those catch-up runs — so the backup and the check could grab the
+lock within seconds of each other and the loser aborted with `repository is already
+locked` (coruscant, 2026-10-23).
 
 Note the backup deliberately stops `podman-home-assistant.service` first (and
 restarts it via a shell `trap`) so the snapshot is consistent; that is the reason
-Home Assistant briefly stops around 03:30.
+Home Assistant briefly stops around 03:30. The beszel hub job does the same to
+`beszel-hub.service` for the same reason — PocketBase keeps SQLite in WAL mode, and
+only a clean shutdown checkpoints it into a consistent `data.db` — so the hub is
+also briefly unreachable just after 03:45, and no monitoring alerts are delivered in
+that window.
+
+## The beszel hub's state (dathomir)
+
+`modules/nixos/beszel-hub-restic.nix` covers the one thing on the VPS that git
+does not: `/var/lib/private/beszel-hub` holds the hub's PocketBase database — user
+accounts, notification channels (email + the ntfy topic), every **alert rule and
+threshold**, alert history, and the hub's ed25519 keypair that all agents use to
+verify it. Alert rules are UI objects, so losing this directory means rebuilding
+the monitoring setup by hand after any instance rebuild.
+
+**Trade-off, stated plainly:** the R2 credentials are scoped to the bucket, not to a
+repository path. dathomir therefore also holds credentials that can delete the Home
+Assistant snapshots. That is the cost of backing up from the machine that would need
+restoring; the improvement is a separate bucket and a dedicated R2 token for this
+repository, which is a Cloudflare-side change (see the note in `.sops.yaml`).
+
+Restore on a fresh instance, after `just dathomir-convert` has it running NixOS:
+
+```bash
+systemctl stop beszel-hub.service
+RESTIC_REPOSITORY=s3:<endpoint>/<bucket>/dathomir restic -o s3.bucket-lookup=path \
+  restore latest --target /
+systemctl start beszel-hub.service
+```
+
+Agents reconnect on their own once the hub is back: they dial out with the same
+universal token, and the restored `id_ed25519` is what they already trust.
 
 ## Retention
 
