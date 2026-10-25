@@ -68,6 +68,7 @@ commit kinds that are exempt, live in
 - fix(beszel): give the hub an APP_URL so alert links do not point at localhost
 - fix(pi): harden the USB root path and add a storage canary that reboots on write failure
 - fix(pi): disable the reboot watchdog explicitly instead of inheriting systemd's 10 min default
+- fix(pi): keep automatic updates, backups and GC off the boot clock step, and verify the store weekly
 - fix(dathomir): read the Tailscale key file as root in the conversion guard
 - fix(dathomir): mark the Tailscale state for preservation before nixos-infect runs
 - fix(dathomir): set NODE on the already-NixOS convergence path

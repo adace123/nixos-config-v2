@@ -35,6 +35,27 @@ in
     options = "--delete-older-than 14d";
   };
 
+  # Boot-time stampede control. The Pi hosts have no RTC, so they boot months in the
+  # past and chrony then steps the clock forward; every missed OnCalendar timer
+  # elapses at once. On 2026-10-23 that started nix-gc, fstrim, the restic backup and
+  # its check, logrotate, podman-prune and podman auto-update within a second of each
+  # other on a Pi 4 — and podman auto-update stopping Home Assistant is what took the
+  # services down. Ordering the heavy oneshots after time-sync.target keeps them off
+  # a bogus clock, and the `after` chains make systemd run them serially rather than
+  # concurrently. `Persistent = true` is deliberately left alone on the timers: a
+  # skipped backup is worse than a busy minute.
+  systemd.services.logrotate = {
+    wants = [ "time-sync.target" ];
+    after = [ "time-sync.target" ];
+  };
+  systemd.services.nix-gc = {
+    wants = [ "time-sync.target" ];
+    after = [
+      "time-sync.target"
+      "logrotate.service"
+    ];
+  };
+
   # Nix settings for better performance
   nix.settings = {
     auto-optimise-store = true;

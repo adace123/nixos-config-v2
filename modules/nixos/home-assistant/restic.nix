@@ -31,8 +31,18 @@
 
   systemd.services.home-assistant-restic-backup = {
     description = "Back up Home Assistant to Cloudflare R2 with Restic";
-    wants = [ "network-online.target" ];
-    after = [ "network-online.target" ];
+    wants = [
+      "network-online.target"
+      "time-sync.target"
+    ];
+    # Serialised behind the other heavy oneshots and off a bogus clock: see the
+    # stampede note in common.nix. This job stops HA to snapshot it consistently, so
+    # it must not start while nix-gc or an image update is hammering the same disk.
+    after = [
+      "network-online.target"
+      "time-sync.target"
+      "podman-auto-update.service"
+    ];
     path = [
       pkgs.restic
       pkgs.systemd
@@ -80,8 +90,16 @@
 
   systemd.services.home-assistant-restic-check = {
     description = "Verify the Home Assistant Restic repository";
-    wants = [ "network-online.target" ];
-    after = [ "network-online.target" ];
+    wants = [
+      "network-online.target"
+      "time-sync.target"
+    ];
+    # After the backup so the two cannot collide on the repository lock.
+    after = [
+      "network-online.target"
+      "time-sync.target"
+      "home-assistant-restic-backup.service"
+    ];
     path = [ pkgs.restic ];
     serviceConfig = {
       Type = "oneshot";

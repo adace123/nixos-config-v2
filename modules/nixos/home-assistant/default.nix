@@ -78,14 +78,39 @@ in
     after = [ "mosquitto.service" ];
     requires = [ "mosquitto.service" ];
     serviceConfig = {
-      Restart = "on-failure";
+      # `always`, not `on-failure`: podman auto-update replaces the container by
+      # stopping the unit, and if that is interrupted (it was, three times on
+      # 2026-10-23 when the timer fired during the boot clock step) the unit was left
+      # `failed` with nothing to bring it back. `always` restarts it from any exit;
+      # an explicit `systemctl stop` is still honoured.
+      Restart = lib.mkForce "always";
       RestartSec = "30s";
     };
   };
 
+  # Auto-update keeps the container on the stable channel (ghcr's `latest` tracks
+  # stable releases), which is what we want on a home-automation server — but the
+  # timer must never fire during the boot clock step. The Pi has no RTC, so it boots
+  # months in the past and chrony then steps the clock forward; every missed
+  # OnCalendar timer elapses at once, and `podman auto-update` stopped Home Assistant
+  # three times that way (2026-10-23). Two guards:
+  #
+  #   - the timer is ordered after time-sync.target, so it is not even armed until
+  #     the clock is real (and if the network never syncs, it never runs);
+  #   - Persistent = false, so a missed window is skipped rather than caught up at
+  #     boot.
+  #
+  # A fixed weekly window plus a randomized delay keeps it clear of the restic jobs.
   systemd.services."podman-auto-update" = {
-    wants = [ "network-online.target" ];
-    after = [ "network-online.target" ];
+    wants = [
+      "network-online.target"
+      "time-sync.target"
+    ];
+    after = [
+      "network-online.target"
+      "time-sync.target"
+      "nix-gc.service"
+    ];
     serviceConfig = {
       Type = "oneshot";
       ExecStart = "${pkgs.podman}/bin/podman auto-update";
@@ -95,7 +120,13 @@ in
 
   systemd.timers."podman-auto-update" = {
     wantedBy = [ "timers.target" ];
-    timerConfig.OnCalendar = "weekly";
+    wants = [ "time-sync.target" ];
+    after = [ "time-sync.target" ];
+    timerConfig = {
+      OnCalendar = "Sun 04:00";
+      Persistent = false;
+      RandomizedDelaySec = "30m";
+    };
   };
 
   systemd.tmpfiles.rules = [

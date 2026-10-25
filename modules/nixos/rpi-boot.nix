@@ -3,17 +3,32 @@
   ...
 }:
 {
-  # Boot/kernel settings shared by every Raspberry Pi storage module
-  # (ssd.nix, sd.nix).
+  imports = [ ./netconsole.nix ];
+
+  # Boot/kernel settings shared by every Raspberry Pi storage module (ssd.nix,
+  # sd.nix).
   #
   # Pinned to the LTS kernel rather than linuxPackages_latest. coruscant hard-hung
-  # with no panic, OOM, under-voltage event or I/O error in its journal on the
-  # first boot after a deploy that moved linuxPackages_latest from 7.1.8 to
-  # 7.2.2, and the two boots after that failed to stay up past 30-90s. Mainline
-  # instability on the Pi 4 (BCM2711) is the prime suspect; 6.18 LTS has none of
-  # that history. Revisit once a later mainline has run clean for a while.
+  # with no panic, OOM, under-voltage event or I/O error in its journal on the first
+  # boot after a deploy that moved linuxPackages_latest from 7.1.8 to 7.2.2, and the
+  # two boots after that failed to stay up past 30-90s. Mainline instability on the
+  # Pi 4 (BCM2711) is the prime suspect; 6.18 LTS has none of that history. Revisit
+  # once a later mainline has run clean for a while.
   # Analysis: .pi/plans/coruscant-unresponsive-diagnosis.md
   boot.kernelPackages = pkgs.linuxPackages;
+
+  # Kernel/cmdline insurance for the USB root device. On 2026-10-23 coruscant lost
+  # writes while reporting success: three store paths ended up 0-byte yet still
+  # registered as valid in the Nix DB, and systemd later failed to fork with EIO.
+  # The bridge is a Realtek 0bda:9201 (Ugreen) using the flaky UAS driver, with a
+  # volatile write cache and no FUA. USB_STORAGE is builtin (CONFIG_USB_STORAGE=y)
+  # and USB_UAS is a module, so `u` is safe: the root device still comes up under
+  # the bulk-only driver, at some throughput cost a home server will not miss.
+  boot.kernelParams = [
+    "rootwait"
+    "usb-storage.quirks=0bda:9201:u"
+    "usbcore.autosuspend=-1"
+  ];
 
   # The Pi 4 has no RTC, and nothing enabled a watchdog, so a frozen kernel
   # stayed frozen until someone pulled the power. bcm2835_wdt is probed on every
@@ -31,19 +46,6 @@
     RuntimeWatchdogSec = "10s";
     RebootWatchdogSec = "0";
   };
-
-  # Kernel-side insurance for the USB root device. On 2026-10-23 coruscant lost
-  # writes while reporting success: three store paths ended up 0-byte yet still
-  # registered as valid in the Nix DB, and systemd later failed to fork with EIO.
-  # The bridge is a Realtek 0bda:9201 (Ugreen) using the flaky UAS driver, with a
-  # volatile write cache and no FUA. USB_STORAGE is builtin (CONFIG_USB_STORAGE=y)
-  # and USB_UAS is a module, so `u` is safe: the root device still comes up under
-  # the bulk-only driver, at some throughput cost a home server will not miss.
-  boot.kernelParams = [
-    "rootwait"
-    "usb-storage.quirks=0bda:9201:u"
-    "usbcore.autosuspend=-1"
-  ];
 
   # Same intent on the SCSI side: the enclosure advertises a write-back cache and
   # FUA=0, which is how an fsync() can be acknowledged and then lost on power cut.
@@ -104,10 +106,45 @@
 
   boot.loader.raspberry-pi = {
     bootloader = "kernel";
-    configurationLimit = 2;
+    # 5 rather than 2: both recent generations can come off the same suspect drive,
+    # so a second fallback is worth the ~130 MB of FAT it costs.
+    configurationLimit = 5;
   };
   fileSystems."/boot/firmware".neededForBoot = true;
-  services.fstrim.enable = true;
+
+  # TRIM over a USB bridge is a documented way to wedge cheap enclosures, and the
+  # gain on a 500G SSD behind USB is marginal next to losing the root device.
+  # Re-enable if the drive moves behind a known-good bridge.
+  services.fstrim.enable = false;
+
+  # Silent zeroing is the failure mode that bit this host: store paths stayed
+  # "valid" in the Nix DB while their contents were 0 bytes, and nothing noticed.
+  # A weekly content check turns that into a *failed unit*, which the beszel
+  # SystemdFailed alert picks up — the alert path is the point, not the exit code.
+  # Idle priority: this reads the whole store and must never compete with the
+  # services the box exists to run.
+  systemd.services.nix-store-verify = {
+    description = "Verify the contents of every path in the Nix store";
+    serviceConfig = {
+      Type = "oneshot";
+      Nice = 19;
+      IOSchedulingClass = "idle";
+      CPUSchedulingPolicy = "idle";
+    };
+    script = ''
+      set -eu
+      ${pkgs.nix}/bin/nix-store --verify --check-contents
+    '';
+  };
+  systemd.timers.nix-store-verify = {
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "Sun 05:30";
+      RandomizedDelaySec = "1h";
+      # Do not catch up at boot: a clock step would otherwise start it immediately.
+      Persistent = false;
+    };
+  };
 
   # Under-voltage visibility without vcgencmd. vcgencmd needs
   # /dev/vcio, provided by the bcm2835-vcio driver, which this kernel

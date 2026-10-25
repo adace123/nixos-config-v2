@@ -83,7 +83,46 @@ the Nix database. `modules/nixos/rpi-boot.nix` therefore adds:
 
 If a deploy leaves the box unbootable, the previous generation is still on the boot
 partition: point `os_prefix` in `config.txt` at it from any machine (see
-[Troubleshooting](#troubleshooting)).
+[Troubleshooting](#troubleshooting)). `configurationLimit` is 5 for that reason —
+both recent generations can come off the same suspect drive.
+
+Two more pieces of the same story:
+
+- **`fstrim` is disabled.** TRIM over a USB bridge is a documented way to wedge cheap
+  enclosures, and the gain on a 500 G SSD behind USB is marginal next to losing the
+  root device. Re-enable it if the drive ever moves behind a known-good bridge.
+- **`nix-store-verify` timer** (Sundays 05:30, idle I/O priority) runs
+  `nix-store --verify --check-contents` over the whole store. Silent zeroing is the
+  failure mode that bit this host — paths stayed "valid" in the Nix DB with 0-byte
+  contents — and a weekly check turns that into a *failed unit*, which the beszel
+  `SystemdFailed` alert delivers. The alert path is the point, not the exit code.
+
+### Automatic updates must not race the clock step
+
+`podman auto-update` keeps Home Assistant on the stable channel, but on a host with
+no RTC it must never fire during boot: every missed `OnCalendar` timer elapses at
+once when chrony steps the clock, and that stopped Home Assistant three times on
+2026-10-23. The timer is therefore ordered after `time-sync.target` (so it is not
+armed until the clock is real, and never runs if the network never syncs), set to a
+fixed `Sun 04:00` window with `Persistent = false` (a missed window is skipped, not
+caught up at boot), and the heavy oneshots (`logrotate`, `nix-gc`, the restic jobs,
+`podman auto-update`) are chained with `After=` so a stampede runs them serially.
+`Persistent` on the *backup* timers is deliberately left alone — skipping a backup
+is worse than a busy minute.
+
+### Watching for the next failure
+
+`netconsole` is available as an opt-in option (`my.netconsoleSpec`), because it is
+the one channel that survives the failures this host has: it works before the clock,
+TLS, Tailscale or journald exist. It needs a LAN listener and the listener's MAC
+(`arp -an`), e.g. `nc -u -l 6666` on the workstation:
+
+```nix
+my.netconsoleSpec = "6666@192.168.4.53/end0,6666@192.168.4.20/aa:bb:cc:dd:ee:ff";
+```
+
+A GPIO UART on pins 6/8/10 at 115200 remains the durable option — the serial console
+is already enabled (`enable_uart=1`, `console=serial0,115200n8`).
 
 ## Health monitoring
 
