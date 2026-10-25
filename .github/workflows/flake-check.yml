@@ -46,8 +46,8 @@ jobs:
       - name: Check Nix flake (Linux)
         run: nix flake check
   # Eval-only smoke of the darwin configuration. A full `nix flake check` here
-  # would re-evaluate every system and burn macOS runner minutes; actual builds
-  # happen on the real host via `just build`.
+  # would re-evaluate every system and burn macOS runner minutes; the real build
+  # is the separate `darwin-build` job below.
   darwin-check:
     runs-on: macos-latest
     steps:
@@ -60,3 +60,22 @@ jobs:
         run: |
           nix eval .#darwinConfigurations.endor.config.system.build.toplevel.drvPath \
             --accept-flake-config
+  # `darwin-check` only evaluates the top-level derivation. That catches option
+  # and type errors, but not the failure class a flake input bump actually
+  # produces: a package that no longer builds, or an activation script that
+  # breaks. Realising the system output is the only thing that catches it.
+  #
+  # Advisory on purpose — it is NOT in the `Main` ruleset's required checks yet.
+  # A cold macOS build is slow enough to become a flaky gate, so watch a few runs
+  # for runtime and timeouts before promoting it.
+  darwin-build:
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v23
+        with:
+          flakehub: false
+      - name: Build darwin configuration (endor)
+        run: nix build .#darwinConfigurations.endor.system --accept-flake-config --no-link

@@ -99,6 +99,7 @@ commit kinds that are exempt, live in
 - fix(omniwm): leave 1pt under the bar, even the notch gaps, halve the focus ring
 - coruscant: cap journal, quiet Alexa logger, add SMART + voltage checks, trim recorder
 - fix(pi): fail the under-voltage check so an alert can fire, not just a journal line
+- fix(ci): require the flake checks and build the darwin configuration
 
 ## [2026.10.07.3] - 2026-10-07
 
