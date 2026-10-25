@@ -108,4 +108,40 @@
   };
   fileSystems."/boot/firmware".neededForBoot = true;
   services.fstrim.enable = true;
+
+  # Under-voltage visibility without vcgencmd. vcgencmd needs
+  # /dev/vcio, provided by the bcm2835-vcio driver, which this kernel
+  # does not build — CONFIG_BCM2835_VCIO is absent from the pinned LTS
+  # config (6.18) and no /dev/vcio exists; the driver lives only in
+  # Raspberry Pi's downstream tree, so switching back to mainline would
+  # not restore it either. What is built is raspberrypi_hwmon
+  # (CONFIG_SENSORS_RASPBERRYPI_HWMON=m, autoloaded), which exposes the
+  # live under-voltage alarm at
+  # /sys/class/hwmon/hwmon*/in0_lcrit_alarm. Poll it and log at err
+  # level so a marginal power supply shows up in the journal instead
+  # of silently. Limitation: this is the *current* alarm, not the
+  # firmware's sticky "has throttled since boot" bit, so a 5-minute
+  # poll can miss a brief dip. It catches sustained under-voltage,
+  # which is the failure mode that matters here.
+  systemd.services.rpi-voltage-check = {
+    description = "Check Raspberry Pi under-voltage alarm";
+    serviceConfig.Type = "oneshot";
+    script = ''
+      for alarm in /sys/class/hwmon/hwmon*/in0_lcrit_alarm; do
+        [ -e "$alarm" ] || exit 0
+        if [ "$(cat "$alarm")" != "0" ]; then
+          ${pkgs.util-linux}/bin/logger -p user.err -t rpi-voltage "under-voltage alarm active: supply voltage below threshold"
+        fi
+      done
+    '';
+  };
+  systemd.timers.rpi-voltage-check = {
+    description = "Poll Raspberry Pi under-voltage alarm";
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnBootSec = "5m";
+      OnUnitActiveSec = "5m";
+      Unit = "rpi-voltage-check.service";
+    };
+  };
 }

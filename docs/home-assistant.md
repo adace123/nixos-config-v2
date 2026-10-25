@@ -198,6 +198,27 @@ calories) that the dashboard's Workout Log card renders.
   `/var/lib/hass/custom_components/` during NixOS activation (same mechanism
   as the pinned HACS install).
 
+## Recorder and history retention
+
+`recorder:` in `configuration.yaml` keeps **30 days** (`purge_keep_days: 30`) in
+SQLite at `/var/lib/hass/home-assistant_v2.db`, with `auto_purge` and
+`auto_repack` both on.
+
+- 60 days took the database to 960M in October 2026, which was most of the 1.1G
+  config directory and the bulk of every nightly restic backup. 30 days roughly
+  halves steady-state size; nothing in the dashboards reads further back.
+- `auto_repack` matters as much as the purge: a purge deletes rows but the SQLite
+  file keeps its size until a repack rewrites it. A repack needs free space
+  roughly equal to the database, and it pauses recorder writes while it runs, so
+  expect a short gap around it on the Pi.
+- `car_scripts/car_rate.py` reads this database directly and averages over
+  `WINDOW_DAYS`. That constant must stay at or below `purge_keep_days`, because a
+  window longer than retention silently averages a shorter span instead of
+  failing.
+
+To reclaim space by hand after a big purge: `podman exec home-assistant
+sqlite3 /config/home-assistant_v2.db VACUUM` (or let `auto_repack` do it).
+
 ## Monitoring Logs
 
 ```bash
@@ -205,6 +226,13 @@ just hass-logs                              # last 50 lines
 just hass-logs LINES=200                    # last 200 lines
 just hass-logs FILTER="error|recorder"      # filtered
 ```
+
+The `logger:` block in `configuration.yaml` pins noisy loggers: `homeassistant`
+at `info`, `homeassistant.components` at `warning`, and `aioamazondevices` at
+`warning` — the Alexa devices library logs under its own name, so the
+`components` filter never matched it, and its per-device retry chatter was the
+largest single contributor to `coruscant`'s journal. Drop it to `error` if the
+cached-value warnings are still too loud.
 
 ## Backups
 

@@ -3,7 +3,11 @@
 
 Reads the Home Assistant recorder database read-only (WAL mode allows
 concurrent readers) and estimates miles driven per month over the last
-60 days. Falls back to 870 mi/month when there isn't enough history yet.
+30 days. Falls back to 870 mi/month when there isn't enough history yet.
+
+WINDOW_DAYS must not exceed the recorder's `purge_keep_days` in
+modules/nixos/home-assistant/configuration.yaml (currently 30): asking for
+more history than is retained silently averages a shorter span instead.
 """
 import datetime
 import pathlib
@@ -11,7 +15,7 @@ import sqlite3
 
 LOG = pathlib.Path("/config/home-assistant_v2.db")
 ENTITY = "sensor.2022_elantra_odometer"
-WINDOW_DAYS = 60
+WINDOW_DAYS = 30
 FALLBACK = 870
 
 if not LOG.exists():

@@ -90,6 +90,12 @@ in
   services.journald.settings.Journal = {
     Storage = "persistent";
     MaxRetentionSec = "1month";
+    # Retention alone does not bound size when one host is chatty:
+    # coruscant's journal reached 2.1G in Oct 2026, mostly Home
+    # Assistant container stdout. Cap total size and keep breathing
+    # room on the root filesystem.
+    SystemMaxUse = "512M";
+    SystemKeepFree = "1G";
   };
 
   # Tailscale for secure remote access
