@@ -43,6 +43,18 @@
     # Same pinned build as the hub: hub and agent must speak the same protocol.
     package = import ../../nix-beszel.nix { inherit pkgs; };
     environmentFile = config.sops.templates."beszel-agent-env".path;
+
+    # Let Beszel read SMART itself wherever smartd already watches a disk (ssd.nix
+    # sets services.smartd.enable; sd-only and VPS hosts have no such disk). Without
+    # this the hub's smart_devices table stays empty, so its automatic SMART-failure
+    # notification — which needs no rule, only a notification channel and data —
+    # never has anything to fire on. smartd keeps doing the daily/weekly self-tests;
+    # this is what puts the attributes and health in front of you, on a phone.
+    #
+    # It is not free: the module drops PrivateDevices, PrivateUsers and
+    # NoNewPrivileges and grants CAP_SYS_RAWIO plus the `disk` group, because
+    # smartctl talks to the drive directly. Scoped to hosts that already run smartd.
+    smartmon.enable = config.services.smartd.enable;
   };
 
   # The agent serves each monitored service's journal (last 200 lines) to the

@@ -98,6 +98,14 @@ so the journal is the only place to look. If the bridge ever rejects SAT, try
 (`autodetect = false`), so if it ever stops being `/dev/sda` the unit fails at
 start instead of silently monitoring nothing: `systemctl status smartd`.
 
+`smartd` is the on-host half. The beszel agent turns on `smartmon.enable`
+wherever `services.smartd.enable` is set (`modules/nixos/beszel-agent.nix`), so the
+same drive's attributes and health also reach the hub — and since Beszel notifies
+on a SMART failure by itself, a failing drive reaches your phone with no alert rule
+to write. That is the reason the agent gets `CAP_SYS_RAWIO` and the `disk` group on
+these hosts and gives up `PrivateDevices`; where no SMART-managed disk exists it
+keeps the tighter sandbox.
+
 **Under-voltage** (`modules/nixos/rpi-boot.nix`, every Pi host):
 `rpi-voltage-check.timer` polls `in0_lcrit_alarm` from `raspberrypi_hwmon` every
 five minutes and logs at `user.err` when the supply sags. `vcgencmd` cannot do

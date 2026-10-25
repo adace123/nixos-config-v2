@@ -34,6 +34,7 @@ commit kinds that are exempt, live in
 - feat(omniwm): replace the two TV workspaces with one 📺 workspace
 
 - feat(just): build NixOS configurations on dathomir instead of the target host
+- feat(beszel): collect SMART in the agent on hosts that run smartd
 
 ### Changed
 
