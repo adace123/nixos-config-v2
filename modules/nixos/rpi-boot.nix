@@ -126,13 +126,20 @@
   systemd.services.rpi-voltage-check = {
     description = "Check Raspberry Pi under-voltage alarm";
     serviceConfig.Type = "oneshot";
+    # Exit non-zero while the alarm reads 1, rather than only logging. A failed
+    # oneshot is what a "Failed Services" alert picks up in Beszel, so a sagging
+    # supply reaches a phone instead of waiting in the journal for someone to
+    # grep it. The next timer run clears the unit again once the supply recovers.
     script = ''
+      tripped=0
       for alarm in /sys/class/hwmon/hwmon*/in0_lcrit_alarm; do
-        [ -e "$alarm" ] || exit 0
-        if [ "$(cat "$alarm")" != "0" ]; then
-          ${pkgs.util-linux}/bin/logger -p user.err -t rpi-voltage "under-voltage alarm active: supply voltage below threshold"
-        fi
+        [ -e "$alarm" ] || continue
+        [ "$(cat "$alarm")" = "0" ] || tripped=1
       done
+      if [ "$tripped" -ne 0 ]; then
+        ${pkgs.util-linux}/bin/logger -p user.err -t rpi-voltage "under-voltage alarm active: supply voltage below threshold"
+        exit 1
+      fi
     '';
   };
   systemd.timers.rpi-voltage-check = {

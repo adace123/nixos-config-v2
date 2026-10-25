@@ -108,12 +108,17 @@ keeps the tighter sandbox.
 
 **Under-voltage** (`modules/nixos/rpi-boot.nix`, every Pi host):
 `rpi-voltage-check.timer` polls `in0_lcrit_alarm` from `raspberrypi_hwmon` every
-five minutes and logs at `user.err` when the supply sags. `vcgencmd` cannot do
-this job here — it needs `/dev/vcio` from the `bcm2835-vcio` driver, which this
-kernel does not build (the driver lives only in Raspberry Pi's downstream tree).
-The poll sees the *current* alarm, not the firmware's sticky "has throttled since
-boot" bit, so a dip that starts and ends between two polls is missed: it is there
-to catch a marginal supply, not to time a brownout.
+five minutes. `vcgencmd` cannot do this job here — it needs `/dev/vcio` from the
+`bcm2835-vcio` driver, which this kernel does not build (the driver lives only in
+Raspberry Pi's downstream tree). The poll sees the *current* alarm, not the
+firmware's sticky "has throttled since boot" bit, so a dip that starts and ends
+between two polls is missed: it is there to catch a marginal supply, not to time a
+brownout.
+
+While the alarm reads 1 the unit logs at `user.err` **and exits non-zero**, so it
+enters `failed` rather than passing quietly — that is what turns a sagging supply
+into a Beszel "Failed Services" notification instead of a journal line nobody
+greps. The next run clears the unit once the supply recovers.
 
 ## Journal size
 
