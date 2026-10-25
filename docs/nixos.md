@@ -120,6 +120,13 @@ enters `failed` rather than passing quietly — that is what turns a sagging sup
 into a Beszel "Failed Services" notification instead of a journal line nobody
 greps. The next run clears the unit once the supply recovers.
 
+Two limits worth knowing about that alert path. Beszel re-reads the service list
+every 10 minutes, and it ignores units with no `ActiveEnterTimestamp` — which is why
+this oneshot is *not* listed between runs. A sustained sag keeps the unit failed, so
+it is caught within one sweep; a dip that starts and ends between sweeps is not,
+exactly like a dip that falls between the 5-minute polls. The check is a
+marginal-supply detector, not a brownout recorder.
+
 ## Journal size
 
 `modules/nixos/common.nix` caps the journal on **every** NixOS host:
