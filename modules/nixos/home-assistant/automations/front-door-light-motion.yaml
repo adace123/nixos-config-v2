@@ -1,11 +1,12 @@
 - id: "front_door_light_motion"
   alias: "Front Door Light on Motion after Sunset"
-  description: "Turn on the front door light immediately for 30 seconds when the Ring doorbell detects motion after sunset."
+  description: "Turn on the front door light immediately for 30 seconds when the Ring doorbell detects motion after sunset (local MQTT sensor via ring-mqtt)."
   mode: "restart"
   max_exceeded: silent
   trigger:
     - platform: state
-      entity_id: event.front_door_front_doorbell_motion
+      entity_id: binary_sensor.front_door_motion
+      to: "on"
   condition:
     - condition: sun
       after: sunset

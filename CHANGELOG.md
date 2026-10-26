@@ -62,6 +62,7 @@ commit kinds that are exempt, live in
 - feat(dathomir): ping Healthchecks.io as a dead-man's switch for the VPS itself
 - feat(home-assistant): sign in with Pocket ID passkeys via hass-oidc-auth
 - fix(home-assistant): pin hass-oidc-auth NAR hash, flat file hash can never verify
+- fix(home-assistant): trigger front-door light on the local MQTT motion sensor instead of Ring cloud event
 
 ### Changed
 
@@ -127,6 +128,7 @@ commit kinds that are exempt, live in
 - fix(ci): require the flake checks and build the darwin configuration
 - fix(omp): stop the setup wizard replaying after every switch and on every launch
 - fix(omp): leave the wheel to the terminal so the transcript scrolls
+- fix(omp): quiet the advisor to every 10th update, one note max, blockers only wake a finished turn
 
 ## [2026.10.07.3] - 2026-10-07
 
