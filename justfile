@@ -153,6 +153,19 @@ install-brew:
 switch:
     #!/usr/bin/env bash
     set -euo pipefail
+
+    # A switch ends in `sudo`, and sudo reads the password/Touch ID prompt from
+    # the controlling terminal. With none (an agent, a launchd job, a redirected
+    # stdin) sudo dies with "a terminal is required", but only after nh has built
+    # the whole system and set the profile — a log that looks like a build
+    # failure and gets handed to pi. Stop before the build instead. A cached
+    # credential (`sudo -v`) is enough; `just build`/`just check` never need it.
+    if ! ( exec </dev/tty ) 2>/dev/null && ! /usr/bin/sudo -n true 2>/dev/null; then
+        echo "Error: 'just switch' needs a terminal to authenticate sudo." >&2
+        echo "Run it from an interactive shell, or cache the credential first: sudo -v" >&2
+        exit 1
+    fi
+
     if ! command -v brew &> /dev/null; then
         echo "Homebrew not installed. Installing it..."
         just install-brew
@@ -197,6 +210,16 @@ switch:
         if [ "$STATUS" -gt 128 ]; then
             echo ""
             echo "Interrupted ($STATUS) - not calling pi. Log: $LOG"
+            exit "$STATUS"
+        fi
+        # Elevation failures are not configuration errors: `nix build
+        # --profile` only needs root, and sudo never reaches nh when the
+        # credential is missing or declined. There is nothing in the repository
+        # for pi to fix, so it gets no run for these.
+        if grep -qE 'Failed to set Darwin system profile|sudo: a (terminal|password) is required' "$LOG"; then
+            echo ""
+            echo "Elevation failed - not a configuration error, so pi is not called."
+            echo "Re-run 'just switch' from a terminal and approve the sudo prompt."
             exit "$STATUS"
         fi
         echo ""

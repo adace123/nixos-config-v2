@@ -83,6 +83,8 @@ The shell alias `update` (configured in home-manager) is a shortcut for
 When the lid is closed it also blocks until a YubiKey is plugged in. The
 YubiKey hook needs `~/.config/Yubico/u2f_keys` (see
 `scripts/setup-yubikey-sudo.sh`); see `scripts/yubikey-sudo-shim.sh`.
+A switch therefore needs a terminal to prompt at all: run without one (an agent,
+a launchd job), it exits before building rather than failing at sudo afterwards.
 
 ## Adding Packages
 

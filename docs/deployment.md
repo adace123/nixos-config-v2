@@ -21,6 +21,14 @@ captured for the failure path, and plain streaming build logs also sidestep
 nix-output-monitor's TUI, which renders poorly on a pipe and can leave the
 terminal in synchronized-output mode (no visible output) if it dies mid-build.
 
+`switch` also needs a terminal. The build is unprivileged, but `nh` writes the
+system profile and then activates through `sudo`, and sudo reads its Touch ID,
+YubiKey or password prompt from the controlling terminal. With no terminal (an
+agent, a launchd job, a redirected stdin) the recipe stops before the build and
+says so — the same reason the auto-update agent checks `sudo -n` first. Run it
+from an interactive shell, or cache the credential with `sudo -v` and it will
+run unattended. `just build` and `just check` never need sudo.
+
 ### When a switch fails
 
 If the build/activation fails, the recipe prints the failure and pipes the log
@@ -33,6 +41,9 @@ switch itself — re-run `just switch` after it reports back. The helper is
   inspect it yourself.
 - Interrupts (`Ctrl-C`) exit 130 and a signal-killed build (e.g. 134/SIGABRT)
   exits with that status *without* calling pi — those are not config errors.
+- Elevation failures (`Failed to set Darwin system profile`, or sudo's own "a
+  terminal/password is required") skip pi too: the build succeeded and root
+  access is what failed, which no change in the repository can fix.
 - The build log is a temp file (path printed on failure) and is kept, so it can
   be read after the run.
 
