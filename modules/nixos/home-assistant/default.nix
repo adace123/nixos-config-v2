@@ -39,7 +39,10 @@ let
   '';
 in
 {
-  imports = [ ./restic.nix ];
+  imports = [
+    ./restic.nix
+    ./ring-mqtt.nix
+  ];
 
   sops.templates."hass-configuration.yaml" = {
     content =

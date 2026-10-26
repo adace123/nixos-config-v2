@@ -187,6 +187,7 @@ uniq -c | sort -rn | head` narrows down before the cap hides the evidence.
 | Home Assistant | 8123 | `home-assistant/` (podman) |
 | Mosquitto (MQTT) | 1883 | `home-assistant/` |
 | Zigbee2MQTT | 8091 | `home-assistant/` |
+| ring-mqtt (Ring → MQTT + RTSP) | 8554/55123 (loopback only) | `home-assistant/ring-mqtt.nix` (podman, first boot needs auth UI fwd) |
 | ESPHome | — | disabled — upstream removed the built-in dashboard, see `home-assistant/` |
 | Beszel agent | 45876 | `nixos/beszel-agent.nix` (hub runs on dathomir) |
 | Caddy (HTTPS proxy) | 443 | `caddy.nix` |

@@ -14,23 +14,21 @@ modules/nixos/home-assistant/
 ├── custom_components/    # Git-tracked custom components (copied on activation)
 │   └── google_health_workouts/  # Per-workout sensors from the Google Health API
 ├── default.nix           # Container, MQTT, Zigbee2MQTT, ESPHome, user setup
+├── ring-mqtt.nix         # Ring → MQTT bridge + doorbell RTSP (coruscant only)
 └── configuration.yaml    # HA base config template (secrets injected by SOPS)
 ```
 
-`default.nix` covers:
-
-- **Podman container** (`ghcr.io/home-assistant/home-assistant:latest`)  
   Auto-starts, mounts `/var/lib/hass`, uses host networking for device discovery.
+
 - **Firewall** — opens TCP 8123 plus UDP 9999 and the ephemeral range
   (32768–60999) for TP-Link Kasa/Tapo broadcast discovery; modern python-kasa
   binds a random source port and devices reply there, which conntrack does not
   treat as ESTABLISHED.
-- **SOPS template rendering** — injects `time.timeZone` and
-  `home-assistant-external-domain` into `configuration.yaml` before HA starts.
-- **Mosquitto** MQTT broker (port 1883, localhost only).
-- **Zigbee2MQTT** (port 8091, Sonoff Zigbee dongle via stable
-  `/dev/serial/by-id/...` path).
-- **ESPHome** (port 6052).
+- **ring-mqtt** (`ring-mqtt.nix`, coruscant only) — Ring → MQTT bridge
+  (podman, `ghcr.io/tsightler/ring-mqtt:5.9.3`) plus doorbell RTSP at
+  `127.0.0.1:8554/<ring-id>_live`, consumed by HA's embedded go2rtc for
+  low-latency WebRTC dashboards. First boot needs the one-time auth UI on
+  `127.0.0.1:55123` (SSH forward) to store the Ring refresh token.
 - **Podman auto-update** — pulls newer images weekly.
 - **`hass` system user** with `dialout`, `gpio`, `i2c` group membership.
 
@@ -57,8 +55,39 @@ DNS-01 ACME (see `caddy.nix`).
 | `cloudflare-api-key` | Caddy DNS-01 challenge |
 | `oidc-client-id` | Pocket ID OIDC client for `auth_oidc` in `configuration.yaml` |
 | `oidc-discovery-url` | Pocket ID well-known endpoint for `auth_oidc` in `configuration.yaml` |
+| `alexa-notify-me-api-key` | `rest_command.alexa_notify` in `configuration.yaml` |
+| _(no new secret)_ | ring-mqtt needs none: loopback-only RTSP without auth, and the Ring refresh token is captured interactively at first boot, then backed up from `/var/lib/ring-mqtt` |
 
 See [docs/secrets.md](secrets.md) for how to add or rotate secrets.
+
+## Ring doorbell (ring-mqtt)
+
+The official `ring` integration stays until ring-mqtt covers the same ground —
+running both against one account risks API throttling, so deleting the `ring`
+config entry is the endgame once ding/motion/live-view all flow through MQTT +
+RTSP. `ring-mqtt.nix` (imported by `default.nix`, gated to coruscant because
+`base.nix` is shared with threepio) runs `ghcr.io/tsightler/ring-mqtt:5.9.3`
+as a podman container beside HA:
+
+- MQTT to `127.0.0.1:1883` (same `::1` trap zigbee2mqtt hit — `localhost`
+  resolves IPv6-only here). Entities arrive via MQTT discovery, no HA config.
+- Doorbell RTSP at `127.0.0.1:8554/343ea4133f75_live` (Ring ID from the
+  device registry). HA's embedded go2rtc WebRTC-proxies any RTSP source, so
+  no standalone go2rtc module exists — add a generic-camera entity with this
+  stream source for low-latency dashboards.
+- No RTSP auth: the port is loopback-published only, same posture as the
+  loopback-only anonymous Mosquitto. HA runs `--network=host`, so it reaches
+  the port directly.
+- First boot: no token exists, so the container serves its auth UI on
+  `127.0.0.1:55123`. Forward it (`ssh -L 55123:127.0.0.1:55123
+  root@coruscant.local`), sign in with Ring credentials + 2FA, and the UI
+  stops itself. The token lands in `/var/lib/ring-mqtt/ring-state.json`,
+  which the restic job backs up under `--tag ring-mqtt` (the only
+  non-reproducible state; `config.json` re-renders from the module).
+- `enable_modes`/`enable_panic` stay off; H.264 default (doorbell is 1080p,
+  HEVC buys nothing and trips the known FFmpeg/go2rtc freeze).
+- Streams are on-demand only: a battery doorbell sleeps between events, and
+  Ring suppresses motion/ding alerts while streaming. No continuous/NVR use.
 
 ## Pocket ID Login (passkeys via OIDC)
 
@@ -300,7 +329,7 @@ modules/nixos/home-assistant/
 ├── default.nix           # Container, SOPS wiring, systemd services, user setup
 ├── mosquitto.nix         # Mosquitto MQTT broker
 ├── zigbee2mqtt.nix       # Zigbee2MQTT bridge
-├── esphome.nix           # ESPHome dashboard
+├── ring-mqtt.nix         # Ring → MQTT bridge + doorbell RTSP
 └── config/
     ├── configuration.yaml    # HA base config template
     ├── automations/          # One .yaml file per automation area

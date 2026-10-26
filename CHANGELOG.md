@@ -41,6 +41,7 @@ commit kinds that are exempt, live in
 - feat(omp): manage omp via nix with glm-5.3-flash default and muse-spark-1.3 advisor
 - feat(omp): use muse-spark-1.3 for the slow tier instead of glm-5.3 (latency)
 - feat(darwin): add Numbers and HP Print and Support to the Mac App Store apps
+- feat(home-assistant): bridge Ring doorbell via ring-mqtt with local RTSP for HA go2rtc
 - feat(omp): auto-approve the edit, write and ast_edit tools
 - feat(omp): add context7 and grep-mcp MCP servers
 - feat(omp): share the grilling and grill-me skills with omp
