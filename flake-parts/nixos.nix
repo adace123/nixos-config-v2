@@ -191,9 +191,14 @@ in
                   # systemd credential, so it stays out of the Nix store.
                   pocket-id-encryption-key = { };
                   pocket-id-domain = { };
+                  # Tailnet-only status page for Gatus (see modules/nixos/gatus.nix).
+                  gatus-domain = { };
+                  # ntfy.sh topic for Gatus alerts (the topic name is the password).
+                  ntfy-topic = { };
+                  # Healthchecks.io ping URL (capability secret for the dead-man's switch).
+                  healthchecks-ping-url = { };
                 };
               };
-
               # Pocket ID: passkey-based identity provider, which is what gives the
               # hub its passkey login. Published on the tailnet exactly like the hub
               # — a public name whose A record points at this host's Tailscale
@@ -336,6 +341,11 @@ in
                   ${config.sops.placeholder.pocket-id-domain} {
                     reverse_proxy 127.0.0.1:1411
                   }
+
+                  # Gatus status page, tailnet-only like the hub and Pocket ID.
+                  ${config.sops.placeholder.gatus-domain} {
+                    reverse_proxy 127.0.0.1:8088
+                  }
                 '';
                 owner = "caddy";
                 group = "caddy";
@@ -355,6 +365,7 @@ in
                 config.sops.secrets.cloudflare-api-key.path
                 config.sops.secrets.beszel-domain.path
                 config.sops.secrets.pocket-id-domain.path
+                config.sops.secrets.gatus-domain.path
                 # A sops template is rewritten on every activation but keeps the same
                 # path, so a change to the template itself is invisible to systemd and
                 # Caddy would go on serving the old config until something else
@@ -390,7 +401,15 @@ in
         # The hub's own state — users, alert rules, and the keypair every agent
         # verifies — exists only in its PocketBase data dir, so it gets a restic job
         # of its own. Unconditional: the hub always runs on this host.
-        ++ [ ../modules/nixos/beszel-hub-restic.nix ];
+        ++ [ ../modules/nixos/beszel-hub-restic.nix ]
+        # Gatus endpoint monitoring and its history backup. Unconditional like the
+        # hub: Gatus always runs on this host.
+        ++ [
+          ../modules/nixos/gatus.nix
+          ../modules/nixos/gatus-restic.nix
+        ]
+        # Dead-man's switch: pings Healthchecks.io so a silent dathomir pages.
+        ++ [ ../modules/nixos/dathomir-heartbeat.nix ];
       };
     };
 }

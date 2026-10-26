@@ -144,6 +144,11 @@ variable "pocket_id_domain" {
   type        = string
 }
 
+variable "gatus_domain" {
+  description = "Public name for the Gatus status page (set via TF_VAR_gatus_domain). Served from dathomir too."
+  type        = string
+}
+
 variable "home_assistant_tailnet_ip" {
   description = "Coruscant's Tailscale address. The record points here deliberately: the name resolves publicly but is routable only from inside the tailnet. Update it if that node ever re-registers."
   type        = string

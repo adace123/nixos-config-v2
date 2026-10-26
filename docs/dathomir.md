@@ -420,6 +420,46 @@ joins `systemd-journal` so the hub UI can show each service's journal, not just
 its status — without that group the logs panel is hidden. A missing secret fails
 activation, so add it before deploying.
 
+## Gatus (endpoint monitoring, tailnet-only)
+
+dathomir runs [Gatus](https://gatus.io) — declarative endpoint monitoring —
+published by Caddy at `gatus-domain` (`status.figtreelab.dev`) from
+`secrets/dathomir.yaml`, tailnet-only like the hub and Pocket ID. The A record
+points at this host's tailnet address; Caddy terminates TLS via the same
+Cloudflare DNS-01 setup.
+
+Gatus stays on `127.0.0.1:8088`, checks Home Assistant and coruscant's 443 over
+the tailnet plus the hub, Pocket ID, and both TLS certificates locally, and
+needs the `gatus-domain` A record pointed at the tailnet address before the
+first deploy (same step as `beszel-domain` above).
+
+Unlike the hub, its config is fully declarative: monitors, alerting, and UI
+settings live in `modules/nixos/gatus.nix` (`services.gatus.settings`), so a
+rebuild never loses a check. Only derived history (uptime results, events) is
+state — SQLite at `/var/lib/gatus/gatus.db` — and `modules/nixos/gatus-restic.nix`
+backs that up nightly to the same R2 `dathomir` repository under its own `gatus`
+tag. Notification tokens must interpolate via `${VAR}` from the sops-rendered
+`gatus.env` file, never in `settings` literally (the rendered YAML is
+world-readable in the store).
+
+Alerts go to hosted [ntfy.sh](https://ntfy.sh), not a self-hosted notifier:
+Gatus and its alert channel must not share a failure domain, or the alerts you
+most need — the ones about dathomir itself dying — never fire. The topic name
+is the password (unguessable, held as `ntfy-topic` in `secrets/dathomir.yaml`
+and interpolated as `${NTFY_TOPIC}`); every endpoint alerts with
+`failure-threshold: 3`, `send-on-resolved: true`. Subscribe the phone app to
+the topic to receive them.
+
+The one failure Gatus can never report is dathomir itself dying — the hub,
+Gatus, and every probe live on this box. `dathomir-heartbeat.timer` (every
+10 minutes) therefore pings a hosted Healthchecks.io check
+(`modules/nixos/dathomir-heartbeat.nix`); the *absence* of pings past the
+check's grace is what pages, via Healthchecks.io's own ntfy integration to a
+separate topic — off-box by design, so it survives the outage it reports. The
+ping URL is a capability secret (`healthchecks-ping-url` in
+`secrets/dathomir.yaml`), never literal in the module. If Gatus is down but
+the box is up, the timer pings `$URL/fail` so the check goes red immediately.
+
 ## Pocket ID (passkey login for the hub)
 
 `id.<domain>` serves [Pocket ID](https://pocket-id.org) from dathomir — a

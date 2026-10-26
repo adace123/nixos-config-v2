@@ -56,6 +56,9 @@ commit kinds that are exempt, live in
 - feat(dathomir): rewrite coruscant reachability check to tailscale ping + Caddy 443
 - feat(pre-commit): lint GitHub workflows with actionlint and zizmor
 - fix(dathomir): bind Pocket ID and its actors port to 127.0.0.1
+- feat(dathomir): monitor endpoints with Gatus behind Caddy at status.figtreelab.dev
+- feat(dathomir): alert from Gatus to hosted ntfy.sh on endpoint failure
+- feat(dathomir): ping Healthchecks.io as a dead-man's switch for the VPS itself
 
 ### Changed
 
