@@ -1,4 +1,5 @@
 {
+  config,
   host,
   lib,
   pkgs,
@@ -16,6 +17,10 @@ in
   # Only coruscant has the doorbell: base.nix is shared with threepio, which
   # must not pull the image or publish the ports.
   config = lib.mkIf (host.hostName == "coruscant") {
+    # RTSP password for the doorbell stream. Host-networked now, so the port
+    # is on all interfaces and auth is back (bridge-publish loopback-only
+    # posture no longer applies). Value lives in secrets/coruscant.yaml.
+    sops.secrets.ring-livestream-pass = { };
     # Ring → MQTT bridge (podman container, like Home Assistant: no nixpkgs
     # package exists). Publishes ding/motion/snapshot entities via the existing
     # Mosquitto broker (MQTT discovery, no HA config needed) and serves the
@@ -57,9 +62,14 @@ in
       environment = {
         DEBUG = "ring-mqtt";
       };
+      # Host networking like HA: the container must reach mosquitto on the
+      # host's 127.0.0.1:1883 (bridge loopback is the container itself —
+      # the ECONNREFUSED loop observed 2026-10-26). Consequence: --publish
+      # is a no-op on host network, so ports are bound by ringstream itself
+      # and RTSP auth returns (unauthenticated RTSP on all interfaces is
+      # not the loopback-only posture the bridge publish gave us).
       extraOptions = [
-        "--publish=127.0.0.1:8554:8554/tcp"
-        "--publish=127.0.0.1:55123:55123/tcp"
+        "--network=host"
       ];
     };
 
@@ -80,8 +90,8 @@ in
         # hit (see the comment on its mqtt.server setting).
         mqtt_url = "mqtt://127.0.0.1:1883";
         mqtt_options = "";
-        livestream_user = "";
-        livestream_pass = "";
+        livestream_user = "ring";
+        livestream_pass = config.sops.placeholder.ring-livestream-pass;
         disarm_code = "";
         enable_cameras = true;
         enable_modes = false;
