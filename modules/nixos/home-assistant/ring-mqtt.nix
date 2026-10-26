@@ -1,6 +1,7 @@
 {
   host,
   lib,
+  pkgs,
   ...
 }:
 let
@@ -63,9 +64,15 @@ in
     };
 
     sops.templates."ring-mqtt-config.json" = {
-      # Rendered straight into the state dir (sops templates re-render on every
-      # activation, so editing the JSON below redeploys without touching state).
-      path = "${ringDataDir}/config.json";
+      # Rendered to /run (sops templates re-render on every activation, so
+      # editing the JSON below redeploys without touching state), then copied
+      # into the state dir by ExecStartPre below. NOT path= straight into the
+      # state dir: sops renders path= as a symlink to /run/secrets/rendered,
+      # and podman's mount-namespace bind of /data leaves the container's
+      # fs.exists check failing on the dangling link (observed 2026-10-25:
+      # "No configuration file found at /data/config.json" with a valid
+      # symlink on the host).
+      path = "/run/ring-mqtt-config.json";
       mode = "0400";
       content = builtins.toJSON {
         # 127.0.0.1, not `localhost`: on these hosts `localhost` resolves to
@@ -94,6 +101,14 @@ in
       serviceConfig = {
         Restart = lib.mkForce "always";
         RestartSec = "30s";
+        # Copy (never symlink) the rendered config into the state dir before
+        # the container starts: content changes redeploy, ring-state.json and
+        # any live snapshots are untouched.
+        ExecStartPre = lib.mkBefore [
+          "+${pkgs.writeShellScript "ring-mqtt-install-config" ''
+            install -Dm0400 /run/ring-mqtt-config.json ${ringDataDir}/config.json
+          ''}"
+        ];
       };
     };
 
