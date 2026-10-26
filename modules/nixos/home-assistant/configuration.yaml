@@ -25,6 +25,14 @@ http:
   trusted_proxies:
     - 127.0.0.1
 default_config:
+homeassistant:
+  # camera.record may only write under allowlisted paths.
+  allowlist_external_dirs:
+    - /media/doorbell
+shell_command:
+  # 7-day rolling purge for doorbell clips (mmin +1440*7 would drift on the
+  # Pi's stepped clock; -mtime +7 is day-granular and good enough here).
+  purge_doorbell_clips: "find /media/doorbell -maxdepth 1 -name '*.mp4' -mtime +7 -delete"
 logger:
   default: info
   logs:

@@ -1,0 +1,19 @@
+- id: "front_door_record_clip"
+  alias: "Front Door Record Clip on Ding/Motion"
+  description: "Record a 30-second clip from the doorbell RTSP stream on ding or motion. Clips land in /media/doorbell; the nightly purge keeps 7 days. No R2 backup — clips are disposable."
+  mode: "restart"
+  max_exceeded: silent
+  trigger:
+    - platform: state
+      entity_id: binary_sensor.front_door_ding
+      to: "on"
+    - platform: state
+      entity_id: binary_sensor.front_door_motion
+      to: "on"
+  action:
+    - action: camera.record
+      target:
+        entity_id: camera.front_door_ring_doorbell_stream
+      data:
+        filename: "/media/doorbell/{{ now().strftime('%Y-%m-%d_%H-%M-%S') }}.mp4"
+        duration: 30

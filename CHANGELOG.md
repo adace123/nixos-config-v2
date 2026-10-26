@@ -64,6 +64,7 @@ commit kinds that are exempt, live in
 - fix(home-assistant): pin hass-oidc-auth NAR hash, flat file hash can never verify
 - fix(home-assistant): trigger front-door light on the local MQTT motion sensor instead of Ring cloud event
 - fix(home-assistant): delete the official ring integration, doorbell fully on ring-mqtt
+- feat(home-assistant): record 30s doorbell clips to /media with 7-day purge, no backup
 
 ### Changed
 

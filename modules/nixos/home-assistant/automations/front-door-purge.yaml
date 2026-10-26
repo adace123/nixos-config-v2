@@ -1,0 +1,9 @@
+- id: "front_door_purge_clips"
+  alias: "Front Door Purge Clips Older Than 7 Days"
+  description: "Delete /media/doorbell clips older than 7 days. Runs nightly; keeps the USB root bounded since clips are explicitly not backed up."
+  mode: "single"
+  trigger:
+    - platform: time
+      at: "03:15:00"
+  action:
+    - action: shell_command.purge_doorbell_clips

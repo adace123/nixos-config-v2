@@ -29,6 +29,8 @@ let
     mkdir -p $out/automations $out/scripts $out/scenes $out/car_scripts $out/dashboards $out/custom_components
     cp ${./automations/system-monitor-alerts.yaml} $out/automations/system-monitor-alerts.yaml
     cp ${./automations/front-door-light-motion.yaml} $out/automations/front-door-light-motion.yaml
+    cp ${./automations/front-door-record.yaml} $out/automations/front-door-record.yaml
+    cp ${./automations/front-door-purge.yaml} $out/automations/front-door-purge.yaml
     cp ${./automations/car-maintenance.yaml} $out/automations/car-maintenance.yaml
     cp ${./automations/hyundai-alerts.yaml} $out/automations/hyundai-alerts.yaml
     cp ${./automations/charge-6-battery.yaml} $out/automations/charge-6-battery.yaml
@@ -159,6 +161,7 @@ in
     "d ${hassDir}/www 0755 hass hass -"
     "d ${hassDir}/custom_components 0755 hass hass -"
     "d /media 0755 hass hass -"
+    "d /media/doorbell 0755 hass hass -"
   ];
 
   system.activationScripts.home-assistant-config = {
