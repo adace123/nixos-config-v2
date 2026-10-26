@@ -25,7 +25,7 @@ modules/nixos/home-assistant/
   binds a random source port and devices reply there, which conntrack does not
   treat as ESTABLISHED.
 - **ring-mqtt** (`ring-mqtt.nix`, coruscant only) — Ring → MQTT bridge
-  (podman, `ghcr.io/tsightler/ring-mqtt:5.9.3`) plus doorbell RTSP at
+  (podman, `docker.io/tsightler/ring-mqtt:5.9.3`) plus authed doorbell RTSP at
   `127.0.0.1:8554/<ring-id>_live`, consumed by HA's embedded go2rtc for
   low-latency WebRTC dashboards. First boot needs the one-time auth UI on
   `127.0.0.1:55123` (SSH forward) to store the Ring refresh token.
@@ -56,7 +56,7 @@ DNS-01 ACME (see `caddy.nix`).
 | `oidc-client-id` | Pocket ID OIDC client for `auth_oidc` in `configuration.yaml` |
 | `oidc-discovery-url` | Pocket ID well-known endpoint for `auth_oidc` in `configuration.yaml` |
 | `alexa-notify-me-api-key` | `rest_command.alexa_notify` in `configuration.yaml` |
-| _(no new secret)_ | ring-mqtt needs none: loopback-only RTSP without auth, and the Ring refresh token is captured interactively at first boot, then backed up from `/var/lib/ring-mqtt` |
+| `ring-livestream-pass` | ring-mqtt RTSP auth (`ring` user); rotate with `sops set`, unit bounces via `restartUnits` |
 
 See [docs/secrets.md](secrets.md) for how to add or rotate secrets.
 
@@ -65,19 +65,27 @@ See [docs/secrets.md](secrets.md) for how to add or rotate secrets.
 The official `ring` integration stays until ring-mqtt covers the same ground —
 running both against one account risks API throttling, so deleting the `ring`
 config entry is the endgame once ding/motion/live-view all flow through MQTT +
-RTSP. `ring-mqtt.nix` (imported by `default.nix`, gated to coruscant because
-`base.nix` is shared with threepio) runs `ghcr.io/tsightler/ring-mqtt:5.9.3`
-as a podman container beside HA:
+RTSP.
+
+`ring-mqtt.nix` (imported by `default.nix`, gated to coruscant because
+`base.nix` is shared with threepio) runs `docker.io/tsightler/ring-mqtt:5.9.3`
+as a podman container beside HA (docker.io, not ghcr.io — ghcr denies
+anonymous token issuance for this repo from every network tried):
 
 - MQTT to `127.0.0.1:1883` (same `::1` trap zigbee2mqtt hit — `localhost`
   resolves IPv6-only here). Entities arrive via MQTT discovery, no HA config.
 - Doorbell RTSP at `127.0.0.1:8554/343ea4133f75_live` (Ring ID from the
   device registry). HA's embedded go2rtc WebRTC-proxies any RTSP source, so
-  no standalone go2rtc module exists — add a generic-camera entity with this
-  stream source for low-latency dashboards.
-- No RTSP auth: the port is loopback-published only, same posture as the
-  loopback-only anonymous Mosquitto. HA runs `--network=host`, so it reaches
-  the port directly.
+  no standalone go2rtc module exists — add a generic-camera entity named
+  e.g. "Ring Doorbell Stream" with this stream source (leave still-image
+  blank; the wizard rejects its template form and the snapshot entity only
+  gains state after first publish).
+- RTSP auth is on (`ring` user, password in `ring-livestream-pass`): the
+  container is `--network=host` like HA (bridge loopback is the container
+  itself, which is how MQTT `ECONNREFUSED`ed at first), so the port is on
+  all interfaces and auth is what protects tailnet clients. The password
+  is hex-only so it pastes into URLs unescaped; stream source is
+  `rtsp://ring:<pass>@127.0.0.1:8554/343ea4133f75_live`.
 - First boot: no token exists, so the container serves its auth UI on
   `127.0.0.1:55123`. Forward it (`ssh -L 55123:127.0.0.1:55123
   root@coruscant.local`), sign in with Ring credentials + 2FA, and the UI
