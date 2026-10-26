@@ -63,6 +63,7 @@ commit kinds that are exempt, live in
 - feat(home-assistant): sign in with Pocket ID passkeys via hass-oidc-auth
 - fix(home-assistant): pin hass-oidc-auth NAR hash, flat file hash can never verify
 - fix(home-assistant): trigger front-door light on the local MQTT motion sensor instead of Ring cloud event
+- fix(home-assistant): delete the official ring integration, doorbell fully on ring-mqtt
 
 ### Changed
 

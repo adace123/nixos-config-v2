@@ -62,10 +62,9 @@ See [docs/secrets.md](secrets.md) for how to add or rotate secrets.
 
 ## Ring doorbell (ring-mqtt)
 
-The official `ring` integration stays until ring-mqtt covers the same ground —
-running both against one account risks API throttling, so deleting the `ring`
-config entry is the endgame once ding/motion/live-view all flow through MQTT +
-RTSP.
+The official `ring` integration is gone — deleted once ding/motion/live-view
+were all confirmed through MQTT + RTSP (single client, no throttling risk).
+Re-adding it later needs a fresh Ring 2FA sign-in.
 
 `ring-mqtt.nix` (imported by `default.nix`, gated to coruscant because
 `base.nix` is shared with threepio) runs `docker.io/tsightler/ring-mqtt:5.9.3`
