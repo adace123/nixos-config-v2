@@ -70,7 +70,9 @@ nixos-files/
 # Terraform
 infra/.terraform/
 infra/*.tfstate
-infra/*.tfstate.*
+infra/tailscale/.terraform/
+infra/tailscale/*.tfstate
+infra/tailscale/*.tfstate.*
 infra/crash.log
 infra/crash.*.log
 # Local variable files: never committed, and not currently used (everything

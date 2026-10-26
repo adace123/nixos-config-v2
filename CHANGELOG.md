@@ -52,6 +52,8 @@ commit kinds that are exempt, live in
 - feat(omp): use the nerd status line with mouse and subagent previews
 - feat(omp): bind Alt+[ and Alt+] to the tree branch jumps
 - feat(omp): add the nixos MCP server to the repo-local .omp/mcp.json
+- feat(tailscale): lock down tailnet with tag-based grants, Terraform-managed policy
+- feat(dathomir): rewrite coruscant reachability check to tailscale ping + Caddy 443
 
 ### Changed
 

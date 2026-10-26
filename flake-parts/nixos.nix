@@ -270,27 +270,32 @@ in
               # External liveness check for coruscant, run from a *different* machine.
               # The hub only knows what the agent tells it, so a host whose agent is
               # healthy while its services are dead reads "up" — that is the gap that
-              # let the 2026-10-18 outage sit unnoticed for five days. This pokes the
-              # tailnet address and the SSH port; it exits non-zero on failure, and a
-              # failed unit is what the beszel SystemdFailed alert turns into a phone
-              # notification.
+              # let the 2026-10-18 outage sit unnoticed for five days. This pings
+              # the tailnet address and handshakes Caddy's 443; it exits non-zero
+              # on failure, and a failed unit is what the beszel SystemdFailed
+              # alert turns into a phone notification.
               #
-              # No SSH key on purpose (only a TCP connect), so the check cannot rot
-              # when credentials are rotated. Limitation: a box whose filesystem has
-              # stopped accepting writes can still complete a TCP handshake — that is
-              # what the storage canary on the host itself is for.
+              # tailscale ping bypasses the tailnet policy filter by design, so no
+              # grant is ever needed for it; TCP/443 against Caddy rides the
+              # standing dathomir->coruscant grant and proves Home Assistant is
+              # actually alive (a better signal than the old SSH handshake, which
+              # only proved sshd answered). No SSH key on purpose (only a TCP
+              # connect), so the check cannot rot when credentials are rotated.
+              # Limitation: a box whose filesystem has stopped accepting writes
+              # can still complete a TCP handshake — that is what the storage
+              # canary on the host itself is for.
               systemd.services.coruscant-reachability = {
                 description = "Check that coruscant answers over the tailnet";
                 path = with pkgs; [
                   bash
                   coreutils
-                  iputils
+                  tailscale
                 ];
                 serviceConfig.Type = "oneshot";
                 script = ''
                   set -eu
-                  ping -c2 -W2 100.66.226.84 >/dev/null
-                  timeout 5 bash -c 'exec 3<>/dev/tcp/100.66.226.84/22'
+                  tailscale ping --c=2 --timeout=5s 100.66.226.84 >/dev/null
+                  timeout 5 bash -c 'exec 3<>/dev/tcp/100.66.226.84/443'
                 '';
               };
               systemd.timers.coruscant-reachability = {
