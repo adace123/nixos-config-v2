@@ -58,6 +58,9 @@ _: {
       "bruno" # API client
       "codex" # OpenAI Codex CLI
       "codex-app" # OpenAI Codex App
+      # Hand-installed; declare it or `cleanup = "zap"` zaps it, and paseo's zap
+      # moves files to the Trash, which fails activation without Full Disk Access.
+      "paseo" # AI coding agent desktop app
       "docker-desktop" # Docker
       "ghostty" # Terminal emulator
       "warp" # AI terminal

@@ -120,8 +120,12 @@ welcome page — not an invention).
 1. Open `https://id.<domain>` → **OIDC Clients → Add OIDC Client**.
 2. Name: `Home Assistant`. Callback URL:
    `https://<home-assistant-external-domain>/auth/oidc/callback`.
-3. Tick **Public Client** (PKCE is marked automatically). Save.
-4. Copy the **Client ID** and **OIDC Discovery URL**, then store them:
+3. Tick **Public Client** (PKCE is marked automatically).
+4. On the client's **Access** tab, choose **All Users** (or tick the group
+   your user belongs to). A UI-created client defaults to **Selected user
+   groups** with nothing ticked, which rejects every sign-in with "You are
+   not allowed to access this service". Save.
+5. Copy the **Client ID** and **OIDC Discovery URL**, then store them:
 
    ```bash
    just edit-secrets secrets/coruscant.yaml   # and threepio.yaml

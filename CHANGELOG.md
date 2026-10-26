@@ -132,6 +132,7 @@ commit kinds that are exempt, live in
 - fix(omp): leave the wheel to the terminal so the transcript scrolls
 - fix(omp): quiet the advisor to every 10th update, one note max, blockers only wake a finished turn
 - fix(home-assistant): drop require_existing_user, absent in hass-oidc-auth v1.2.1
+- docs(home-assistant,dathomir): note the OIDC client Access tab must allow users
 
 ## [2026.10.07.3] - 2026-10-07
 

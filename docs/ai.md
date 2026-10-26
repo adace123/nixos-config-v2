@@ -59,10 +59,13 @@ Model roles (`modelRoles`, thinking suffix after `:`):
   where latency is fine (reviewer agent, hard problems). Full-size but lightly
   served (45k req/5h vs 220 for `glm-5.3:max`), agentic-tuned, cross-family
   from the DeepSeek default. Same training-data opt-in as the advisor entry.
-- **`advisor` — `opencode-go/glm-5.3-flash:high`** with
-  `advisor.enabled = true`: passive per-turn review, deliberately cross-family
-  from the DeepSeek default. Same reviewer Pi's `rpiv-advisor` points at;
-  $0.15/$0.50 per 1M makes it affordable on most turns.
+- **`advisor` — `opencode-go/glm-5.3-flash:high`** with `advisor.enabled = true`
+  plus the quietest available tuning (no hide-advisor knob exists — advisor
+  cards always render when notes deliver): `reviewInterval = 10`,
+  `maxNotesPerUpdate = 1`, `continueSeverity = "blocker"`, `immuneTurns = 5`.
+  Passive review, deliberately cross-family from the DeepSeek default. Same
+  reviewer Pi's `rpiv-advisor` points at; $0.15/$0.50 per 1M makes it
+  affordable on most turns.
 
 Fallbacks: `retry.fallbackChains.{default,smol,slow,advisor}` walks ordered
 alternates on provider errors (429s, quota walls, outages). Default/slow fall

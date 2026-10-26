@@ -110,6 +110,20 @@ declared there on the next activation, and a binary that links
 `/opt/homebrew/opt/<lib>/lib/...` aborts with `dyld: Library not loaded` once
 that library is gone.
 
+The same applies to a cask you installed by hand and want to keep: declare it in
+`casks`, or cleanup uninstalls it on the next activation. A cask whose zap
+stanza moves files to the Trash (rather than deleting them) fails that uninstall
+with Homebrew's Full Disk Access error under activation's root context, which
+aborts the switch instead of removing it — so an undeclared one keeps failing
+every activation until it is declared or removed by hand.
+
+A formula or cask from a non-official tap also has to be trusted: Homebrew
+6.0.0 and later refuses to load it from an untrusted tap. Declare the tap in
+`taps` with `trusted = true` (a bare `"user/repo"` defaults to untrusted), or
+mark a fully-qualified `brews`/`casks` entry as trusted. `brew bundle cleanup`
+rewrites the trust store from the Brewfile's `trusted:` entries before it
+uninstalls anything, so a hand-run `brew trust` does not survive activation.
+
 ### USB Ethernet (ASIX AX88179)
 
 The USB 3.0 gigabit dongle (ASIX `AX88179`, USB ID `0b95:1790`) needs a vendor

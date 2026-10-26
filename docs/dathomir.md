@@ -486,8 +486,11 @@ Two things are worth knowing before touching its configuration:
 Enrolment: open `https://id.<domain>`, create the admin account with a passkey, then
 **Administration → OIDC Clients → Add** with callback
 `https://monitoring.<domain>/api/oauth2-redirect`, PKCE on, and verified emails on
-(the hub requires a verified address). Paste those values into the hub's OAuth2
-settings.
+(the hub requires a verified address). On the client's **Access** tab,
+choose **All Users** (or tick a group): a UI-created client defaults to
+**Selected user groups** with nothing ticked, which rejects every sign-in
+with "You are not allowed to access this service". Paste those values into
+the hub's OAuth2 settings.
 
 The hub runs with `USER_CREATION=true`. **`DISABLE_PASSWORD_AUTH=true` is deliberately
 not set** — switch it on only once a passkey login has been verified, because doing

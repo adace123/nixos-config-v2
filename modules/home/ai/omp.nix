@@ -71,6 +71,11 @@ in
       # "box" is the "Rounded Box" composer: status line embedded in the top
       # border, compact 2-line prompt.
       composer.shape = "box";
+      # Claude-Code-style next-prompt suggestion: after each completed turn
+      # the model predicts your next message as ghost text in the empty
+      # composer (Tab/→ inserts without sending). Costs one extra billed
+      # request per turn (counted in /stats).
+      composer.predictions = true;
       # Nerd Font glyphs for icons/symbols; requires a Nerd Font in the terminal
       # (or a Glyph Protocol terminal, which ships icons in-band).
       symbolPreset = "nerd";
@@ -174,6 +179,16 @@ in
       display.subagentLivePreview = true;
       advisor = {
         enabled = true;
+        # Quietest available: no hide-advisor knob exists (advisor cards
+        # always render when notes deliver), so minimise cards instead of
+        # hiding them. Review every 10th eligible update, accept at most
+        # one non-blocker note per update, only blockers wake a finished
+        # turn, and concerns cool down for 5 primary turns after one
+        # steers. Blockers always break through.
+        reviewInterval = 10;
+        maxNotesPerUpdate = 1;
+        continueSeverity = "blocker";
+        immuneTurns = 5;
       };
     };
   };
