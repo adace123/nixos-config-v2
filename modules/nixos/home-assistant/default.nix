@@ -17,10 +17,12 @@ let
   # OpenID Connect login (Pocket ID) via hass-oidc-auth. The zip ships the
   # component files at its root, so stripRoot stays off and the store path
   # itself is copied to custom_components/auth_oidc below — same shape as
-  # the hacs fetchzip above.
+  # the hacs fetchzip above. The hash is the NAR of the *unpacked* tree
+  # (fetchzip is recursive), not the zip file: GitHub's published asset
+  # digest e5badaaa…47ccd is the flat file hash and will never verify here.
   authOidc = pkgs.fetchzip {
     url = "https://github.com/christiaangoossens/hass-oidc-auth/releases/download/v1.2.1/hass-oidc-auth.zip";
-    hash = "sha256-5braqsqmPP1v5zOSSgXnbXUFiDYZA5hZj7JN5XzUfM0=";
+    hash = "sha256-zrOc7cRcME7v7dy4d+6kSyALdyKx+3LjetOc/cauN1c=";
     stripRoot = false;
   };
   hassGenerated = pkgs.runCommand "hass-generated-config" { } ''

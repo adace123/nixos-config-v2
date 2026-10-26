@@ -61,6 +61,7 @@ commit kinds that are exempt, live in
 - feat(dathomir): alert from Gatus to hosted ntfy.sh on endpoint failure
 - feat(dathomir): ping Healthchecks.io as a dead-man's switch for the VPS itself
 - feat(home-assistant): sign in with Pocket ID passkeys via hass-oidc-auth
+- fix(home-assistant): pin hass-oidc-auth NAR hash, flat file hash can never verify
 
 ### Changed
 
