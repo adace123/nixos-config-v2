@@ -59,6 +59,7 @@ commit kinds that are exempt, live in
 - feat(dathomir): monitor endpoints with Gatus behind Caddy at status.figtreelab.dev
 - feat(dathomir): alert from Gatus to hosted ntfy.sh on endpoint failure
 - feat(dathomir): ping Healthchecks.io as a dead-man's switch for the VPS itself
+- feat(home-assistant): sign in with Pocket ID passkeys via hass-oidc-auth
 
 ### Changed
 

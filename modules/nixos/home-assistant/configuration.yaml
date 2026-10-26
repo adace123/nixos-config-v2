@@ -1,3 +1,29 @@
+# OpenID Connect login via Pocket ID (hass-oidc-auth custom component,
+# installed by default.nix). Public client (PKCE, no secret — the upstream
+# recommendation for home use). client_id and discovery_url render from
+# SOPS at activation; create the client in Pocket ID first with callback
+# https://<external-domain>/auth/oidc/callback (see docs/dathomir.md).
+auth_oidc:
+  client_id: __OIDC_CLIENT_ID__
+  discovery_url: __OIDC_DISCOVERY_URL__
+  display_name: "Pocket ID"
+  features:
+    default_redirect: true
+    # Link the OIDC identity to the existing HA user on first login instead
+    # of provisioning a new non-admin duplicate. Matches on the OIDC
+    # username claim, so the Pocket ID username must exactly match the HA
+    # username — otherwise login is denied (use ?skip_oidc_redirect=true to
+    # reach local login and check). require_existing_user closes the other
+    # half: unknown OIDC identities can never mint new HA accounts.
+    automatic_user_linking: true
+    require_existing_user: true
+# Behind Caddy (reverse proxy), so HA builds correct external URLs
+# (e.g. the OIDC callback) from X-Forwarded-Proto/For. 127.0.0.1 is the
+# only proxy: Caddy reverse_proxies 127.0.0.1:8123 from this same host.
+http:
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - 127.0.0.1
 default_config:
 logger:
   default: info

@@ -14,6 +14,15 @@ let
     hash = "sha256-iMomioxH7Iydy+bzJDbZxt6BX31UkCvqhXrxYFQV8Gw=";
     stripRoot = false;
   };
+  # OpenID Connect login (Pocket ID) via hass-oidc-auth. The zip ships the
+  # component files at its root, so stripRoot stays off and the store path
+  # itself is copied to custom_components/auth_oidc below — same shape as
+  # the hacs fetchzip above.
+  authOidc = pkgs.fetchzip {
+    url = "https://github.com/christiaangoossens/hass-oidc-auth/releases/download/v1.2.1/hass-oidc-auth.zip";
+    hash = "sha256-5braqsqmPP1v5zOSSgXnbXUFiDYZA5hZj7JN5XzUfM0=";
+    stripRoot = false;
+  };
   hassGenerated = pkgs.runCommand "hass-generated-config" { } ''
     mkdir -p $out/automations $out/scripts $out/scenes $out/car_scripts $out/dashboards $out/custom_components
     cp ${./automations/system-monitor-alerts.yaml} $out/automations/system-monitor-alerts.yaml
@@ -39,11 +48,15 @@ in
           "__TIME_ZONE__"
           "__EXTERNAL_DOMAIN__"
           "__ALEXA_NOTIFY_ME_API_KEY__"
+          "__OIDC_CLIENT_ID__"
+          "__OIDC_DISCOVERY_URL__"
         ]
         [
           config.time.timeZone
           config.sops.placeholder.home-assistant-external-domain
           config.sops.placeholder.alexa-notify-me-api-key
+          config.sops.placeholder.oidc-client-id
+          config.sops.placeholder.oidc-discovery-url
         ]
         (builtins.readFile ./configuration.yaml);
   };
@@ -173,6 +186,9 @@ in
       ${pkgs.findutils}/bin/find ${hassDir}/custom_components -maxdepth 1 -type f -delete
       rm -rf ${hassDir}/custom_components/hacs ${hassDir}/custom_components/hacs_frontend ${hassDir}/custom_components/__pycache__
       cp -r ${hacs} ${hassDir}/custom_components/hacs
+      rm -rf ${hassDir}/custom_components/auth_oidc
+      cp -r ${authOidc} ${hassDir}/custom_components/auth_oidc
+      chown -R hass:hass ${hassDir}/custom_components/auth_oidc
       rm -rf ${hassDir}/custom_components/google_health_workouts
       cp -r ${hassGenerated}/custom_components/google_health_workouts ${hassDir}/custom_components/google_health_workouts
       chown -R hass:hass ${hassDir}/custom_components/google_health_workouts

@@ -64,7 +64,7 @@ nix shell nixpkgs#sops nixpkgs#age
 
 ```bash
 just edit-secrets                       # edits secrets/endor.yaml by default
-just edit-secrets FILE=secrets/coruscant.yaml
+just edit-secrets secrets/coruscant.yaml
 ```
 
 The recipe sets `SOPS_AGE_KEY_FILE=~/.config/sops/admin-keys.txt`, so editing
@@ -142,7 +142,7 @@ cp ~/.config/sops/age/host-keys/endor.txt ~/.config/sops/age/keys.txt
 
    ```bash
    # start from a copy of an existing file, then trim/add keys
-   just edit-secrets FILE=secrets/<host>.yaml
+   just edit-secrets secrets/<host>.yaml
    ```
 
 5. Update `modules/nixos/base.nix`'s declared `sops.secrets` (or the consuming
@@ -234,7 +234,7 @@ double-checking.
 | File | Keys | Used by |
 |------|------|---------|
 | `endor.yaml` | `tinyfish-api-key`, `opencode-api-key` | Pi/hermes AI agents (home-manager) |
-| `coruscant.yaml` / `threepio.yaml` | `ts-auth-key`, `cloudflare-api-key`, `home-assistant-external-domain`, `beszel-domain`, `alexa-notify-me-api-key` (+ `beszel-token`, `beszel-key` on coruscant only) | Tailscale auth, Caddy DNS-01, HA vhost, Alexa. `beszel-domain` is now served from dathomir's file; the copy here is left over from when coruscant ran the hub. coruscant's agent reports to the dathomir hub with the universal token and the hub SSH public key |
+| `coruscant.yaml` / `threepio.yaml` | `ts-auth-key`, `cloudflare-api-key`, `home-assistant-external-domain`, `beszel-domain`, `alexa-notify-me-api-key`, `oidc-client-id`, `oidc-discovery-url` (+ `beszel-token`, `beszel-key` on coruscant only) | Tailscale auth, Caddy DNS-01, HA vhost, Alexa, Pocket ID OIDC login for HA. `beszel-domain` is now served from dathomir's file; the copy here is left over from when coruscant ran the hub. coruscant's agent reports to the dathomir hub with the universal token and the hub SSH public key |
 | `dathomir.yaml` | `beszel-domain`, `pocket-id-domain`, `gatus-domain`, `ntfy-topic`, `healthchecks-ping-url`, `cloudflare-api-key`, `pocket-id-encryption-key`, `beszel-token`, `beszel-key` (+ the Tailscale key still comes from `/etc/nixos/tailscale-authkey`, seeded during the conversion) | Caddy DNS-01 for the hub, Pocket ID, and Gatus, the ntfy.sh alert topic, the Healthchecks.io heartbeat URL, the passing-key provider's encryption key, the agents' universal token, and the hub SSH public key the agents verify challenges with |
 | `cloudflare.yaml` | R2 endpoint/keys/bucket, `restic-password` | Restic backups (`home-assistant/restic.nix`) |
 | `oci.yaml` | OCI + OpenTofu state credentials | CI deploy workflow only |

@@ -55,8 +55,53 @@ DNS-01 ACME (see `caddy.nix`).
 |-----------------|---------|
 | `home-assistant-external-domain` | `configuration.yaml` template, Caddy virtual host |
 | `cloudflare-api-key` | Caddy DNS-01 challenge |
+| `oidc-client-id` | Pocket ID OIDC client for `auth_oidc` in `configuration.yaml` |
+| `oidc-discovery-url` | Pocket ID well-known endpoint for `auth_oidc` in `configuration.yaml` |
 
 See [docs/secrets.md](secrets.md) for how to add or rotate secrets.
+
+## Pocket ID Login (passkeys via OIDC)
+
+Sign-in is delegated to [Pocket ID](https://pocket-id.org) on dathomir (see
+[docs/dathomir.md](dathomir.md)) through the
+[hass-oidc-auth](https://github.com/christiaangoossens/hass-oidc-auth)
+custom component (`auth_oidc`), packaged declaratively in `default.nix`
+(`fetchzip` v1.2.1, copied to `custom_components/auth_oidc` at activation
+alongside HACS). HA is a **public client** (PKCE, no secret — the upstream
+recommendation for home use); `client_id` and `discovery_url` render from
+the `oidc-client-id` / `oidc-discovery-url` SOPS secrets via the
+`hass-configuration.yaml` template, and `http.trusted_proxies` trusts only
+Caddy on 127.0.0.1 so the OIDC callback URL builds correctly.
+
+`display_name` is "Pocket ID" and `features.default_redirect` skips the
+welcome screen straight to Pocket ID; the local username/password login
+stays available at `https://<home-assistant-external-domain>/?skip_oidc_redirect=true`
+(that parameter is the integration's own escape hatch, rendered on its
+welcome page — not an invention).
+
+### Setup (one-time, in Pocket ID)
+
+1. Open `https://id.<domain>` → **OIDC Clients → Add OIDC Client**.
+2. Name: `Home Assistant`. Callback URL:
+   `https://<home-assistant-external-domain>/auth/oidc/callback`.
+3. Tick **Public Client** (PKCE is marked automatically). Save.
+4. Copy the **Client ID** and **OIDC Discovery URL**, then store them:
+
+   ```bash
+   just edit-secrets secrets/coruscant.yaml   # and threepio.yaml
+   ```
+
+   Set `oidc-client-id` to the real client ID (replacing the
+   `PENDING-create-oidc-client-in-pocket-id` placeholder) and confirm
+   `oidc-discovery-url` matches. Redeploy.
+
+`features.automatic_user_linking` links the OIDC identity to the existing
+HA user on first login (instead of minting a second, non-admin profile),
+and `require_existing_user` means unknown OIDC identities can never create
+accounts. The link matches on the OIDC **username** claim, so the Pocket ID
+username must exactly equal the HA username — check with local login first
+if a first login is denied. Only one HA user exists here, so no group→role
+mapping (`roles.admin`/`roles.user`) is configured.
 
 ## Accessing Home Assistant
 

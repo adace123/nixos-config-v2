@@ -24,6 +24,11 @@
     ts-auth-key = { };
     home-assistant-external-domain = { };
     alexa-notify-me-api-key = { };
+    # Pocket ID OIDC for Home Assistant (hass-oidc-auth public client).
+    # oidc-client-id is filled in after creating the client in Pocket ID
+    # (see docs); discovery URL is the Pocket ID well-known endpoint.
+    oidc-client-id = { };
+    oidc-discovery-url = { };
   };
 
   hardware.bluetooth.enable = true;
