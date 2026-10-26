@@ -12,11 +12,9 @@ auth_oidc:
     # Link the OIDC identity to the existing HA user on first login instead
     # of provisioning a new non-admin duplicate. Matches on the OIDC
     # username claim, so the Pocket ID username must exactly match the HA
-    # username — otherwise login is denied (use ?skip_oidc_redirect=true to
-    # reach local login and check). require_existing_user closes the other
-    # half: unknown OIDC identities can never mint new HA accounts.
+    # username — otherwise a duplicate is minted (use
+    # ?skip_oidc_redirect=true to reach local login and clean up).
     automatic_user_linking: true
-    require_existing_user: true
 # Behind Caddy (reverse proxy), so HA builds correct external URLs
 # (e.g. the OIDC callback) from X-Forwarded-Proto/For. 127.0.0.1 is the
 # only proxy: Caddy reverse_proxies 127.0.0.1:8123 from this same host.

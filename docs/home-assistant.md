@@ -132,12 +132,13 @@ welcome page — not an invention).
    `oidc-discovery-url` matches. Redeploy.
 
 `features.automatic_user_linking` links the OIDC identity to the existing
-HA user on first login (instead of minting a second, non-admin profile),
-and `require_existing_user` means unknown OIDC identities can never create
-accounts. The link matches on the OIDC **username** claim, so the Pocket ID
-username must exactly equal the HA username — check with local login first
-if a first login is denied. Only one HA user exists here, so no group→role
-mapping (`roles.admin`/`roles.user`) is configured.
+HA user on first login (instead of minting a second, non-admin profile).
+The link matches on the OIDC **username** claim, so the Pocket ID username
+must exactly equal the HA username — otherwise a duplicate is minted
+(delete it via local login). Only one HA user exists here, so no
+group→role mapping (`roles.admin`/`roles.user`) is configured. Note:
+`require_existing_user` (upstream docs) does not exist in the packaged
+v1.2.1 — it rejects the config — so it is deliberately absent.
 
 ## Accessing Home Assistant
 
