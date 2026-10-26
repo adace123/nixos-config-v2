@@ -43,31 +43,72 @@ the package and writes `~/.omp/agent/config.yml` declaratively on every switch
 switch). The package itself is overridden to the `llm-agents` build —
 prebuilt from cache.numtide.com instead of a ~15min bun compile (currently
 18.12.2 in the lock vs 18.12.6 on upstream main; `just update-input llm-agents`
-moves it). The brew `omp` it replaces can be uninstalled once the nix bin lands
-in PATH.
+moves it). The brew `omp` it replaces is gone: Homebrew's `cleanup = "zap"`
+removed the leftover formula at the first activation after the Nix package
+landed.
 
 Model roles (`modelRoles`, thinking suffix after `:`):
 
-- **`default` — `opencode-go/glm-5.3-flash:high`**: normal interactive work.
-  Strongest cheap Go default (native vision, 1M context).
+- **`default` — `opencode-go/deepseek-v4.1-flash:high`**: normal interactive
+  work. Native vision, 1M context, 384K max output; thinking level pins
+  reasoning effort.
 - **`smol` — `opencode-go/mimo-v2.5`**: fast/cheap utility work — reads,
   searches, titles, prewalk handoffs. Nothing reasons from its output, so the
   cheapest bulk model wins.
 - **`slow` — `opencode-go/muse-spark-1.3-contributor:high`**: thorough reasoning
   where latency is fine (reviewer agent, hard problems). Full-size but lightly
   served (45k req/5h vs 220 for `glm-5.3:max`), agentic-tuned, cross-family
-  from the GLM default. Same training-data opt-in as the advisor entry.
-- **`advisor` — `opencode-go/muse-spark-1.3-contributor:low`** with
-  `advisor.enabled = true`: passive per-turn review, deliberately
-  cross-family from default for independent judgment. Raise to `:max` if notes
-  feel shallow. Needs the "paid endpoints that train on request data" opt-in
-  in the OpenCode Console privacy settings.
+  from the DeepSeek default. Same training-data opt-in as the advisor entry.
+- **`advisor` — `opencode-go/glm-5.3-flash:high`** with
+  `advisor.enabled = true`: passive per-turn review, deliberately cross-family
+  from the DeepSeek default. Same reviewer Pi's `rpiv-advisor` points at;
+  $0.15/$0.50 per 1M makes it affordable on most turns.
+
+Fallbacks: `retry.fallbackChains.{default,smol,slow,advisor}` walks ordered
+alternates on provider errors (429s, quota walls, outages). Default/slow fall
+back cross-family (DeepSeek ↔ Muse ↔ GLM) so one provider outage doesn't kill
+the turn; smol fallbacks pin `:low` effort to stay cheap.
+
+Memory: `memory.backend = "local"` builds project-scoped summaries/lessons
+from persisted sessions, injected as a Memory Guidance block at startup
+(readable via `read` at `memory://root`, `memory://root/MEMORY.md`,
+`memory://root/learned.md`). `autolearn.enabled = true` adds the `learn` tool
+so durable lessons land in `learned.md`.
 
 Display: `hideThinkingBlock = true` hides reasoning;
 `display.hideToolActivity = true` keeps tool calls/results (including
 `web_search` output) out of the transcript. There is no per-tool "hide
 web_search results" knob — `web_search.enabled = false` removes the tool
-entirely.
+entirely. `theme.dark = "dark-catppuccin-blocks"` is a derived catppuccin
+theme (built from the flake input's `dark-catppuccin.json`) whose only change
+is `userMessageBg = surface0`: OMP fills your prompt with that background and
+has no border option, and the stock `mantle` is nearly the same shade as the
+page. `statusLine.preset = "nerd"` matches `symbolPreset`; `tui.mouse = true`
+enables click-to-focus on live subagent cards and jump-list rows (text
+selection becomes Shift+drag while on); `display.subagentLivePreview = true`
+shows each pinned agent's current tool call under its jump-list row.
+
+Skills, keybindings, and MCP: `~/.omp/agent/skills/grilling`, `grill-me`
+(same `mattpocock-skills` input Pi uses) and the in-repo `commit-all` are
+linked under `~/.omp/agent/skills` (OMP's scanner follows the store
+symlinks). `~/.omp/agent/keybindings.yml` binds the unbound `/tree`
+branch-jump actions to `Alt+[` / `Alt+]`. `context7` and `grep-mcp` are
+installed as `~/.omp/agent/mcp.json` by activation — a writable file, because
+`/mcp` rewrites enable lists there. The repo-local `.omp/mcp.json` adds the
+`nixos` server (via `uvx mcp-nixos`), mirroring Pi's `.pi/mcp.json`.
+OMP has no per-server description field, so the Pi `description` keys are
+omitted and the server name plus its own instructions are what it shows.
+
+Approvals: `tools.approvalMode = "always-ask"` (read-tier tools only are
+auto-approved) with per-tool overrides that allow `bash`, `edit`, `write` and
+`ast_edit`; every other exec-tier tool (eval, browser, task) still prompts.
+
+Onboarding: `startup.setupWizard = false`. OMP gates its setup wizard on a
+`setupVersion` key that it writes into `config.yml` itself once the wizard
+finishes — a key the declarative file does not contain, so each switch resets
+the stored version to 0 and the next launch replays the wizard. Since every
+choice the scenes ask for (model roles, glyphs, composer, theme) is declared
+here, the startup wizard is off; run `omp setup` to force it on demand.
 
 ## Shared configuration (`shared.nix`)
 

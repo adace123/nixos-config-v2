@@ -41,6 +41,17 @@ commit kinds that are exempt, live in
 - feat(omp): manage omp via nix with glm-5.3-flash default and muse-spark-1.3 advisor
 - feat(omp): use muse-spark-1.3 for the slow tier instead of glm-5.3 (latency)
 - feat(darwin): add Numbers and HP Print and Support to the Mac App Store apps
+- feat(omp): auto-approve the edit, write and ast_edit tools
+- feat(omp): add context7 and grep-mcp MCP servers
+- feat(omp): share the grilling and grill-me skills with omp
+- feat(omp): derive a catppuccin theme with a visible user-prompt bubble
+- feat(omp): use glm-5.3-flash as the advisor model
+- feat(omp): fail over across providers with retry.fallbackChains
+- feat(omp): enable local memory and the learn tool via autolearn
+- feat(omp): share the commit-all skill with omp
+- feat(omp): use the nerd status line with mouse and subagent previews
+- feat(omp): bind Alt+[ and Alt+] to the tree branch jumps
+- feat(omp): add the nixos MCP server to the repo-local .omp/mcp.json
 
 ### Changed
 
@@ -104,6 +115,7 @@ commit kinds that are exempt, live in
 - coruscant: cap journal, quiet Alexa logger, add SMART + voltage checks, trim recorder
 - fix(pi): fail the under-voltage check so an alert can fire, not just a journal line
 - fix(ci): require the flake checks and build the darwin configuration
+- fix(omp): stop the setup wizard replaying after every switch and on every launch
 
 ## [2026.10.07.3] - 2026-10-07
 
