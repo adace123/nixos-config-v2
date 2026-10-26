@@ -118,9 +118,16 @@
   # The names are NSS nicknames, which `buildcatrust` matches exactly — the
   # wrapped root is `Comodo AAA Services root`, not `AAA Certificate Services`
   # (that is the certificate's CN, which the blacklist ignores).
+  #
+  # Only list roots the Mozilla store still carries: NSS 3.131.1 dropped the
+  # emSign G3/C1/C3 roots as part of the same disclosure, and a blacklist name
+  # that is not in certdata.txt makes buildcatrust exit 3
+  # (`Certs in blocklist but not in cert store`), failing the cacert build.
+  # nix-darwin's own security.pki module blacklists this root plus the three
+  # emSign roots while cacert's version is below 3.131.1, so keep this list to
+  # the cross-sign and let it track the store.
   security.pki.caCertificateBlacklist = [
     "Comodo AAA Services root"
-    "emSign ECC Root CA - G3"
   ];
 
 }

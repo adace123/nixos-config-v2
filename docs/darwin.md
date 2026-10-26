@@ -269,16 +269,21 @@ Applied by `just switch`; there is nothing else to run.
 
 `security.pki.caCertificateBlacklist` in `modules/darwin/default.nix` drops
 roots from the bundle nix-darwin writes to `/etc/ssl/certs/ca-certificates.crt`,
-which `NIX_SSL_CERT_FILE` points at. It currently distrusts `Comodo AAA Services
-root` and `emSign ECC Root CA - G3` because the eight eMudhra/emSign intermediate
-CAs disclosed on 2026-10-17 had private keys recoverable from the public
-certificates, so a forged certificate for any domain validated against them
+which `NIX_SSL_CERT_FILE` points at. It distrusts `Comodo AAA Services root`, the
+Sectigo cross-sign of the eight eMudhra/emSign intermediate CAs disclosed on
+2026-10-17 — their private keys were recoverable from the public certificates,
+so a forged certificate for any domain validated against them
 (<https://emudhra.we-have-a-problem.com/>).
 
 Entries are **NSS nicknames**, matched exactly — `Comodo AAA Services root`, not
-the certificate's `CN=AAA Certificate Services`. A name that matches nothing is
-reported by `buildcatrust` as `Certs in blocklist but not in cert store` and
-silently protects nothing.
+the certificate's `CN=AAA Certificate Services`. A name that matches nothing
+makes `buildcatrust` exit 3 with `Certs in blocklist but not in cert store` and
+**fails the cacert build**, so any blacklisted root has to be one the pinned
+Mozilla store still carries. NSS 3.131.1 removed the emSign G3/C1/C3 roots as
+part of the same disclosure; nix-darwin's own `security.pki` module blacklists
+those three only while `pkgs.cacert.version` is below 3.131.1, which is why this
+list holds just the cross-sign. Drop an entry when an `nix flake update` brings
+in a store that no longer contains it.
 
 This bundle covers nix-built tools (`git`, `python3`, `curl`, `uv`). It does **not**
 cover Apple's `/etc/ssl/cert.pem` (used by `/usr/bin/openssl` and `SSL_CERT_FILE`) or
