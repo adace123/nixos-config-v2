@@ -215,6 +215,12 @@ in
                 enable = true;
                 settings = {
                   PORT = 1411;
+                  # Localhost-only: Caddy is the only tailnet path in (the ACL
+                  # grants no raw :1411), so the plaintext HTTP listener has no
+                  # business on any other interface. Same for the actors UDP
+                  # port — internal task runtime, not a service.
+                  HOST = "127.0.0.1";
+                  ACTORS_HOST = "127.0.0.1";
                   # Behind Caddy, so it must trust forwarded headers.
                   TRUST_PROXY = true;
                   ANALYTICS_DISABLED = true;

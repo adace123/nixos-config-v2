@@ -55,6 +55,7 @@ commit kinds that are exempt, live in
 - feat(tailscale): lock down tailnet with tag-based grants, Terraform-managed policy
 - feat(dathomir): rewrite coruscant reachability check to tailscale ping + Caddy 443
 - feat(pre-commit): lint GitHub workflows with actionlint and zizmor
+- fix(dathomir): bind Pocket ID and its actors port to 127.0.0.1
 
 ### Changed
 
