@@ -5,7 +5,11 @@
 }:
 let
   ringDataDir = "/var/lib/ring-mqtt";
-  ringImage = "ghcr.io/tsightler/ring-mqtt:5.9.3";
+  # docker.io, not ghcr.io: ghcr denies anonymous token issuance for this
+  # repo (403 on the token endpoint from every network we tried), while the
+  # publisher's own Docker Hub mirror serves the same tags. Verified
+  # multi-arch incl. arm64; the Pi pulls it clean.
+  ringImage = "docker.io/tsightler/ring-mqtt:5.9.3";
 in
 {
   # Only coruscant has the doorbell: base.nix is shared with threepio, which
