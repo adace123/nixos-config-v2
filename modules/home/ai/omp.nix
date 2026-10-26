@@ -156,11 +156,21 @@ in
       memory.backend = "local";
       autolearn.enabled = true;
       # TUI polish: `nerd` status line matches `symbolPreset = "nerd"` above;
-      # `tui.mouse` enables click-to-focus on live subagent cards and jump-list
-      # rows (text selection becomes Shift+drag while on); `subagentLivePreview`
-      # adds each pinned agent's current tool call under its jump-list row.
+      # `subagentLivePreview` adds each pinned agent's current tool call under
+      # its jump-list row.
       statusLine.preset = "nerd";
-      tui.mouse = true;
+      # `tui.mouse` stays off. It enables inline click-to-focus on live subagent
+      # cards and jump-list rows, but the capture it turns on (`?1000h`/`?1003h`)
+      # makes the terminal send wheel reports to OMP, and OMP's inline handler
+      # consumes every SGR report while acting only on clicks and motion — the
+      # main transcript (native scrollback, there is no app-level scroll)
+      # therefore never scrolls on wheel. Upstream documents the cost as "wheel
+      # scroll becomes Shift+wheel while on", and stray tracking-state changes
+      # from child TUIs make even that intermittent. Click-to-focus remains
+      # available through the Agent Hub (Alt+A); plain wheel scrolling is worth
+      # more than one-click focus, and capture also steals native selection
+      # (Shift+drag while on).
+      tui.mouse = false;
       display.subagentLivePreview = true;
       advisor = {
         enabled = true;

@@ -83,10 +83,13 @@ entirely. `theme.dark = "dark-catppuccin-blocks"` is a derived catppuccin
 theme (built from the flake input's `dark-catppuccin.json`) whose only change
 is `userMessageBg = surface0`: OMP fills your prompt with that background and
 has no border option, and the stock `mantle` is nearly the same shade as the
-page. `statusLine.preset = "nerd"` matches `symbolPreset`; `tui.mouse = true`
-enables click-to-focus on live subagent cards and jump-list rows (text
-selection becomes Shift+drag while on); `display.subagentLivePreview = true`
+page. `statusLine.preset = "nerd"` matches `symbolPreset`; `display.subagentLivePreview = true`
 shows each pinned agent's current tool call under its jump-list row.
+`tui.mouse` is deliberately `false`: enabling it captures the mouse for
+click-to-focus on live subagent cards, which also routes wheel reports to OMP
+(whose inline handler ignores them) so the transcript stops scrolling on the
+wheel and native selection needs Shift+drag. The Agent Hub (Alt+A) focuses
+subagents by keyboard instead.
 
 Skills, keybindings, and MCP: `~/.omp/agent/skills/grilling`, `grill-me`
 (same `mattpocock-skills` input Pi uses) and the in-repo `commit-all` are
