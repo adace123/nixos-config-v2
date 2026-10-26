@@ -54,6 +54,7 @@ commit kinds that are exempt, live in
 - feat(omp): add the nixos MCP server to the repo-local .omp/mcp.json
 - feat(tailscale): lock down tailnet with tag-based grants, Terraform-managed policy
 - feat(dathomir): rewrite coruscant reachability check to tailscale ping + Caddy 443
+- feat(pre-commit): lint GitHub workflows with actionlint and zizmor
 
 ### Changed
 

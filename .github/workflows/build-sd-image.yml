@@ -25,6 +25,8 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.host || 'coruscant' }}
   cancel-in-progress: true
+permissions:
+  contents: read
 env:
   IMAGE_HOST: ${{ inputs.host || 'coruscant' }}
 jobs:
@@ -33,14 +35,19 @@ jobs:
     # default system is already aarch64-linux (no --system flag needed).
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v23
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         with:
           flakehub: false
       - name: Build SD image
         run: |
-          nix build .#nixosConfigurations.${{ env.IMAGE_HOST }}-sd-image.config.system.build.sdImage \
+          # IMAGE_HOST comes from a workflow_dispatch input: read it as a shell
+          # variable here, never interpolate a workflow expression into a run
+          # block (that is what zizmor's template-injection audit flags).
+          nix build ".#nixosConfigurations.${IMAGE_HOST}-sd-image.config.system.build.sdImage" \
             --print-build-logs \
             --accept-flake-config
       - name: Collect image and checksums
@@ -60,15 +67,15 @@ jobs:
       - name: Publish build summary
         run: |
           set -euo pipefail
-          IMG_BASENAME="$(find result/sd-image -name '*.img.zst' -print -quit | xargs -n1 basename)"
+          IMG_BASENAME="$(basename "$(find result/sd-image -name '*.img.zst' -print -quit)")"
           {
-            echo "## SD image build: \`${{ env.IMAGE_HOST }}\`"
+            echo "## SD image build: \`$IMAGE_HOST\`"
             echo ""
             echo "- Image: \`$IMG_BASENAME\`"
             echo "- SHA-256: \`$(awk '{print $1}' /tmp/artifact/sha256sums.txt)\`"
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload image
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           # Name includes the commit SHA so distinct builds never collide
           # (keep in sync with the `nixos-build-ci` just recipe's download name)

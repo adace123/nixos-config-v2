@@ -106,6 +106,34 @@
           types = [ "shell" ]; # Format shell script files
         };
 
+        # GitHub Actions: schema, expression contexts, runner labels and the
+        # shell scripts inside `run:` blocks. The `shellcheck` hook above only
+        # ever sees standalone `*.sh` files, so inline workflow shell was
+        # otherwise unlinted.
+        #
+        # `entry` carries `-shellcheck=` because actionlint otherwise looks up
+        # `shellcheck` on PATH, and inside the hook's sandbox that lookup can
+        # fail silently — actionlint then skips the shell integration instead of
+        # erroring, so `run:` scripts would quietly go unchecked.
+        actionlint = {
+          enable = true;
+          entry = "${pkgs.actionlint}/bin/actionlint -shellcheck=${pkgs.shellcheck}/bin/shellcheck";
+        };
+
+        # GitHub Actions security audits: unpinned `uses:`, template injection
+        # into `run:`, excessive/missing `permissions:`, credential persistence
+        # from checkout, dangerous triggers.
+        #
+        # `--offline` keeps the hook hermetic. The advisory-DB audits
+        # (`known-vulnerable-actions`, `impostor-commit`) need network, and
+        # `nix flake check` runs this suite in a Nix build sandbox with none, so
+        # without the flag they fail the check instead of being skipped. Run
+        # `zizmor --persona=auditor .` by hand when you want them.
+        zizmor = {
+          enable = true;
+          args = [ "--offline" ];
+        };
+
         # MD
         markdownlint = {
           enable = true;

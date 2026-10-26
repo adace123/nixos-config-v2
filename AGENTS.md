@@ -28,6 +28,8 @@ This is a Nix flake-based configuration for managing macOS systems using nix-dar
   - `statix.toml` `disabled` takes lint *names*, not codes: `disabled = ["W20"]` is accepted and silently does nothing
 - `deadnix` - Find dead/unused Nix code
 - `shellcheck` - Lint shell scripts
+- `actionlint` - Lint GitHub Actions workflows (schema, expression contexts, and the shell inside `run:` blocks)
+- `zizmor` - Security-audit GitHub Actions workflows (unpinned `uses:`, template injection, permissions, credential persistence)
 - `markdownlint` - Lint Markdown files
 - `yamlfmt` - Format YAML files
 
@@ -506,6 +508,9 @@ manually (with a `host` input) or by path-filtered pushes. Key lessons:
 - The statix hook is git-hooks.nix's **built-in check**: entry `statix check --format errfmt` with `pass_filenames = false`, so it checks the whole tree (honouring `.gitignore`) instead of the staged files. Do not add `args = [ "fix" ]` to it — pre-commit appends args as extra argv after the entry, so statix reads `fix` as its TARGET path, prints `config error: path error: file not found: fix`, and still exits **0**, checking nothing. There is no fix mode in the built-in hook; run `statix fix` by hand instead.
 - Because the hook checks the whole tree, `nix flake check` (via `checks.pre-commit`) fails on *any* statix finding in the repo, not only on the files a commit touches.
 - `markdownlint` lints every `*.md` including `CHANGELOG.md`. `.markdownlint.json` sets `MD024.siblings_only`, because repeating `### Added` / `### Fixed` under *different* version headings is the whole point of a changelog; without it the second version's group headings fail the hook.
+- `actionlint` and `zizmor` both cover `.github/workflows/**`. actionlint's `entry` pins `-shellcheck=${pkgs.shellcheck}`: with the default lookup, a `shellcheck` missing from the hook's sandbox PATH makes actionlint **silently skip** the `run:`-block shell integration instead of failing, so inline workflow shell would go unchecked. The `shellcheck` hook itself only ever sees standalone `*.sh` files.
+- The `zizmor` hook runs with `--offline`. The advisory-DB audits (`known-vulnerable-actions`, `impostor-commit`) need network, and `nix flake check` builds the hook suite in a sandbox without any — without the flag they fail the check rather than being skipped. Online audits are on by default outside the hook: run `zizmor --persona=auditor .` by hand for them (there is no `--online` flag; `--no-online-audits` is the middle ground, and `--gh-token` or `GH_TOKEN` raises the GitHub API limits). `--persona=auditor` also surfaces `undocumented-permissions`, so add a comment to every non-obvious `permissions:` entry.
+- Every `uses:` is pinned to a commit SHA with a trailing `# vN` comment. Keep that comment: Dependabot's github-actions updater rewrites the SHA *and* the comment, and `zizmor` fails on any tag/branch reference (`unpinned-uses`).
 - **`pre-commit run --all-files` only sees git-tracked files.** A brand-new file is invisible to the per-file hooks (shellcheck, shfmt, markdownlint, yamlfmt, gitleaks) until it has been `git add`ed, so `just check` can go green while a new script has never actually been linted. `statix`, `deadnix` and `nixfmt` are the exceptions: those hooks scan the whole tree, which is why a statix finding in a new file does surface. Add new files to the index (and re-run the hooks) before trusting a green suite — a conversion script once shipped without its executable bit, and with a `test -s` permission bug, purely because nothing had ever read it.
 
 ## Research Tools
