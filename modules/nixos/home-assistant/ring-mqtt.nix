@@ -84,6 +84,10 @@ in
       # symlink on the host).
       path = "/run/ring-mqtt-config.json";
       mode = "0400";
+      # Bounce the unit when the rendered config changes (e.g. password
+      # rotation): ExecStartPre only copies at unit start, so without this a
+      # rotation would sit in /run until the next manual restart.
+      restartUnits = [ "podman-ring-mqtt.service" ];
       content = builtins.toJSON {
         # 127.0.0.1, not `localhost`: on these hosts `localhost` resolves to
         # ::1 only and mosquitto listens on 127.0.0.1 — same trap zigbee2mqtt
