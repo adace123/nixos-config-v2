@@ -1,6 +1,6 @@
 - id: "front_door_record_clip"
   alias: "Front Door Record Clip on Ding/Motion"
-  description: "Record a 30-second clip from the doorbell RTSP stream on ding or motion. Clips land in /media/doorbell; the nightly purge keeps 7 days. No R2 backup — clips are disposable."
+  description: "Record a 30-second clip from the doorbell RTSP stream on ding or motion. Sends a phone notification with a link to the clip. Clips land in /media/doorbell; the nightly purge keeps 7 days. No R2 backup — clips are disposable."
   mode: "restart"
   max_exceeded: silent
   trigger:
@@ -10,10 +10,19 @@
     - platform: state
       entity_id: binary_sensor.front_door_motion
       to: "on"
+  variables:
+    clip_name: "{{ now().strftime('%Y-%m-%d_%H-%M-%S') }}.mp4"
   action:
     - action: camera.record
       target:
         entity_id: camera.front_door_ring_doorbell_stream
       data:
-        filename: "/media/doorbell/{{ now().strftime('%Y-%m-%d_%H-%M-%S') }}.mp4"
+        filename: "/media/doorbell/{{ clip_name }}"
         duration: 30
+    - action: notify.mobile_app_aaron_cell
+      data:
+        title: "Front Door"
+        message: "{{ trigger.to_state.name }} at {{ now().strftime('%-I:%M %p') }} — clip saved"
+        data:
+          clickAction: "media-source://media_source/local/doorbell/{{ clip_name }}"
+          tag: "front-door-clip"
