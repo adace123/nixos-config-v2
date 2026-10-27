@@ -80,7 +80,12 @@ Commit every pending change (staged, unstaged, and untracked) in the current rep
 - **Large diffs**: read `git diff --stat` first and sample the diff per directory (`git diff HEAD -- <dir>`) instead of reading everything. Skim generated/lockfiles rather than reading them fully.
 - **Only untracked files**: treat them as the change set, then apply the same filter from step 4 before staging them explicitly.
 - **Dirty tree with unrelated work**: commit only the change set and name what you left behind. Never reach for `git add -A` just to make the tree clean — a tidy `git status` is not worth committing someone else's half-finished edits.
-- **Sensitive files**: never stage files matching typical secret patterns (`.env`, `*secret*`, `*key*.pem`, credentials files). Check `.gitignore` and `git status` first; ask the user if anything looks like a secret.
+- **Sensitive files**: never stage files matching typical secret patterns (`.env`, `*secret*`, `*key*.pem`, credentials files). Before staging, sweep the candidate list for secrets and explicit not-for-commit markers:
+  - Never stage private keys/certs (`*.pem`, `*.key`, `id_rsa*`, `id_ed25519*`, `*.p12`), credential files (`.env`, `*token*`, `service-account*.json`, kubeconfigs), or diffs containing key material (`BEGIN .* PRIVATE KEY`, `AKIA…`, `ghp_`/`gho_`, `sk-live-`).
+  - Never stage a file carrying an explicit opt-out marker (`TEMP DEBUG`, `DO NOT COMMIT`, `not for commit`, `WIP`, `XXX`) — even if its path looks innocent.
+  - In this repo `secrets/*.yaml` are sops-encrypted by design, but verify the diff shows only `ENC[AES256_GCM,…]` ciphertext: a plaintext value there means encryption failed — stop, do not commit.
+  - Gitleaks passing on staged files is not permission to bypass a "not for commit" annotation above.
+  Check `.gitignore` and `git status` first; ask the user if anything looks like a secret.
 - **Pre-commit hooks**: this repository runs pre-commit (via `prek`) on staged files. If the commit fails a hook, fix the reported issue (format/lint) and retry — never bypass hooks.
 - **Deletions/renames**: mention significant removals or renames in the body so the commit tells the full story.
 - **Failed hook blocks unrelated files**: if a pre-existing unrelated file fails a hook, report it and leave it unstaged rather than silently committing a broken state.
