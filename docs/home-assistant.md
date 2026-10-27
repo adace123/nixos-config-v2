@@ -106,8 +106,9 @@ custom component (`auth_oidc`), packaged declaratively in `default.nix`
 alongside HACS). HA is a **public client** (PKCE, no secret — the upstream
 recommendation for home use); `client_id` and `discovery_url` render from
 the `oidc-client-id` / `oidc-discovery-url` SOPS secrets via the
-`hass-configuration.yaml` template, and `http.trusted_proxies` trusts only
-Caddy on 127.0.0.1 so the OIDC callback URL builds correctly.
+`hass-configuration.yaml` template, and reverse-proxy trust (Caddy on
+127.0.0.1) lives in the UI now (Settings > System > Network), not YAML —
+see below.
 
 `display_name` is "Pocket ID" and `features.default_redirect` skips the
 welcome screen straight to Pocket ID; the local username/password login
@@ -143,6 +144,17 @@ must exactly equal the HA username — otherwise a duplicate is minted
 group→role mapping (`roles.admin`/`roles.user`) is configured. Note:
 `require_existing_user` (upstream docs) does not exist in the packaged
 v1.2.1 — it rejects the config — so it is deliberately absent.
+
+### HTTP settings live in the UI, not YAML
+
+HA 2026.8 migrated the `http:` block (port, `use_x_forwarded_for`,
+`trusted_proxies`) into **Settings > System > Network** (stored in
+`.storage/http`, covered by the R2 backup like the rest of
+`/var/lib/hass`). The YAML block was removed — keeping it trips a Repairs
+warning now and breaks in 2027.2. The imported values carry the Caddy trust
+(`use_x_forwarded_for`, `127.0.0.1/32` in trusted proxies), so the OIDC
+callback still builds its `https://` external URL. If the Network page ever
+loses the proxy settings, OIDC login breaks the same way — check there first.
 
 ## Accessing Home Assistant
 

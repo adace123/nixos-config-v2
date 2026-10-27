@@ -135,6 +135,8 @@ commit kinds that are exempt, live in
 - docs(home-assistant,dathomir): note the OIDC client Access tab must allow users
 - fix(darwin): drop the emSign G3 root from the cacert blacklist, which NSS 3.131.1 removed
 - fix(just): refuse to switch without a terminal, and keep sudo failures away from pi
+- docs(skills): harden commit-all sensitive-file sweep
+- fix(home-assistant): drop the migrated http block from configuration.yaml
 
 ## [2026.10.07.3] - 2026-10-07
 

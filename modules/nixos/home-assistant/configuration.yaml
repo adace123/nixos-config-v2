@@ -15,13 +15,11 @@ auth_oidc:
     # username — otherwise a duplicate is minted (use
     # ?skip_oidc_redirect=true to reach local login and clean up).
     automatic_user_linking: true
-# Behind Caddy (reverse proxy), so HA builds correct external URLs
-# (e.g. the OIDC callback) from X-Forwarded-Proto/For. 127.0.0.1 is the
-# only proxy: Caddy reverse_proxies 127.0.0.1:8123 from this same host.
-http:
-  use_x_forwarded_for: true
-  trusted_proxies:
-    - 127.0.0.1
+# HTTP server settings (port, X-Forwarded-For, trusted proxies) migrated to
+# the UI long ago (Settings > System > Network): .storage/http holds the
+# imported values with yaml_migration_done, and the YAML block below would
+# be ignored — and hard-removed in 2027.2. Kept here: nothing; Caddy still
+# reverse_proxies 127.0.0.1:8123 and 127.0.0.1/32 is in the UI's trusted list.
 default_config:
 homeassistant:
   # camera.record may only write under allowlisted paths.
