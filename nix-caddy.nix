@@ -10,8 +10,12 @@
 # because a fixed-output derivation's old path still resolves, which is why this
 # only surfaced on a host that had never built it. Anywhere building this afresh
 # would have failed the same way.
+#
+# Refreshed again 2026-10-26: the flake.lock update moved nixpkgs (newer Go
+# toolchain changes the vendored module graph), so the same pinned sources
+# hash differently. Adopted the builder-reported content hash.
 { pkgs }:
 pkgs.caddy.withPlugins {
   plugins = [ "github.com/caddy-dns/cloudflare@v0.2.4" ];
-  hash = "sha256-xRJ5evsAJ2akg47j3Bt6YDXJOgX88B/rKNP50KSVyNY=";
+  hash = "sha256-tubXIDCJnO2mvdnPlZclwDhNGaeeYLSt7lnni3+pXDo=";
 }

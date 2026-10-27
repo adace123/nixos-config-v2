@@ -137,6 +137,7 @@ commit kinds that are exempt, live in
 - fix(just): refuse to switch without a terminal, and keep sudo failures away from pi
 - docs(skills): harden commit-all sensitive-file sweep
 - fix(home-assistant): drop the migrated http block from configuration.yaml
+- fix(caddy): refresh the Cloudflare-plugin fixed-output hash
 
 ## [2026.10.07.3] - 2026-10-07
 
