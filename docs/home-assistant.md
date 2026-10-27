@@ -96,6 +96,48 @@ anonymous token issuance for this repo from every network tried):
 - Streams are on-demand only: a battery doorbell sleeps between events, and
   Ring suppresses motion/ding alerts while streaming. No continuous/NVR use.
 
+### Never put a live camera on a dashboard
+
+A `picture-entity` card with `camera_view: auto` falls back to the **live
+stream** when the camera has no still-image URL — and this camera has none.
+Every dashboard view then woke the doorbell for a ~20s Ring signaling session,
+roughly once per refresh (observed 2026-10-27: 14 sessions in 20 minutes).
+Two costs, one of them silent:
+
+- battery drain on a device that sleeps between events;
+- **Ring suppresses motion and ding alerts while a stream is active**, so real
+  events were being missed for as long as the dashboard stayed open — the
+  likely reason a walk-past produced no clip.
+
+The dashboard card therefore points at `camera.front_door_snapshot` (a still
+image refreshed on motion, no stream). If a card must show live video, set
+`camera_view: live` deliberately and close the tab afterwards. The generic
+RTSP camera is for `camera.record` and on-demand viewing, not ambient display.
+
+### Recordings and playback
+
+`automations/front-door-record.yaml` records a 30s clip on ding or motion
+(`camera.record` with explicit `duration`; HA defaults it to 30s anyway) into
+`/media/doorbell/<YYYY-MM-DD_HH-MM-SS>.mp4`, then pushes a phone notification
+whose `clickAction` deep-links to that clip. `front-door-purge.yaml` deletes
+clips older than 7 days at 03:15. Clips are **not** backed up to R2.
+
+Clips appear under Media → Local Media → doorbell. That browser is
+**read-only** — there is no delete action, so removing a clip means
+`rm /media/doorbell/<file>` on the host (or waiting for the purge). Playback
+works in the companion app but can stall on the first frame in desktop
+browsers (seen in Dia); the files are sound (faststart mp4, `moov` before
+`mdat`), so it is the browser's decoder and not the recording. Use the app or
+Safari for clips.
+
+A walk-past already out of frame before the Ring cloud push lands is not
+recoverable: the latency is device wake plus cloud round-trip, not the
+automation. There is no pre-buffer — Ring only sends events, and streaming
+continuously to create one would suppress the very alerts being recorded.
+Detection tuning (motion zones, sensitivity, advanced motion) moves that
+window earlier; nothing in HA can. A local PIR aimed at the walkway, firing
+`camera.record` over Zigbee, is the only genuinely faster trigger.
+
 ## Pocket ID Login (passkeys via OIDC)
 
 Sign-in is delegated to [Pocket ID](https://pocket-id.org) on dathomir (see
