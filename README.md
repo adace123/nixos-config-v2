@@ -13,7 +13,7 @@ flake.nix
 │   └── endor          — Apple Silicon Mac
 │       └── home-manager (user: aaron)
 │           ├── shell / CLI tools / dev environments
-│           ├── Neovim (nvf), Zed, Ghostty
+│           ├── Neovim (nvf), Ghostty
 │           └── AI tools (Claude, Hermes, Pi)
 └── NixOS   (aarch64-linux)
     ├── coruscant      — Raspberry Pi 4 home server

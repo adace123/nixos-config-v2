@@ -13,10 +13,6 @@ in
         inputs.sops-nix.darwinModules.sops
         inputs.home-manager.darwinModules.home-manager
         {
-          nixpkgs.overlays = [
-            inputs.zed-extensions.overlays.default
-          ];
-
           home-manager = {
             useGlobalPkgs = true;
             useUserPackages = true;

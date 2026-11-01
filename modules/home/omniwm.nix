@@ -42,7 +42,7 @@ let
   # 5, and the four windows that were floated rather than tiled.
   appRules = {
     # OmniWM's own floors, minus the entries for apps this machine does not have
-    # — Commander One, Outlook, Firefox, Arc, iTerm2, kitty, Alacritty, Zed, VS
+    # — Commander One, Outlook, Firefox, Arc, iTerm2, kitty, Alacritty, VS
     # Code and Cursor. A rule for an absent app only fires if it is installed,
     # so leaving them was dead weight rather than a bug; they are gone so the
     # list reads as what this desk actually runs. Dia is the addition upstream

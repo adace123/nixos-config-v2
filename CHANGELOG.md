@@ -77,6 +77,7 @@ commit kinds that are exempt, live in
 - refactor(beszel): authenticate agents with a universal token instead of per-system keys
 - chore(infra): commit the provider lockfile for the Cloudflare provider
 - refactor(omniwm): drop app rules for apps that are not installed
+- refactor(zed): remove the Zed editor module, flake input, overlay and project config
 
 ### Fixed
 

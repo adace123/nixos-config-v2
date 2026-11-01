@@ -108,12 +108,6 @@
       url = "github:mattpocock/skills";
       flake = false;
     };
-
-    zed-extensions = {
-      url = "github:DuskSystems/nix-zed-extensions";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
     nixos-raspberrypi = {
       url = "github:nvmd/nixos-raspberrypi";
       inputs.nixpkgs.follows = "nixpkgs";

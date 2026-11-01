@@ -508,12 +508,6 @@ Two consequences worth knowing:
 | `modules/home/nixvim/` | Neovim (nvf) with LSP/Treesitter |
 | `modules/home/ai/` | AI agents — see [docs/ai.md](ai.md) |
 
-### Disabled modules
-
-| Directory | Status |
-|-----------|--------|
-| `modules/home/zed/` | Present but not imported — `./zed` is commented out in `modules/home/default.nix`, so Zed is configured by hand. The `zed-extensions` overlay (`flake-parts/darwin.nix`) and the `zed-extensions` input (`flake.nix`) remain so re-enabling is a one-line change. |
-
 ## Troubleshooting
 
 ### `nh: command not found`

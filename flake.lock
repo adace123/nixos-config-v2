@@ -768,8 +768,7 @@
         "omniwm": "omniwm",
         "omp": "omp",
         "pi": "pi",
-        "sops-nix": "sops-nix",
-        "zed-extensions": "zed-extensions"
+        "sops-nix": "sops-nix"
       }
     },
     "rust-overlay": {
@@ -785,27 +784,6 @@
         "owner": "oxalica",
         "repo": "rust-overlay",
         "rev": "b962e5d0c8cd97196c6a882d659fe451b52ad989",
-        "type": "github"
-      },
-      "original": {
-        "owner": "oxalica",
-        "repo": "rust-overlay",
-        "type": "github"
-      }
-    },
-    "rust-overlay_2": {
-      "inputs": {
-        "nixpkgs": [
-          "zed-extensions",
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1788077403,
-        "narHash": "sha256-c20YZQKzQ27qC6Wh729fWRTpI7oV4+7Ur4icKssD4Wc=",
-        "owner": "oxalica",
-        "repo": "rust-overlay",
-        "rev": "89e26eeaafa88a2ede4778734acc794ff0299beb",
         "type": "github"
       },
       "original": {
@@ -983,27 +961,6 @@
       "original": {
         "owner": "pyproject-nix",
         "repo": "uv2nix",
-        "type": "github"
-      }
-    },
-    "zed-extensions": {
-      "inputs": {
-        "nixpkgs": [
-          "nixpkgs"
-        ],
-        "rust-overlay": "rust-overlay_2"
-      },
-      "locked": {
-        "lastModified": 1793003687,
-        "narHash": "sha256-a8Usib+uDDpE2TuTPK+BNQ6tFz8y3njwGtq1bEOXQZA=",
-        "owner": "DuskSystems",
-        "repo": "nix-zed-extensions",
-        "rev": "337d9cf0968d6d089ff707d8cbdb10222ea3d509",
-        "type": "github"
-      },
-      "original": {
-        "owner": "DuskSystems",
-        "repo": "nix-zed-extensions",
         "type": "github"
       }
     }

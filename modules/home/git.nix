@@ -82,13 +82,6 @@
   };
 
   home.file = {
-    # Workaround for Zed (and its bundled npm modules) creating ~/.gitconfig as a directory
-    # This file redirects to the actual config managed by home-manager at ~/.config/git/config
-    ".gitconfig".text = ''
-      [include]
-        path = ~/.config/git/config
-    '';
-
     # Global gitignore
     ".config/git/ignore".text = ''
       # Python

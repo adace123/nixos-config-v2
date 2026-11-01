@@ -19,7 +19,6 @@
     ./ghostty.nix
     ./fastfetch.nix
     ./ai
-    # ./zed
     ./1password-agent.nix
     ./nixvim.nix
   ];

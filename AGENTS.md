@@ -229,7 +229,6 @@ modules/
 │   ├── python.nix       # Python development
 │   ├── secrets.nix      # SOPS location for home secrets
 │   ├── starship.nix     # Starship prompt config
-│   ├── zed/             # Zed editor settings (present, not imported)
 │   └── zsh.nix          # Zsh shell config + aliases
 └── nixos/               # NixOS system modules (full inventory: docs/nixos.md)
 ```
@@ -520,12 +519,12 @@ manually (with a `host` input) or by path-filtered pushes. Key lessons:
 Use this tool to search real-world code examples from millions of public GitHub repositories. This is particularly useful for:
 
 - Finding correct usage patterns for libraries, frameworks, and tools
-- Understanding how to configure tools like Zed, Neovim, etc.
+- Understanding how to configure tools like Neovim, Ghostty, etc.
 - Discovering correct CLI arguments and flags for external formatters/linters
 
 **When to use grep-mcp_searchGitHub:**
 
-- When the user describes a problem with external tools (Zed, Neovim plugins, linters, formatters)
+- When the user describes a problem with external tools (Neovim plugins, linters, formatters)
 - When you need to look up correct configuration syntax for a tool
 - When NixOS/nix documentation doesn't cover the specific use case
 - When you need real-world examples of how others solved similar problems
@@ -538,15 +537,15 @@ Use this tool to search real-world code examples from millions of public GitHub 
 # (Ensure you pass the language filter: language=["Nix"])
 setupOpts = {
 
-# Find how others configure Python formatters in Zed
+# Find how others configure Python formatters in Neovim
 # (query for actual code patterns, not questions)
 ruff format --stdin-filename
 
 # Find correct prettier arguments with buffer_path
 prettier --stdin-filepath
 
-# Find how others use specific Zed settings
-formatter.external
+# Find how others use specific Neovim options
+vim.opt.tabstop
 ```
 
 **Note:** Search for actual code that would appear in files, not keywords or questions.
