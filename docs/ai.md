@@ -36,41 +36,58 @@ under [docs/darwin.md → Ollama](darwin.md#ollama).
 
 ## OMP (`omp.nix`)
 
-OMP (oh-my-pi) is Nix-managed: the `omp` flake input
-(`github:can1357/oh-my-pi`) ships `homeManagerModules.default`, which installs
-the package and writes `~/.omp/agent/config.yml` declaratively on every switch
-(writable file, so OMP's runtime rewrites work and are re-asserted next
-switch). The package itself is overridden to the `llm-agents` build —
-prebuilt from cache.numtide.com instead of a ~15min bun compile (currently
-18.12.2 in the lock vs 18.12.6 on upstream main; `just update-input llm-agents`
-moves it). The brew `omp` it replaces is gone: Homebrew's `cleanup = "zap"`
+OMP (oh-my-pi) is managed through the official `omp` flake input, pinned in
+`flake.nix` to release `v18.16.0`. Its flake exports both the package and the
+Home Manager module used by `modules/home/ai/omp.nix`; the package builds from
+source, so the initial build is slower than the `llm-agents` cache-backed
+packages. `just update` keeps the release tag; update the URL deliberately
+when choosing a newer OMP release. The official Home Manager module writes
+`~/.omp/agent/config.yml` as a writable file, so OMP's runtime rewrites work
+and declared values are reasserted on each switch.
+
+`llm-agents` deliberately does not follow our nixpkgs. `cache.numtide.com`
+substitutes by derivation hash, and its CI builds the remaining agent packages
+against its own pinned nixpkgs. Following ours turned those packages into local
+source builds. Nix adopts the transitive inputs from llm-agents' own
+`flake.lock`, so `just update-input llm-agents` stays a 0-byte substitution for
+those packages; the cost is a second nixpkgs in our lock. OMP no longer comes
+from that pin. The brew `omp` it replaced is gone: Homebrew's `cleanup = "zap"`
 removed the leftover formula at the first activation after the Nix package
 landed.
 
+The Catppuccin theme base is vendored in `omp-dark-catppuccin.json`. When the
+pinned OMP source updates, compare its tokens with
+`packages/tui/src/theme/theme-schema.json` from `inputs.omp`; add newly required
+tokens or OMP falls back to its builtin `dark` theme. The v18.16.0 flake does
+not ship a standalone `dark-catppuccin.json` to recopy.
+
 Model roles (`modelRoles`, thinking suffix after `:`):
 
-- **`default` — `opencode-go/deepseek-v4.1-flash:high`**: normal interactive
-  work. Native vision, 1M context, 384K max output; thinking level pins
-  reasoning effort.
-- **`smol` — `opencode-go/mimo-v2.5`**: fast/cheap utility work — reads,
-  searches, titles, prewalk handoffs. Nothing reasons from its output, so the
-  cheapest bulk model wins.
-- **`slow` — `opencode-go/muse-spark-1.3-contributor:high`**: thorough reasoning
-  where latency is fine (reviewer agent, hard problems). Full-size but lightly
-  served (45k req/5h vs 220 for `glm-5.3:max`), agentic-tuned, cross-family
-  from the DeepSeek default. Same training-data opt-in as the advisor entry.
-- **`advisor` — `opencode-go/glm-5.3-flash:high`** with `advisor.enabled = true`
-  plus the quietest available tuning (no hide-advisor knob exists — advisor
-  cards always render when notes deliver): `reviewInterval = 10`,
-  `maxNotesPerUpdate = 1`, `continueSeverity = "blocker"`, `immuneTurns = 5`.
-  Passive review, deliberately cross-family from the DeepSeek default. Same
-  reviewer Pi's `rpiv-advisor` points at; $0.15/$0.50 per 1M makes it
-  affordable on most turns.
+- **`default` — `commandcode/deepseek/deepseek-v4.1-flash:high`**: normal
+  interactive work. Native vision, 1M context, 66K max output; thinking level
+  pins reasoning effort.
+- **`smol` — `commandcode/xiaomi/mimo-v2.6-flash`**: fast/cheap utility work —
+  reads, searches, titles, prewalk handoffs. Nothing reasons from its output,
+  so the cheapest bulk model wins ($0.14/$0.28 per 1M, no thinking levels).
+- **`slow` — `commandcode/meta/muse-spark-1.3-contributor:high`**: thorough
+  reasoning where latency is fine (reviewer agent, hard problems). Full-size but
+  agentic-tuned, cross-family from the DeepSeek default; the contributor
+  endpoint is the cheap one ($0.10/$0.20 per 1M). Same training-data opt-in as
+  the advisor entry.
+- **`advisor` — `commandcode/z-ai/glm-5.3-flash:high`** with
+  `advisor.enabled = true` plus the quietest available tuning (no hide-advisor
+  knob exists — advisor cards always render when notes deliver):
+  `reviewInterval = 10`, `maxNotesPerUpdate = 1`, `continueSeverity =
+  "blocker"`, `immuneTurns = 5`. Passive review, deliberately cross-family from
+  the DeepSeek default. Same reviewer Pi's `rpiv-advisor` points at;
+  $0.15/$0.50 per 1M makes it affordable on most turns.
 
 Fallbacks: `retry.fallbackChains.{default,smol,slow,advisor}` walks ordered
-alternates on provider errors (429s, quota walls, outages). Default/slow fall
-back cross-family (DeepSeek ↔ Muse ↔ GLM) so one provider outage doesn't kill
-the turn; smol fallbacks pin `:low` effort to stay cheap.
+alternates on provider errors (429s, quota walls, outages). Every role, primary
+and fallback, is a `commandcode` selector, so the chains cover a model-level
+quota wall or one model going down, not a whole-provider outage; they stay
+cross-family where it matters (DeepSeek ↔ Muse ↔ GLM). smol fallbacks pin
+`:low` effort to stay cheap.
 
 Memory: `memory.backend = "local"` builds project-scoped summaries/lessons
 from persisted sessions, injected as a Memory Guidance block at startup
@@ -95,19 +112,36 @@ wheel and native selection needs Shift+drag. The Agent Hub (Alt+A) focuses
 subagents by keyboard instead.
 
 Skills, keybindings, and MCP: `~/.omp/agent/skills/grilling`, `grill-me`
-(same `mattpocock-skills` input Pi uses) and the in-repo `commit-all` are
-linked under `~/.omp/agent/skills` (OMP's scanner follows the store
-symlinks). `~/.omp/agent/keybindings.yml` binds the unbound `/tree`
-branch-jump actions to `Alt+[` / `Alt+]`. `context7` and `grep-mcp` are
+(same `mattpocock-skills` input Pi uses), the in-repo `commit-all` and
+`browser-routing` are linked under `~/.omp/agent/skills` (OMP's scanner
+follows the store symlinks). `~/.omp/agent/keybindings.yml` binds the unbound
+`/tree` branch-jump actions to `Alt+[` / `Alt+]`. `context7` and `grep-mcp` are
 installed as `~/.omp/agent/mcp.json` by activation — a writable file, because
 `/mcp` rewrites enable lists there. The repo-local `.omp/mcp.json` adds the
 `nixos` server (via `uvx mcp-nixos`), mirroring Pi's `.pi/mcp.json`.
 OMP has no per-server description field, so the Pi `description` keys are
 omitted and the server name plus its own instructions are what it shows.
 
+Browser: `browser.enabled = false` removes OMP's built-in `browser` eval
+prelude (Puppeteer, cmux/Tern surfaces, relay, CDP). Web work goes through the
+`browser-routing` skill instead: ego lite (`ego-browser`, headed, the user's
+real profile and sessions) whenever a UI, a login, or a visual check is
+needed; `agent-browser` (headless CLI) for public pages, bulk crawls, PDFs,
+and CI. Setting the prelude off also stops OMP filtering browser MCP servers
+out of discovery, which it does while the built-in browser is callable.
+
+`agent-browser` is the prebuilt package from `llm-agents`
+(`packages.<system>.agent-browser`, 0.41.1 at the current lock) added in
+`modules/home/ai/default.nix`, so it substitutes from `cache.numtide.com` like
+Claude Code and Herdr and its version moves with
+`just update-input llm-agents` — no version string in this repo. Do not also
+`npm install -g` it: `~/.npm-global/bin` is prepended to PATH in base.nix and
+would shadow the profile copy. ego lite is installed by its own DMG installer
+and is not managed here.
+
 Approvals: `tools.approvalMode = "always-ask"` (read-tier tools only are
 auto-approved) with per-tool overrides that allow `bash`, `edit`, `write` and
-`ast_edit`; every other exec-tier tool (eval, browser, task) still prompts.
+`ast_edit`; `eval` and `task` still prompt.
 
 Onboarding: `startup.setupWizard = false`. OMP gates its setup wizard on a
 `setupVersion` key that it writes into `config.yml` itself once the wizard
@@ -197,12 +231,14 @@ Add a skill by appending its `skills/<path>` to `commonSkills` in `skills.nix`.
 Pi is a Rust-based conversational coding agent.
 
 - Default provider `opencode-go` / model `deepseek-v4-flash`, thinking `high`.
-- **Package** — the `pi` flake input is upstream's own flake
-  (`github:earendil-works/pi`, branch `main`), so `pi.nix` installs
-  `inputs.pi.packages.<system>.pi` built from `nix/package.nix` in that repo;
-  `just update` moves it. The `llm-agents` input no longer provides Pi (it still
-  provides Claude Code and Herdr). The `programs.pi-coding-agent`
-  module itself comes from home-manager.
+- **Package** — the `pi` flake input is upstream's own flake, pinned in
+  `flake.nix` to revision `f9daca3`. It uses upstream `nix/package.nix`;
+  upstream `main` currently has a missing npm integrity hash for
+  `@earendil-works/pi-schema`, which nixpkgs' `importNpmLock` rejects. Keep the
+  pin until upstream fixes that lock entry; then update the URL in `flake.nix`
+  deliberately. `llm-agents` no longer provides Pi (it still provides Claude
+  Code and Herdr). The `programs.pi-coding-agent` module comes from
+  home-manager.
 - Ships many Pi packages/extensions (subagents, context-mode, todo, web-access,
   powerline footer, fff, background-tasks, etc.). Where a version is pinned, the
   reason is a comment in `pi.nix`; git and npm sources are mixed on purpose

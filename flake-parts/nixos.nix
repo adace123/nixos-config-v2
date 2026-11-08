@@ -193,6 +193,18 @@ in
                   pocket-id-domain = { };
                   # Tailnet-only status page for Gatus (see modules/nixos/gatus.nix).
                   gatus-domain = { };
+                  # Public name for the OpenKnowledge wiki: Caddy's vhost and the
+                  # server's OK_EXTERNAL_URL are both rendered from it.
+                  wiki-domain = { };
+                  # Private notes repo URL and its write deploy key. The key must be
+                  # readable by the service user, which is what git authenticates
+                  # with.
+                  wiki-git-remote = { };
+                  wiki-deploy-key = {
+                    owner = "open-knowledge";
+                    group = "open-knowledge";
+                    mode = "0400";
+                  };
                   # ntfy.sh topic for Gatus alerts (the topic name is the password).
                   ntfy-topic = { };
                   # Healthchecks.io ping URL (capability secret for the dead-man's switch).
@@ -346,6 +358,13 @@ in
                   ${config.sops.placeholder.gatus-domain} {
                     reverse_proxy 127.0.0.1:8088
                   }
+
+                  # The wiki. Same tailnet-only posture; Caddy preserves the
+                  # client Host and sets X-Forwarded-Proto by default, and streams
+                  # /mcp — no `encode` and no buffering on this vhost.
+                  ${config.sops.placeholder.wiki-domain} {
+                    reverse_proxy 127.0.0.1:8080
+                  }
                 '';
                 owner = "caddy";
                 group = "caddy";
@@ -366,6 +385,7 @@ in
                 config.sops.secrets.beszel-domain.path
                 config.sops.secrets.pocket-id-domain.path
                 config.sops.secrets.gatus-domain.path
+                config.sops.secrets.wiki-domain.path
                 # A sops template is rewritten on every activation but keeps the same
                 # path, so a change to the template itself is invisible to systemd and
                 # Caddy would go on serving the old config until something else
@@ -407,6 +427,13 @@ in
         ++ [
           ../modules/nixos/gatus.nix
           ../modules/nixos/gatus-restic.nix
+        ]
+        # The wiki and its backup. Like the hub and Gatus, unconditional: the
+        # service is the point of the host's presence on the tailnet, and its
+        # state dir is the only copy of the notes clone on this machine.
+        ++ [
+          ../modules/nixos/open-knowledge.nix
+          ../modules/nixos/open-knowledge-restic.nix
         ]
         # Dead-man's switch: pings Healthchecks.io so a silent dathomir pages.
         ++ [ ../modules/nixos/dathomir-heartbeat.nix ];

@@ -65,6 +65,9 @@ commit kinds that are exempt, live in
 - fix(home-assistant): trigger front-door light on the local MQTT motion sensor instead of Ring cloud event
 - fix(home-assistant): delete the official ring integration, doorbell fully on ring-mqtt
 - feat(home-assistant): record 30s doorbell clips to /media with 7-day purge, no backup
+- feat(home): install agent-browser from llm-agents
+- feat(dathomir): deploy OpenKnowledge as wiki.figtreelab.dev, tailnet-only and backed up to R2
+- chore(infra): add the wiki A record through OpenTofu
 
 ### Changed
 
@@ -78,6 +81,10 @@ commit kinds that are exempt, live in
 - chore(infra): commit the provider lockfile for the Cloudflare provider
 - refactor(omniwm): drop app rules for apps that are not installed
 - refactor(zed): remove the Zed editor module, flake input, overlay and project config
+- feat(omp): disable the built-in browser and route web work to ego lite or agent-browser
+- refactor(omp): drop the oh-my-pi flake input, own the module and the theme
+- chore(omp): move every model role and fallback chain to commandcode
+- refactor(omp): hand failed builds and activations to omp instead of pi
 
 ### Fixed
 
@@ -141,6 +148,10 @@ commit kinds that are exempt, live in
 - fix(caddy): refresh the Cloudflare-plugin fixed-output hash
 - fix(nix): raise the zsh file-descriptor limit and prune Determinate's tarball cache so nix flake update stops failing with Too many open files
 - fix(just): run the omp repair with the shell's own stdio as a normal saved session, so it stops hanging and leaving escape garbage
+- fix(just): run omp interactively on switch failures so the repair streams live
+- fix(just): report the OMP handoff mode and process exit on switch failures
+- fix(omp): use the official v18.16.0 flake package and Home Manager module
+- fix(pi): hold the Nix input at the last buildable revision until upstream repairs its install lock
 
 ## [2026.10.07.3] - 2026-10-07
 

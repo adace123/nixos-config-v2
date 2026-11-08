@@ -83,6 +83,15 @@
           alerts = [ { type = "ntfy"; } ];
         }
         {
+          name = "open-knowledge";
+          url = "http://127.0.0.1:8080/readyz";
+          interval = "60s";
+          conditions = [
+            "[STATUS] == 200"
+          ];
+          alerts = [ { type = "ntfy"; } ];
+        }
+        {
           name = "status-cert";
           url = "tls://status.figtreelab.dev:443";
           interval = "30m";

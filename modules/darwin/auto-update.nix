@@ -1,6 +1,5 @@
 {
   config,
-  inputs,
   pkgs,
   lib,
   ...
@@ -9,7 +8,7 @@
 let
   userHome = config.users.users.${config.system.primaryUser}.home;
   cfg = config.services.nix-config-auto-update;
-  piPackage = inputs.pi.packages.${pkgs.stdenv.hostPlatform.system}.pi;
+  ompPackage = config.home-manager.users.${config.system.primaryUser}.programs.omp.package;
 
 in
 {
@@ -48,7 +47,7 @@ in
         type = lib.types.bool;
         default = true;
         description = ''
-          Hand a failed build or activation to `pi` (see `scripts/pi-fix.sh`),
+          Hand a failed build or activation to `omp` (see `scripts/omp-fix.sh`),
           then rebuild and re-switch once. The repair is left uncommitted, which
           also makes every later run skip this repository until it is reviewed.
         '';
@@ -100,8 +99,8 @@ in
         GIT=${lib.getExe pkgs.git}
         NH=${lib.getExe pkgs.nh}
         NOTIFY=${pkgs.terminal-notifier}/bin/terminal-notifier
-        PI=${piPackage}/bin/pi
-        FIX="$REPO_DIR/scripts/pi-fix.sh"
+        OMP=${ompPackage}/bin/omp
+        FIX="$REPO_DIR/scripts/omp-fix.sh"
         BUILD_LOG=/tmp/nix-darwin-build.log
         AUTO_SWITCH=${lib.boolToString cfg.autoSwitch}
         AUTO_FIX=${lib.boolToString cfg.autoFix}
@@ -117,11 +116,11 @@ in
           "$NH" darwin build "$FLAKE" >"$BUILD_LOG" 2>&1
         }
 
-        # pi gets one attempt per stage. A second failure is reported instead of
+        # omp gets one attempt per stage. A second failure is reported instead of
         # retried: looping on the same commit burns tokens and tells nobody.
         repair() {
           [ -x "$FIX" ] || return 1
-          PI_BIN="$PI" "$FIX" "$BUILD_LOG" "$1"
+          OMP_BIN="$OMP" "$FIX" "$BUILD_LOG" "$1"
         }
 
         cd "$REPO_DIR" || exit 1
@@ -164,9 +163,9 @@ in
         fi
 
         if ! build; then
-          notify "🛠️ Nix Config Build Failed" "main is at $REV and does not build. Asking pi to repair it."
+          notify "🛠️ Nix Config Build Failed" "main is at $REV and does not build. Asking omp to repair it."
           if [ "$AUTO_FIX" = "true" ] && repair build && build; then
-            notify "🛠️ Nix Config Repaired" "pi fixed the build at $REV. Changes are uncommitted — review with 'git diff' and commit."
+            notify "🛠️ Nix Config Repaired" "omp fixed the build at $REV. Changes are uncommitted — review with 'git diff' and commit."
           else
             notify "⚠️ Nix Config Build Failed" "main is at $REV and does not build. See $BUILD_LOG"
             exit 1
@@ -184,7 +183,7 @@ in
         if /usr/bin/sudo -n "$NH" darwin switch "$FLAKE" >"$BUILD_LOG" 2>&1; then
           notify "✅ Nix Config Auto-Applied" "Built and activated $REV."
         elif [ "$AUTO_FIX" = "true" ] && repair switch && /usr/bin/sudo -n "$NH" darwin switch "$FLAKE" >"$BUILD_LOG" 2>&1; then
-          notify "🛠️ Nix Config Repaired" "pi fixed the activation failure at $REV and it is now applied. Review with 'git diff' and commit."
+          notify "🛠️ Nix Config Repaired" "omp fixed the activation failure at $REV and it is now applied. Review with 'git diff' and commit."
         else
           notify "⚠️ Nix Config Switch Failed" "Built $REV but activation failed. See $BUILD_LOG"
           exit 1

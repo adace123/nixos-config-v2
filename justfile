@@ -158,7 +158,7 @@ switch:
     # the controlling terminal. With none (an agent, a launchd job, a redirected
     # stdin) sudo dies with "a terminal is required", but only after nh has built
     # the whole system and set the profile — a log that looks like a build
-    # failure and gets handed to pi. Stop before the build instead. A cached
+    # failure and gets handed to omp. Stop before the build instead. A cached
     # credential (`sudo -v`) is enough; `just build`/`just check` never need it.
     if ! ( exec </dev/tty ) 2>/dev/null && ! /usr/bin/sudo -n true 2>/dev/null; then
         echo "Error: 'just switch' needs a terminal to authenticate sudo." >&2
@@ -197,7 +197,7 @@ switch:
         fi
     fi
 
-    # Log the run so a failure can be handed to pi. --no-nom (in DARWIN_SWITCH)
+    # Log the run so a failure can be handed to omp. --no-nom (in DARWIN_SWITCH)
     # keeps nix-output-monitor's TUI out of the log: its escape sequences are
     # unreadable for a model and useless after the fact.
     LOG="$(mktemp -t darwin-switch.XXXXXX)"
@@ -206,27 +206,27 @@ switch:
 
     if [ "$STATUS" -ne 0 ]; then
         # 130 (Ctrl-C) and signal-killed builds (e.g. 134/SIGABRT) are not
-        # configuration errors, so they get no pi run.
+        # configuration errors, so they get no omp run.
         if [ "$STATUS" -gt 128 ]; then
             echo ""
-            echo "Interrupted ($STATUS) - not calling pi. Log: $LOG"
+            echo "Interrupted ($STATUS) - not calling omp. Log: $LOG"
             exit "$STATUS"
         fi
         # Elevation failures are not configuration errors: `nix build
         # --profile` only needs root, and sudo never reaches nh when the
         # credential is missing or declined. There is nothing in the repository
-        # for pi to fix, so it gets no run for these.
+        # for omp to fix, so it gets no run for these.
         if grep -qE 'Failed to set Darwin system profile|sudo: a (terminal|password) is required' "$LOG"; then
             echo ""
-            echo "Elevation failed - not a configuration error, so pi is not called."
+            echo "Elevation failed - not a configuration error, so omp is not called."
             echo "Re-run 'just switch' from a terminal and approve the sudo prompt."
             exit "$STATUS"
         fi
         echo ""
         echo "Build log kept at: $LOG"
-        if scripts/pi-fix.sh "$LOG" build; then
+        if scripts/omp-fix.sh "$LOG" build; then
             echo ""
-            echo "pi reports a fix. It is uncommitted: review 'git diff', then re-run 'just switch'."
+            echo "omp reports a fix. It is uncommitted: review 'git diff', then re-run 'just switch'."
         fi
         exit "$STATUS"
     fi

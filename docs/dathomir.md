@@ -460,6 +460,57 @@ ping URL is a capability secret (`healthchecks-ping-url` in
 `secrets/dathomir.yaml`), never literal in the module. If Gatus is down but
 the box is up, the timer pings `$URL/fail` so the check goes red immediately.
 
+## OpenKnowledge wiki (tailnet-only)
+
+`wiki.<domain>` (`wiki.figtreelab.dev`) serves
+[OpenKnowledge](https://openknowledge.ai) — a local-first Markdown knowledge
+base with a browser editor and an MCP endpoint at `/mcp` — from this host.
+Same tailnet-only posture as the hub, Pocket ID and Gatus: the A record
+(`cloudflare_dns_record.wiki` in `infra/dns.tf`) points at dathomir's tailscale
+address, Caddy terminates TLS via the Cloudflare DNS-01 setup, and the server
+itself listens only on `127.0.0.1:8080`.
+
+The project it serves is a **clone of the private notes repo**
+(`wiki-git-remote` in `secrets/dathomir.yaml`, today `adace123/PersonalWiki`),
+kept at `/var/lib/open-knowledge/notes`. `modules/nixos/open-knowledge.nix`
+clones it on first boot, runs `ok init`, and seeds `autoSync.mode = full` into
+`.ok/local/config.yml` so browser edits are committed and pushed back on a
+schedule (pull 30 s, push 60 s by default). Pushing uses a repo-scoped
+**write deploy key** (`wiki-deploy-key`), not a user token: ssh config for it
+is written into the service's `$HOME` (`/var/lib/open-knowledge/home`), so
+`known_hosts` and git config never land inside the notes repo.
+
+Two things about the package are worth knowing, because both silently break it:
+
+- It comes from the `open-knowledge` flake input — a fork
+  (`adace123/open-knowledge`) whose `nix/package.nix` wraps the published npm
+  release rather than building the monorepo. Its own workflow bumps the npm pin
+  weekly; this repo's Dependabot bumps the input.
+- `nix/package.nix` patches the bundle's internal git spawns. The CLI calls
+  `.env({GIT_DIR: …})`, which **replaces** the child environment: without
+  `PATH` the spawn fails with `ENOENT` on NixOS, and without `HOME` git cannot
+  read its config. Either way edit history is disabled with no error.
+
+`ok init` also writes project-local copies of its own skill docs into
+`.agents/`, `.claude/`, `.codex/`, `.cursor/`, `.opencode/` and `.pi/`
+(`--no-skills` only covers user-global bundles). They are markdown, so the
+start script deletes them and adds them to `.okignore` and
+`.git/info/exclude` — otherwise they would be indexed as wiki pages and
+committed to the notes repo.
+
+State is `/var/lib/open-knowledge`: the clone plus `.ok/` (publish metadata,
+sync bookkeeping, and the edit-history repo at `.git/ok`), all of which
+`modules/nixos/open-knowledge-restic.nix` backs up nightly to the R2 `dathomir`
+repository under its own `open-knowledge` tag. Restore it by stopping
+`open-knowledge.service`, restoring `/var/lib/open-knowledge`, and starting it
+again.
+
+There is **no auth proxy** in front of the wiki: the tailnet is the access
+layer, exactly as for the hub. Every tailnet member can therefore read and
+write the notes. If that ever needs to change, the fix belongs at the edge
+(Cloudflare Access, `oauth2-proxy`) — the server has no authentication of its
+own, and `OK_ALLOW_EXTERNAL=1` is what makes it accept proxied requests at all.
+
 ## Pocket ID (passkey login for the hub)
 
 `id.<domain>` serves [Pocket ID](https://pocket-id.org) from dathomir — a

@@ -315,7 +315,7 @@ Manual equivalents: `just update` and `just update-input <input>`.
 3. otherwise `nh darwin build` — a commit that evaluates but does not build is
    reported and never activated;
 4. then `sudo -n nh darwin switch`;
-5. if either stage fails, the log goes to `pi` via `scripts/pi-fix.sh` — the same
+5. if either stage fails, the log goes to `omp` via `scripts/omp-fix.sh` — the same
    helper `just switch` uses — which rebuilds and re-switches once. The repair is
    left uncommitted on purpose, so every later run skips this repository until
    you review it. `services.nix-config-auto-update.autoFix = false` turns it off.

@@ -47,9 +47,15 @@
       url = "github:nix-community/nixvim";
     };
 
+    # Prebuilt agent packages still come from llm-agents (Claude Code, Herdr,
+    # ccusage). OMP uses its official flake, pinned to a release tag below.
+    # llm-agents deliberately does not follow our nixpkgs: cache.numtide.com
+    # keys store paths by derivation hash, and its CI builds the remaining
+    # packages against its own nixpkgs pin. With their pin,
+    # `just update-input llm-agents` remains a 0-byte substitution. The cost
+    # is a second nixpkgs in the lock, evaluated only for those packages.
     llm-agents = {
       url = "github:numtide/llm-agents.nix";
-      inputs.nixpkgs.follows = "nixpkgs";
     };
 
     hermes-agent = {
@@ -80,25 +86,21 @@
       url = "github:mst-mkt/omniwm.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
-    # Pi itself comes from the official flake, not llm-agents: it is upstream's
-    # own build (nix/package.nix), so it tracks the same release the `pi update`
-    # channel does. `main` is deliberate — upstream also keeps a `stable` branch
-    # pinned to the last release. nixpkgs follows ours so the lock keeps a
-    # single nixpkgs (upstream's own pin stays lower in the lock but is only
-    # used for its x86_64-darwin package, which this flake never evaluates).
-    # OMP (the coding agent; this machine runs the brew binary today). The
-    # upstream flake's homeManagerModules.default owns ~/.omp/agent/config.yml
-    # declaratively — consumed in modules/home/ai/omp.nix so `just switch`
-    # writes the model roles and advisor config below. nixpkgs follows ours so
-    # the lock keeps a single nixpkgs.
+    # Official OMP package and Home Manager module. Pin a release deliberately;
+    # the upstream flake builds from source rather than using llm-agents' cache.
     omp = {
-      url = "github:can1357/oh-my-pi/main";
-      inputs.nixpkgs.follows = "nixpkgs";
+      url = "github:can1357/oh-my-pi/v18.16.0";
     };
 
+    # Pi's current `main` Nix package is not evaluable: its install lock omits
+    # the integrity hash for @earendil-works/pi-schema, which nixpkgs'
+    # importNpmLock requires. Pin to the last revision that evaluates until
+    # upstream repairs that lock; update this URL deliberately afterward.
+    # nixpkgs follows ours so the lock keeps a single nixpkgs (upstream's own
+    # pin stays lower in the lock but is only used for its x86_64-darwin
+    # package, which this flake never evaluates).
     pi = {
-      url = "github:earendil-works/pi/main";
+      url = "github:earendil-works/pi/f9daca3480732d0042b1df3a6e27221f597a620d";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -108,6 +110,15 @@
       url = "github:mattpocock/skills";
       flake = false;
     };
+
+    # OpenKnowledge (the wiki). The fork hosts the flake; the package wraps the
+    # published npm release. The fork's own workflow bumps the npm pin, and
+    # Dependabot bumps this input.
+    open-knowledge = {
+      url = "github:adace123/open-knowledge";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     nixos-raspberrypi = {
       url = "github:nvmd/nixos-raspberrypi";
       inputs.nixpkgs.follows = "nixpkgs";

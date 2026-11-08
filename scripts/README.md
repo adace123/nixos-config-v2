@@ -11,7 +11,7 @@ This directory contains utility scripts for the Nix configuration.
   (`just setup-asix-ethernet`); Homebrew's cask is disabled upstream
 - `setup-yubikey-sudo.sh` - Configure YubiKey for sudo authentication
 - `yubikey-sudo-shim.sh` - Notify when sudo auth is required (used by `just switch`; only installed when the laptop lid is closed)
-- `pi-fix.sh` - Hand a failed build or activation log to `pi` for repair (`just switch` and the daily auto-update agent; `PI_FIX=0` skips)
+- `omp-fix.sh` - Hand a failed build or activation log to `omp` for repair: interactive TUI with a terminal (`just switch`), `omp -p` headless (daily auto-update agent); `OMP_FIX=0` skips
 - `check-for-updates.sh` - Check `flake.lock` for upstream changes and notify (`just check-updates`)
 - `check-npm-cache.sh` - Report stale npm metadata that breaks `npm install
   <pkg>@latest` and `pi update --extensions` (`just npm-cache-check`)
@@ -45,7 +45,7 @@ The automatic update functionality lives in `modules/darwin/auto-update.nix` as 
 - **Guard**: Skips when the checkout is not on `main`, or when tracked files are modified — local work is never pulled or switched out from under you
 - **Pull**: `git pull --ff-only origin main`; exits quietly when `main` did not move
 - **Build**: `nh darwin build` — a commit that does not build is reported and never activated
-- **Repair**: a failed build or activation goes to `pi` through `pi-fix.sh`, which rebuilds and re-switches once. The repair stays uncommitted, so later runs then skip the repo until you review it (`autoFix = false` disables)
+- **Repair**: a failed build or activation goes to `omp` through `omp-fix.sh` (interactive TUI with a terminal, `omp -p` headless). The repair stays uncommitted, so later runs then skip the repo until you review it (`autoFix = false` disables)
 - **Switch**: `sudo -n nh darwin switch`; without a sudoers rule this fails immediately (no terminal for Touch ID) and the agent notifies you to run `just switch`
 - **Notification**: One persistent notification per outcome: applied, repaired, built-only, build failed, switch failed
 - **Never**: runs `nix flake update` — the lockfile is bumped in CI, not on the host

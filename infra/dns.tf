@@ -1,4 +1,4 @@
-# ── DNS for the three tailnet-only services ──────────────────────────────────
+# ── DNS for the tailnet-only services ────────────────────────────────────────
 #
 # All records point at Tailscale addresses (100.64.0.0/10) instead of public
 # ones, and are DNS-only (`proxied = false`). That is the whole trick: the name
@@ -57,4 +57,16 @@ resource "cloudflare_dns_record" "gatus" {
   ttl     = 1 # automatic
   proxied = false
   comment = "Gatus status page on dathomir — Tailscale-only by design (managed by OpenTofu, nixos-config-v2)"
+}
+
+# OpenKnowledge, the wiki. Same tailnet-only treatment as the hub, Pocket ID and
+# Gatus: the name resolves publicly, the address is only routable on the tailnet.
+resource "cloudflare_dns_record" "wiki" {
+  zone_id = var.cloudflare_zone_id
+  name    = var.wiki_domain
+  type    = "A"
+  content = var.dathomir_tailnet_ip
+  ttl     = 1 # automatic
+  proxied = false
+  comment = "OpenKnowledge wiki on dathomir — Tailscale-only by design (managed by OpenTofu, nixos-config-v2)"
 }

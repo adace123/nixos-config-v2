@@ -16,6 +16,7 @@ Each host writes to its **own repository** inside the bucket (`coruscant`,
 |------|------|------|------------|
 | Home Assistant data | coruscant | `/var/lib/hass` | `coruscant` |
 | Beszel hub state | dathomir | `/var/lib/private/beszel-hub` | `dathomir` |
+| OpenKnowledge project | dathomir | `/var/lib/open-knowledge` | `dathomir` |
 
 The backup **excludes** `deps`, `logs`, and `tts` (regenerable/cache data)
 under `/var/lib/hass`.
@@ -45,7 +46,7 @@ s3:<cloudflare-endpoint>/<cloudflare-bucket>/dathomir    # beszel hub
 - R2 credentials, bucket name, endpoint, and the `restic-password` live in
   `secrets/cloudflare.yaml` (see [docs/secrets.md](secrets.md)). Every host that
   backs up is listed as an age recipient of that file.
-- Snapshots are tagged `home-assistant` or `beszel-hub`.
+- Snapshots are tagged `home-assistant`, `beszel-hub` or `open-knowledge`.
 
 ## Schedule
 
@@ -58,6 +59,8 @@ Defined in `modules/nixos/home-assistant/restic.nix` (Home Assistant) and
 | HA repository check | Weekly Sunday 04:30 (+30 min randomized delay) | `restic check` |
 | Hub backup + prune | Daily 03:45 (`Persistent`, +15 min randomized delay) | `restic backup` then `restic forget --prune` |
 | Hub repository check | Weekly Sunday 05:00 (+30 min randomized delay) | `restic check` |
+| Wiki backup + prune | Daily 04:15 (`Persistent`, +15 min randomized delay) | `restic backup` then `restic forget --prune` |
+| Wiki repository check | Weekly Sunday 06:00 (+30 min randomized delay) | `restic check` |
 
 Both hosts pass `--retry-lock` and wait for the repository lock instead of failing.
 This matters because the Pi hosts boot without an RTC: when the clock is stepped

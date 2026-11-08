@@ -149,6 +149,11 @@ variable "gatus_domain" {
   type        = string
 }
 
+variable "wiki_domain" {
+  description = "Public name for the OpenKnowledge wiki (set via TF_VAR_wiki_domain). Served from dathomir too."
+  type        = string
+}
+
 variable "home_assistant_tailnet_ip" {
   description = "Coruscant's Tailscale address. The record points here deliberately: the name resolves publicly but is routable only from inside the tailnet. Update it if that node ever re-registers."
   type        = string

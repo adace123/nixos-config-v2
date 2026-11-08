@@ -34,12 +34,13 @@ let
   # the built-in maps userMessageBg to `mantle` (#181825) on a `base` (#1e1e2e)
   # terminal, so the bubble the renderer fills is nearly invisible. surface0
   # (#313244) is the palette's own raised surface; OMP's user bubble has no
-  # border option, so the fill is the whole affordance. Derived from the theme
-  # file in the flake input rather than copied, so the rest of the palette
-  # tracks upstream.
-  catppuccinTheme = builtins.fromJSON (
-    builtins.readFile "${inputs.omp}/packages/tui/src/theme/defaults/dark-catppuccin.json"
-  );
+  # border option, so the fill is the whole affordance.
+  #
+  # The Catppuccin base is vendored beside this module because the official
+  # flake does not expose it as a standalone theme file. Custom themes must
+  # carry every schema token; keep this copy aligned with the pinned theme
+  # schema in the OMP source.
+  catppuccinTheme = builtins.fromJSON (builtins.readFile ./omp-dark-catppuccin.json);
   userPromptTheme = catppuccinTheme // {
     name = "dark-catppuccin-blocks";
     colors = catppuccinTheme.colors // {
@@ -49,23 +50,15 @@ let
   };
 in
 {
-  imports = [
-    inputs.omp.homeManagerModules.default
-  ];
+  imports = [ inputs.omp.homeManagerModules.default ];
 
-  # OMP (oh-my-pi), Nix-managed: package plus ~/.omp/agent/config.yml,
-  # written declaratively on every switch (writable regular file, so OMP's
-  # runtime rewrites still work and are re-asserted next switch).
+  # OMP's package and Home Manager module come from the official flake input;
+  # this module declares our user-specific writable config and settings.
   #
   # The hand-installed brew `omp` (/opt/homebrew/bin/omp, can1357/tap) this
   # replaces has been removed, so `omp` on PATH is this profile's binary.
   programs.omp = {
     enable = true;
-    # Prebuilt from cache.numtide.com via the llm-agents input (currently
-    # 18.12.2 in the lock vs 18.12.6 on upstream main). Upstream's own flake
-    # builds from source, which costs a ~15min bun build; the module itself
-    # still comes from the omp flake input above.
-    package = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.omp;
     settings = {
       hideThinkingBlock = true;
       # "box" is the "Rounded Box" composer: status line embedded in the top
@@ -80,7 +73,13 @@ in
       # (or a Glyph Protocol terminal, which ships icons in-band).
       symbolPreset = "nerd";
       theme.dark = "dark-catppuccin-blocks";
-      browser.headless = false;
+      # No native browser. The `browser` eval prelude (Puppeteer, cmux/Tern
+      # surfaces, relay, CDP) is disabled outright; the `browser-routing` skill
+      # sends web work to ego lite when a UI or the signed-in profile is needed
+      # and to agent-browser when it is not. This also stops OMP dropping
+      # browser MCP servers from discovery, which it does while the built-in
+      # prelude is callable.
+      browser.enabled = false;
       # The home-manager module reinstalls config.yml on every switch, and the
       # declarative file has no `setupVersion` (OMP writes that itself when the
       # wizard finishes). OMP therefore reads the version as 0, treats setup as
@@ -108,49 +107,54 @@ in
       # that removes the tool entirely.
       display.hideToolActivity = true;
       modelRoles = {
-        # Normal interactive work: opencode-go deepseek-v4.1-flash (native
-        # vision, 1M ctx, 384K max out). Thinking level pins reasoning effort;
+        # Normal interactive work: commandcode deepseek-v4.1-flash (native
+        # vision, 1M ctx, 66K max out). Thinking level pins reasoning effort;
         # high is the default.
-        default = "opencode-go/deepseek-v4.1-flash:high";
+        default = "commandcode/deepseek/deepseek-v4.1-flash:high";
         # Fast, cheap utility work: reads, searches, titles, handoffs. Nothing
-        # reasons from its output, so the cheapest bulk model wins.
-        smol = "opencode-go/mimo-v2.5";
+        # reasons from its output, so the cheapest bulk model wins — MiMo
+        # Flash at $0.14/$0.28 per 1M undercuts the DeepSeek default and has no
+        # thinking levels to pay for.
+        smol = "commandcode/xiaomi/mimo-v2.6-flash";
         # Thorough reasoning where latency is fine: reviewer agent, hard
-        # problems. Muse is full-size but lightly served (45k req/5h on Go vs
-        # 220 for glm-5.3:max), agentic-tuned, and cross-family from the
-        # DeepSeek default. Needs the "paid endpoints that train on request
-        # data" opt-in in the OpenCode Console privacy settings.
-        slow = "opencode-go/muse-spark-1.3-contributor:high";
+        # problems. Muse is full-size but agentic-tuned and cross-family from
+        # the DeepSeek default; the contributor endpoint is the cheap one
+        # ($0.10/$0.20 per 1M) and carries the same paid/training opt-in as the
+        # advisor entry.
+        slow = "commandcode/meta/muse-spark-1.3-contributor:high";
         # Passive per-turn review (see `advisor` below): deliberately
         # cross-family from the DeepSeek default for independent judgment.
         # GLM-5.3-Flash at high effort is the same reviewer Pi's rpiv-advisor
         # points at ($0.15/$0.50 per 1M, 1M ctx) — a full-strength flash model
         # rather than a contributor endpoint, and still cheap per turn.
-        advisor = "opencode-go/glm-5.3-flash:high";
+        advisor = "commandcode/z-ai/glm-5.3-flash:high";
       };
       # Retry fallback chains: the active chat model's primary is its
       # `modelRoles.<role>` above; these are the ordered fallbacks walked on
       # provider errors (429s, quota walls, outages) when
-      # `retry.modelFallback` is on (the default). Cross-family where it
-      # matters: default/slow fall back across DeepSeek/Muse/GLM so one
-      # provider outage doesn't kill the turn. smol fallbacks pin `:low`
-      # effort to stay cheap — nothing reasons from smol output.
+      # `retry.modelFallback` is on (the default). Every role, primary and
+      # fallback, is a commandcode selector, so these cover a model-level
+      # quota wall or a single upstream model going down — not a full
+      # provider outage. Cross-family where it matters: default/slow fall back
+      # across DeepSeek/Muse/GLM so one model failing doesn't kill the turn.
+      # smol fallbacks pin `:low` effort to stay cheap — nothing reasons from
+      # smol output.
       retry.fallbackChains = {
         default = [
-          "opencode-go/muse-spark-1.3-contributor:high"
-          "opencode-go/glm-5.3-flash:high"
+          "commandcode/meta/muse-spark-1.3-contributor:high"
+          "commandcode/z-ai/glm-5.3-flash:high"
         ];
         smol = [
-          "opencode-go/glm-5.3-flash:low"
-          "opencode-go/deepseek-v4.1-flash:low"
+          "commandcode/z-ai/glm-5.3-flash:low"
+          "commandcode/deepseek/deepseek-v4.1-flash:low"
         ];
         slow = [
-          "opencode-go/deepseek-v4.1-flash:high"
-          "opencode-go/glm-5.3-flash:high"
+          "commandcode/deepseek/deepseek-v4.1-flash:high"
+          "commandcode/z-ai/glm-5.3-flash:high"
         ];
         advisor = [
-          "opencode-go/muse-spark-1.3-contributor:high"
-          "opencode-go/deepseek-v4.1-flash:high"
+          "commandcode/meta/muse-spark-1.3-contributor:high"
+          "commandcode/deepseek/deepseek-v4.1-flash:high"
         ];
       };
       # Autonomous memory: project-scoped summaries/lessons from persisted
@@ -203,7 +207,8 @@ in
   # follows directory symlinks (`isDirectory() || isSymbolicLink()`), so the
   # store links created here are discovered like real dirs. The two interview
   # skills come from the same mattpocock input Pi uses; commit-all is the
-  # in-repo skill Pi also installs.
+  # in-repo skill Pi also installs. browser-routing is OMP-only: it replaces
+  # the disabled built-in browser with ego lite / agent-browser.
   # Keybindings live in a separate keybindings.yml (never in config.yml).
   # A plain store symlink is fine here, unlike config.yml/mcp.json: OMP only
   # reads this file, migrating legacy names in memory (write-back happens
@@ -223,6 +228,10 @@ in
     };
     ".omp/agent/skills/commit-all" = {
       source = ./skills/commit-all;
+      recursive = true;
+    };
+    ".omp/agent/skills/browser-routing" = {
+      source = ./skills/browser-routing;
       recursive = true;
     };
     # The /tree branch-jump actions are unbound by default; Alt+[ / Alt+]
