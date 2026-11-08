@@ -15,8 +15,10 @@ NHOST := env_var_or_default("NHOST", "coruscant")
 # Where NixOS system builds run (override with: BUILD_HOST=<host> just <recipe>).
 # dathomir is aarch64-linux, so it builds these hosts natively: ~18 s warm versus
 # 25 min cold, and — more importantly — it keeps the compile off the Pi's USB root,
-# which is the load that hard-stopped coruscant. BUILD_HOST=local restores the old
-# behaviour of building on the target itself.
+# which is the load that hard-stopped coruscant. BUILD_HOST=local builds on the
+# target itself (old behaviour); BUILD_HOST=here builds on the machine running the
+# command and copies the closure (what CI uses, so a deploy never compiles on the
+# 2 OCPU VPS).
 BUILD_HOST := env_var_or_default("BUILD_HOST", "dathomir-1")
 
 # Default first-install NixOS configuration (must include Disko)
@@ -717,12 +719,23 @@ nixos-remote-build TARGET="":
         TARGET="{{ NHOST }}.local"
     fi
     BUILD_HOST="{{ BUILD_HOST }}"
-    if [ "$BUILD_HOST" = "local" ]; then
-        BUILD_HOST="$TARGET"
-    fi
+    build_here=0
+    case "$BUILD_HOST" in
+        here)
+            # Build on this machine (a CI runner) and copy the closure: no remote
+            # builder, so the target never compiles.
+            build_here=1
+            BUILD_HOST="this machine"
+            ;;
+        local) BUILD_HOST="$TARGET" ;;
+    esac
     export NIX_SSHOPTS="${NIX_SSHOPTS:+$NIX_SSHOPTS }-4"
     echo "building {{ NHOST }} on $BUILD_HOST, activating on $TARGET"
-    nix run nixpkgs#nixos-rebuild -- build --flake .#{{ NHOST }} --target-host root@$TARGET --build-host root@$BUILD_HOST
+    if [ "$build_here" -eq 1 ]; then
+        nix run nixpkgs#nixos-rebuild -- build --flake .#{{ NHOST }} --target-host "root@$TARGET"
+    else
+        nix run nixpkgs#nixos-rebuild -- build --flake .#{{ NHOST }} --target-host "root@$TARGET" --build-host "root@$BUILD_HOST"
+    fi
 
 # Build then activate on a remote NixOS host via SSH
 # TARGET: hostname or IP (default: {{ NHOST }}.local, e.g. just nixos-deploy 10.0.0.2)
@@ -746,16 +759,22 @@ nixos-deploy TARGET="":
     read -r -a ssh_opts <<<"$NIX_SSHOPTS"
 
     BUILD_HOST="{{ BUILD_HOST }}"
-    if [ "$BUILD_HOST" = "local" ]; then
-        BUILD_HOST="$TARGET"
-    fi
+    build_here=0
+    case "$BUILD_HOST" in
+        here) build_here=1 ;;
+        local) BUILD_HOST="$TARGET" ;;
+    esac
 
     # The switch restarts sshd, which drops this connection, so nixos-rebuild exits
     # non-zero even when the activation (run detached via systemd-run) completed.
     # A non-zero exit is therefore not by itself a failure: ask the host what it is
     # actually running instead of trusting that code.
     switch_status=0
-    nix run nixpkgs#nixos-rebuild -- switch --flake .#{{ NHOST }} --target-host root@$TARGET --build-host root@$BUILD_HOST || switch_status=$?
+    if [ "$build_here" -eq 1 ]; then
+        nix run nixpkgs#nixos-rebuild -- switch --flake .#{{ NHOST }} --target-host "root@$TARGET" || switch_status=$?
+    else
+        nix run nixpkgs#nixos-rebuild -- switch --flake .#{{ NHOST }} --target-host "root@$TARGET" --build-host "root@$BUILD_HOST" || switch_status=$?
+    fi
 
     if [ "$switch_status" -ne 0 ]; then
         echo "switch exited $switch_status — checking the host's state before calling it a failure"

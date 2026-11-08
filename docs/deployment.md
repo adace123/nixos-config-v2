@@ -118,14 +118,24 @@ seconds once its store is warm. The two steps are also kept apart so the target
 is not restarting all its services (HA, zigbee2mqtt, …) while it is still
 compiling.
 
+**Builds do not run on dathomir for dathomir's own closure either.** The guest is
+2 OCPU / 12 GB with no swap and a 50 GB boot volume; the Caddy Go build plus a
+bun compile OOMed it on 2026-11-08 and it had to be reset from the OCI console.
+`BUILD_HOST=here` builds on the machine running the command — the CI runner, or
+a fast workstation — and copies the closure, so the target only substitutes and
+activates. `deploy-nixos.yml` uses it for dathomir and keeps dathomir as the
+builder for coruscant.
+
 ```bash
-BUILD_HOST=local just nixos-deploy   # build on the target itself (old behaviour)
-BUILD_HOST=other-arm-host just nixos-deploy
+BUILD_HOST=here just nixos-deploy 100.x.y.z   # build here, copy there (CI's mode)
+BUILD_HOST=local just nixos-deploy            # build on the target itself (old behaviour)
+BUILD_HOST=other-arm-host just nixos-deploy   # build on another native host
 ```
 
-A cold dathomir store costs ~25 minutes the first time; after that only the
-changed derivations are rebuilt. Do **not** run a destructive `nix-collect-garbage`
-on dathomir without a binary cache in place — it is the build cache.
+A cold store costs ~25 minutes the first time; after that only the changed
+derivations are rebuilt, or — with `here` — copied from whichever machine built
+them. Do **not** run a destructive `nix-collect-garbage` on a machine that is
+still a build host without a binary cache in place.
 
 ### Pre-build without activating
 
@@ -151,6 +161,37 @@ just nixos-generations
 ```bash
 just nixos-rollback
 ```
+
+### CI deploy (`deploy-nixos.yml`, manual dispatch only)
+
+`.github/workflows/deploy-nixos.yml` joins the tailnet as an ephemeral
+`tag:ci` node (`tailscale/github-action`, OAuth client + that tag; OIDC
+federation is the documented upgrade path) and runs the same
+`just nixos-deploy` / `just nixos-rollback` recipes against MagicDNS names
+resolved **by tag at runtime** (`tag:server-infra` → dathomir,
+`tag:server-ha` → coruscant) — never hardcoded, since `-1`/`-3` suffixes
+shift on re-registration. The tailnet policy grants `tag:ci` `tcp:22` to
+both servers plus an `accept`-mode `ssh` rule for `root` only
+(`infra/tailscale/tailscale.tf`); no SSH deploy key exists anywhere.
+dathomir's closure is built **on the runner** (`BUILD_HOST=here`) and copied
+in, so a deploy cannot compile the Caddy Go build and a bun compile on the
+2 OCPU VPS; coruscant still builds on dathomir, whose store stays warm for it.
+
+Summarize first (deterministic facts + risk rule + a `pi` paragraph for the
+phone), then notify via ntfy with a View-run link, then wait on the
+`nixos-production` environment. Deploy order is dathomir first with a
+health gate (tailscaled + Caddy + `tailscale ping`), then coruscant; a
+`03:00–06:00` PT backup-window guard refuses to switch inside restic hours.
+The deployed SHA is stamped to `/etc/nixos-deployed-rev` per host so the
+next run's summary diffs against what's actually live. Rollback mode runs
+`just nixos-rollback` (previous generation, human-initiated).
+
+Required one-time setup outside the repo: `tag:ci` in the OAuth client's tag
+list, `TS_OAUTH_CLIENT_ID`/`TS_OAUTH_SECRET` (+ `OPENCODE_API_KEY` for the
+summarizer, `NTFY_DEPLOY_TOPIC` separate from the Gatus topic) as
+`nixos-production` environment secrets, and a `nixos-production`
+environment with required reviewers. The policy change itself lands via the
+usual `tofu plan/apply` + inventory-check from the laptop.
 
 ---
 
@@ -255,7 +296,7 @@ and verifies the full image against the device after flashing.
 | `flake-check.yml` | Push/PR to `main`/`master` | `nix flake show` smoke check + nixConfig/nix-caches sync guard, `nix flake check --all-systems --no-build` (all-systems eval) plus a native `nix flake check` on Linux, eval-only darwin smoke (saves macOS runner minutes; real builds happen via `just build`) |
 | `build-sd-image.yml` | Manual dispatch or push touching ARM-Pi paths | Builds a host's `-sd-image` on a native arm64 runner (see [docs/nixos.md](nixos.md)) |
 | `deploy-oci.yml` | Manual dispatch, or push touching OCI/`infra/` paths | Builds the OCI image, plans, then applies to the `oci-production` environment (see [docs/dathomir.md](dathomir.md)) |
-| `dependabot-auto-merge.yml` | On Dependabot PRs | Auto-merges (squash) Dependabot PRs once their checks pass |
+| `deploy-nixos.yml` | Manual dispatch only | Joins the tailnet as ephemeral `tag:ci`, summarizes the diff + risk to ntfy, then deploys via `just nixos-deploy` dathomir-first behind the `nixos-production` environment (see [NixOS CI deploy](#ci-deploy-deploy-nixosyml-manual-dispatch-only)) |
 
 `dependabot.yml` enables weekly dependency updates for **GitHub Actions** and
 **Nix flake inputs** (grouped together, labeled `dependencies`). Merged Dependabot
@@ -347,7 +388,11 @@ just check-updates                       # manual flake.lock check
 `system.autoUpgrade` is **disabled** in `modules/nixos/common.nix` — the old
 flake-relative flag could not build on the host, so updates were silently
 failing nightly. Deploy intentionally: `just nixos-deploy` (or rsync the flake
-and run `nixos-rebuild switch` manually).
+and run `nixos-rebuild switch` manually), or trigger `deploy-nixos.yml` by hand
+— same recipes, tailnet-joined runner, `nixos-production` approval first
+(see [NixOS CI deploy](#ci-deploy-deploy-nixosyml-manual-dispatch-only)).
+`flake-check.yml` builds both NixOS toplevels natively on arm64, so a flake
+bump that breaks a host fails CI before it can ever reach a deploy.
 
 If it is ever enabled, point `flake` at a URL (`github:adace123/nixos-config-v2`,
 never `inputs.self` — that resolves to the store copy of the config being

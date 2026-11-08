@@ -550,6 +550,66 @@ it first locks everyone out of the hub.
 Neither Pocket ID's database nor the hub's is backed up, so losing this host means
 re-enrolling passkeys and re-adding systems; see [docs/backups.md](backups.md).
 
+## Collie (agent phone UI, tailnet-only)
+
+`collie.<domain>` (`collie.figtreelab.dev`) serves
+[ColliePWA](https://github.com/AltanS/collie) — a self-hosted PWA for driving the
+AI agents in a terminal multiplexer from a phone. It mirrors this host's
+**Herdr core** (`herdr-core` / `hc`), so the agents it shows are the ones
+running here, not on the workstation. Same tailnet-only posture as everything
+else: the A record (`cloudflare_dns_record.collie` in `infra/dns.tf`) points at
+dathomir's tailscale address, Caddy terminates TLS with the DNS-01 setup, and
+the bridge listens on `127.0.0.1:8787` only.
+
+`modules/nixos/collie.nix` installs the Collie package (`inputs.collie` wraps
+the published release tarball, so nothing builds Bun at deploy time), the core,
+Claude Code and omp. Two per-user pieces make it survive logout and reboot:
+
+- `users.users.nixos.linger = true` — without it the systemd `--user` manager
+  stops at logout and takes the bridge and the core's socket with it.
+- `systemd.user.services.herdr-core` — a oneshot running `hc server start`.
+  There is no herdr-app on a headless host, so this unit is what makes the
+  phone's terminals exist at boot.
+
+`COLLIE_SKIP_SERVE=1` is deliberate: Caddy already owns `:443` for the hub,
+Pocket ID, Gatus and the wiki, and `tailscale serve` would fight it for the
+tailnet listener. The consequence is that the `Tailscale-User-Login` header is
+absent, so `COLLIE_TRUSTED_USER` does nothing here and **device pairing is the
+only gate** on top of the tailnet. The bridge's `.env` comes from
+`sops.templates."collie-env"` (rendered from `collie-domain`) through a tmpfiles
+symlink at `~/.config/collie/.env` — never hand-edit it on the host.
+
+First run, as `nixos`, after the first deploy:
+
+```bash
+hc server status              # the unit started the core at boot
+collie hooks install claude   # Chat/History for Claude panes; omp needs none
+collie start                  # registers the systemd --user bridge unit
+collie status                 # banner + the tailnet name
+collie qr                     # open on the phone, add to home screen
+collie pair                   # 8-char code → Settings → System → Paired devices
+```
+
+Then log in to the harnesses once (`claude`, `omp`) over SSH — credentials live
+in `nixos`'s home, and nothing about the workstation's 1Password SSH agent
+reaches this host. Any repo the agents push to needs its own credential here
+too; Collie never moves files between machines.
+
+Operational notes:
+
+- **`collie start` pins a store path.** It writes a `systemd --user` unit whose
+  `ExecStart` is this revision's `collie` binary. Run it again after
+  `just update-input collie`; the weekly GC removes the old path once the next
+  generation stops referencing it. `collie update` declines a package-managed
+  install by design.
+- **Pairing is the whole access model.** Keep the tailnet to people you trust,
+  never `tailscale funnel` this vhost (it would publish a shell to the
+  internet), and revoke a lost phone with `collie devices revoke <label>`.
+- Telemetry is off (`COLLIE_TELEMETRY=0` in the rendered `.env`).
+- The `herdr-core` backend in Collie is upstream-experimental (tested against
+  `hc` 0.1.14; this repo pins 0.1.18): screens are plain text with no colour,
+  and a few harness dialogs can only be answered with Escape from the phone.
+
 ## Destroying the VPS
 
 Destroying the instance is reversible (state is in R2), but remember it also

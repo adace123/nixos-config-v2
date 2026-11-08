@@ -70,3 +70,16 @@ resource "cloudflare_dns_record" "wiki" {
   proxied = false
   comment = "OpenKnowledge wiki on dathomir — Tailscale-only by design (managed by OpenTofu, nixos-config-v2)"
 }
+
+# Collie, the phone UI for the agents in dathomir's Herdr core. Same
+# tailnet-only treatment: the name resolves publicly, only the tailnet can route
+# to it, and Caddy terminates TLS with the DNS-01 challenge.
+resource "cloudflare_dns_record" "collie" {
+  zone_id = var.cloudflare_zone_id
+  name    = var.collie_domain
+  type    = "A"
+  content = var.dathomir_tailnet_ip
+  ttl     = 1 # automatic
+  proxied = false
+  comment = "Collie on dathomir — Tailscale-only by design (managed by OpenTofu, nixos-config-v2)"
+}

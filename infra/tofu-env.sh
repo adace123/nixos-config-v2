@@ -58,13 +58,14 @@ load_secrets_file() {
 	TF_VAR_pocket_id_domain="$(yq_secret pocket-id-domain "$decrypted_file")"
 	TF_VAR_gatus_domain="$(yq_secret gatus-domain "$decrypted_file")"
 	TF_VAR_wiki_domain="$(yq_secret wiki-domain "$decrypted_file")"
+	TF_VAR_collie_domain="$(yq_secret collie-domain "$decrypted_file")"
 	export R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_ACCOUNT_ID R2_BUCKET_NAME
 	export OCI_TENANCY_OCID OCI_COMPARTMENT_OCID OCI_USER_OCID OCI_FINGERPRINT
 	export OCI_REGION OCI_PUBLIC_KEY OCI_PRIVATE_KEY
 	export TF_VAR_tailscale_auth_key
 	export TF_VAR_cloudflare_api_token TF_VAR_cloudflare_zone_id
 	export TF_VAR_home_assistant_domain TF_VAR_beszel_domain TF_VAR_pocket_id_domain TF_VAR_gatus_domain
-	export TF_VAR_wiki_domain
+	export TF_VAR_wiki_domain TF_VAR_collie_domain
 
 	rm -f "$decrypted_file"
 }

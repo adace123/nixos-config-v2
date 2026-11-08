@@ -319,6 +319,15 @@ with `-e` and auto-discovered from an `extensions/` directory).
 
 ## Hermes (`hermes.nix`)
 
+- **Package** — the `hermes-agent` flake input is pinned in `flake.nix` to
+  revision `44ec783`, the last one packaged with npm. Upstream switched its JS
+  workspaces to pnpm on 2026-11-05 and pins a single `fetchPnpmDeps` hash in
+  `nix/pnpm-deps-hash`, generated on Linux; on aarch64-darwin pnpm installs a
+  different store (platform-specific optional dependencies), so every later
+  revision fails its fixed-output build with
+  `hash mismatch in hermes-agent-pnpm-deps`. Upstream's `nix.yml` builds only
+  on ubuntu, so its CI does not catch this. Unpin deliberately once upstream
+  ships a per-platform hash or its CI covers darwin.
 - `config.yaml` (`~/.hermes/config.yaml`) and `.env` are **Nix-managed** — do
   **not** run `hermes config set KEY VAL` (the atomic-replace will fail on a
   store symlink).
@@ -564,6 +573,28 @@ The shortcuts worth knowing from here:
   sends it in one keystroke
 - `s` — send the selected card, `!` — show only the cards whose agents are
   waiting on an answer
+
+## Collie (phone UI, dathomir)
+
+[ColliePWA](https://github.com/AltanS/collie) is the phone client for agents
+running in a Herdr core. It is **not** part of the home-manager setup: it runs
+on `dathomir`, because that is the machine whose core owns the agents, and its
+NixOS module is
+[`modules/nixos/collie.nix`](../modules/nixos/collie.nix) — package
+(`inputs.collie`, wrapping the published release tarball), the Herdr core
+(`herdr-core`), Claude Code and omp, plus the linger and `systemd --user` core
+unit that keep a session alive across logouts.
+
+The bridge is Caddy-fronted at `collie-domain` (`COLLIE_SKIP_SERVE=1`, loopback
+`:8787`), so the Tailscale identity header is absent and **pairing is the only
+gate** on top of the tailnet. Its `.env` is rendered from sops; nothing about it
+is hand-written on the host. `collie start` still has to be run once as `nixos`
+(upstream ships no NixOS module) and again after each `update-input collie` —
+see [docs/dathomir.md → Collie](dathomir.md#collie-agent-phone-ui-tailnet-only).
+
+Agents there work on that host's checkouts: Collie does not sync files, so code
+moves over git (or `rsync`) and the phone's Files/Changes screens are read-only
+views of dathomir.
 
 ## Adding / changing agents
 

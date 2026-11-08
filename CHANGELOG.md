@@ -68,6 +68,7 @@ commit kinds that are exempt, live in
 - feat(home): install agent-browser from llm-agents
 - feat(dathomir): deploy OpenKnowledge as wiki.figtreelab.dev, tailnet-only and backed up to R2
 - chore(infra): add the wiki A record through OpenTofu
+- feat(dathomir): serve Collie and the herdr core so the phone drives this host's agents
 
 ### Changed
 
@@ -155,6 +156,8 @@ commit kinds that are exempt, live in
 - fix(just): report the OMP handoff mode and process exit on switch failures
 - fix(omp): use the official v18.16.0 flake package and Home Manager module
 - fix(pi): hold the Nix input at the last buildable revision until upstream repairs its install lock
+- fix(caddy): refresh the vendor hash for 2.11.9 so fresh builds stop failing
+- fix(ci): build dathomir's closure on the runner so a deploy cannot OOM the VPS
 
 ## [2026.10.07.3] - 2026-10-07
 

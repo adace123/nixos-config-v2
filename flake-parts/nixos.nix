@@ -193,6 +193,10 @@ in
                   pocket-id-domain = { };
                   # Tailnet-only status page for Gatus (see modules/nixos/gatus.nix).
                   gatus-domain = { };
+                  # Public name of the Collie phone UI; Caddy's vhost and the
+                  # bridge's COLLIE_PUBLIC_HOSTS are both rendered from it
+                  # (see modules/nixos/collie.nix).
+                  collie-domain = { };
                   # Public name for the OpenKnowledge wiki: Caddy's vhost and the
                   # server's OK_EXTERNAL_URL are both rendered from it.
                   wiki-domain = { };
@@ -359,6 +363,13 @@ in
                     reverse_proxy 127.0.0.1:8088
                   }
 
+                  # The Collie phone UI. It binds loopback only and sets
+                  # COLLIE_SKIP_SERVE, so this vhost is its only door; TLS uses
+                  # the same Cloudflare DNS-01 setup as every other name here.
+                  ${config.sops.placeholder.collie-domain} {
+                    reverse_proxy 127.0.0.1:8787
+                  }
+
                   # The wiki. Same tailnet-only posture; Caddy preserves the
                   # client Host and sets X-Forwarded-Proto by default, and streams
                   # /mcp — no `encode` and no buffering on this vhost.
@@ -385,6 +396,7 @@ in
                 config.sops.secrets.beszel-domain.path
                 config.sops.secrets.pocket-id-domain.path
                 config.sops.secrets.gatus-domain.path
+                config.sops.secrets.collie-domain.path
                 config.sops.secrets.wiki-domain.path
                 # A sops template is rewritten on every activation but keeps the same
                 # path, so a change to the template itself is invisible to systemd and
@@ -436,7 +448,10 @@ in
           ../modules/nixos/open-knowledge-restic.nix
         ]
         # Dead-man's switch: pings Healthchecks.io so a silent dathomir pages.
-        ++ [ ../modules/nixos/dathomir-heartbeat.nix ];
+        ++ [ ../modules/nixos/dathomir-heartbeat.nix ]
+        # The phone UI for the agents this host runs: herdr-core, Collie, and the
+        # harnesses its + New page can start. See docs/dathomir.md.
+        ++ [ ../modules/nixos/collie.nix ];
       };
     };
 }
