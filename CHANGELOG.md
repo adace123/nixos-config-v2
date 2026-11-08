@@ -86,6 +86,7 @@ commit kinds that are exempt, live in
 - chore(omp): move every model role and fallback chain to commandcode
 - refactor(omp): hand failed builds and activations to omp instead of pi
 - chore(darwin): replace Handy with Hex for dictation
+- chore(darwin): go back to the handy dictation cask
 
 ### Fixed
 
