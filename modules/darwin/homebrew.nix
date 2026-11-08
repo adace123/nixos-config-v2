@@ -74,7 +74,10 @@ _: {
       "linear" # Issue tracking
       "raycast" # Spotlight replacement
       "obsidian" # Note-taking
-      "handy" # dictation
+      {
+        name = "anomalyco/tap/hex";
+        trusted = true;
+      } # dictation
       "localsend" # file sharing
 
       # Communication

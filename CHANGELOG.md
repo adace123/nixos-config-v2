@@ -85,6 +85,7 @@ commit kinds that are exempt, live in
 - refactor(omp): drop the oh-my-pi flake input, own the module and the theme
 - chore(omp): move every model role and fallback chain to commandcode
 - refactor(omp): hand failed builds and activations to omp instead of pi
+- chore(darwin): replace Handy with Hex for dictation
 
 ### Fixed
 
