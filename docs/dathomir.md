@@ -563,7 +563,10 @@ the bridge listens on `127.0.0.1:8787` only.
 
 `modules/nixos/collie.nix` installs the Collie package (`inputs.collie` wraps
 the published release tarball, so nothing builds Bun at deploy time), the core,
-Claude Code and omp. Two per-user pieces make it survive logout and reboot:
+Claude Code and omp. omp is the **prebuilt llm-agents** package, not the repo's
+own `omp` flake input: that input's `omp-native` bun compile OOMed this guest
+twice while deploying (2026-11-08), each time wedging it hard enough to need an
+OCI reset. Two per-user pieces make Collie survive logout and reboot:
 
 - `users.users.nixos.linger = true` — without it the systemd `--user` manager
   stops at logout and takes the bridge and the core's socket with it.
@@ -577,7 +580,11 @@ tailnet listener. The consequence is that the `Tailscale-User-Login` header is
 absent, so `COLLIE_TRUSTED_USER` does nothing here and **device pairing is the
 only gate** on top of the tailnet. The bridge's `.env` comes from
 `sops.templates."collie-env"` (rendered from `collie-domain`) through a tmpfiles
-symlink at `~/.config/collie/.env` — never hand-edit it on the host.
+symlink at `~/.config/collie/.env` — never hand-edit it on the host. The rule
+declares `~/.config` as well: when tmpfiles has to create it, the intermediate
+directory is root-owned, and every later run then refuses the chain as an unsafe
+path transition, so `.env` never appears and the bridge starts without its proxy
+URL.
 
 First run, as `nixos`, after the first deploy:
 

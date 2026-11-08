@@ -30,8 +30,14 @@ in
     # The harnesses the phone can start from its + New page. Claude Code needs
     # `collie hooks install claude` once per user for Chat and History; omp is
     # read from its own session logs and needs nothing.
+    #
+    # omp comes from llm-agents rather than the repo's own `omp` flake input on
+    # purpose: that input builds omp from source, and its `omp-native` step is a
+    # bun compile whose peak OOMed this 2 OCPU / 12 GB guest twice (2026-11-08),
+    # wedging it hard enough to need an OCI reset. llm-agents ships the same
+    # program prebuilt through cache.numtide.com.
     llmAgents.claude-code
-    inputs.omp.packages.${system}.omp
+    llmAgents.omp
   ];
 
   users.users.nixos.linger = true;
@@ -70,6 +76,10 @@ in
   };
 
   systemd.tmpfiles.rules = [
+    # The parent is declared too: `d` creates missing intermediate directories as
+    # root, and a root-owned /home/nixos/.config then makes tmpfiles refuse the
+    # whole chain as an unsafe path transition, so .env would never be linked.
+    "d /home/nixos/.config 0755 nixos users -"
     "d /home/nixos/.config/collie 0700 nixos users -"
     # L+ replaces whatever is there, so a hand-written .env from a trial run is
     # taken over by the rendered one.

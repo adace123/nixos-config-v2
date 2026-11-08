@@ -158,6 +158,7 @@ commit kinds that are exempt, live in
 - fix(pi): hold the Nix input at the last buildable revision until upstream repairs its install lock
 - fix(caddy): refresh the vendor hash for 2.11.9 so fresh builds stop failing
 - fix(ci): build dathomir's closure on the runner so a deploy cannot OOM the VPS
+- fix(dathomir): link Collie's .env through a nixos-owned .config and run the prebuilt omp
 
 ## [2026.10.07.3] - 2026-10-07
 
