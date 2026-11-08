@@ -180,6 +180,23 @@ consumed by shared wiring/modules (`flake-parts/darwin.nix`,
 `modules/darwin/default.nix`). Adding another Darwin machine should follow the
 same pattern: add host metadata, then reuse shared modules.
 
+## macOS Defaults
+
+`modules/home/macos-defaults.nix` holds per-user `defaults` overrides that
+home-manager options cannot express. It currently disables ⌥⌘Space, the Finder
+"Search This Mac" window.
+
+macOS keeps that shortcut in the per-user `com.apple.symbolichotkeys` domain as
+symbolic hotkey 65 (`parameters = (32, 49, 1572864)`), and it has no entry in
+System Settings → Keyboard Shortcuts. An id *absent* from the domain means
+"default, enabled", so the module writes the id with `enabled = false`. It
+patches the exported domain with PlistBuddy rather than using
+`defaults write -dict-add`, which cannot store nested composite types and
+silently writes the old-style values as strings.
+
+`WindowServer` only reads the domain when a login session starts, so a switch
+takes effect at the next login, not in the current session.
+
 ## Shell & CLI Environment
 
 `modules/home/` configures the interactive shell and CLI tooling:
@@ -502,6 +519,7 @@ Two consequences worth knowing:
 | `modules/darwin/auto-update.nix` | Daily pull → build → switch launchd agent (see `docs/deployment.md#auto-updates`) |
 | `modules/home/` | User-level modules (see `default.nix` for the import list) |
 | `modules/home/base.nix` | User identity, PATH, session variables (EDITOR, NH_FLAKE) |
+| `modules/home/macos-defaults.nix` | Per-user macOS `defaults` overrides (⌥⌘Space Finder search off) |
 | `modules/home/packages.nix` | CLI tools and dev utilities |
 | `modules/home/zsh.nix` | Zsh shell config + aliases |
 | `modules/home/starship.nix` | Starship prompt |

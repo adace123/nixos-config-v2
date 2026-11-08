@@ -2,6 +2,7 @@
   imports = [
     # Shared home-manager settings and user environment.
     ./base.nix
+    ./macos-defaults.nix
     ./packages.nix
     ./nix.nix
     ./secrets.nix
