@@ -139,6 +139,7 @@ commit kinds that are exempt, live in
 - docs(skills): harden commit-all sensitive-file sweep
 - fix(home-assistant): drop the migrated http block from configuration.yaml
 - fix(caddy): refresh the Cloudflare-plugin fixed-output hash
+- fix(nix): raise the zsh file-descriptor limit and prune Determinate's tarball cache so nix flake update stops failing with Too many open files
 
 ## [2026.10.07.3] - 2026-10-07
 

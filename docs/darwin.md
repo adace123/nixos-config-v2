@@ -185,7 +185,17 @@ same pattern: add host metadata, then reuse shared modules.
 `modules/home/` configures the interactive shell and CLI tooling:
 
 - **Zsh** (`zsh.nix`) — completions, autosuggestion, syntax highlighting, and
-  agent aliases (`cc`, `oc`, …).
+  agent aliases (`cc`, `oc`, …). Its `.zshenv` also raises the soft file-descriptor
+  limit to 65536: macOS starts a login session at 256, and Determinate Nix's
+  tarball cache keeps a descriptor per cached pack, so `nix flake update` fails
+  with `Too many open files` once that cache grows.
+- **Nix** (`nix.nix`) — `~/.config/nix/nix.conf`, plus a
+  `nix-tarball-cache-prune` launchd agent (every 6 h) that deletes
+  `~/.cache/nix/tarball-cache-v2` once it holds more than 2000 pack files and
+  clears the `pack_git2_*.lock` files interrupted fetches leave behind. The
+  cache is a pure download cache, so a prune only costs a re-fetch; it logs to
+  `~/Library/Logs/nix-tarball-cache-prune.log` and skips any run where a `nix`
+  client is still active.
 - **Starship** (`starship.nix`) — minimal cross-shell prompt (directory, git
   branch/status, nix shell).
 - **OmniWM** (`omniwm.nix`) — tiling window manager, replacing AeroSpace; see

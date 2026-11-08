@@ -9,6 +9,21 @@
     # Use XDG config directory for zsh files (modern approach).
     dotDir = "${config.xdg.configHome}/zsh";
 
+    # macOS gives a login session a 256-file soft limit (`launchctl limit
+    # maxfiles`). Determinate Nix's tarball cache keeps one descriptor per cached
+    # pack while it walks the object database, so once the cache holds a few
+    # hundred packs `nix flake update`/`build` dies with
+    #   writing packfile: -1, failed to open directory '.../refs/': Too many open files
+    # Raise the soft limit to 65536 in .zshenv (sourced by every zsh, interactive
+    # or not, so `just update`/`nh darwin build` inherit it). The hard limit is
+    # unlimited and the kernel caps a process at kern.maxfilesperproc = 122880.
+    # Only ever raise: a shell that already set a higher limit keeps it.
+    envExtra = ''
+      if [[ "$(ulimit -n)" == <-> ]] && (( $(ulimit -n) < 65536 )); then
+        ulimit -S -n 65536 2>/dev/null || true
+      fi
+    '';
+
     # Advanced completion configuration.
     completionInit = ''
       # Load and initialize the completion system
