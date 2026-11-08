@@ -31,18 +31,22 @@ run unattended. `just build` and `just check` never need sudo.
 
 ### When a switch fails
 
-If the build/activation fails, the recipe prints the failure and pipes the log
-into `pi` (`pi -p --no-session --approve @<log> ...`) for automated diagnosis
-and fixing. Pi edits the repo to address the root cause but does not re-run the
-switch itself — re-run `just switch` after it reports back. The helper is
-`scripts/pi-fix.sh`, and the daily auto-update agent calls the same script.
+If the build/activation fails, the recipe hands the log to `omp` for
+automated diagnosis and fixing. With a terminal (`just switch`) omp runs
+interactively in the full TUI so the repair streams as it works — exit omp
+(`Ctrl-C` / `/quit`) once it reports back and the recipe continues; the fix
+is left uncommitted for review, then re-run `just switch`. Without a
+terminal (launchd agent) it falls back to `omp -p --auto-approve`, which only
+emits on exit. Either way the run is a saved omp session, so it appears in the
+session list and can be reopened with `omp -r`. The helper is
+`scripts/omp-fix.sh`, and the daily auto-update agent calls the same script.
 
-- `PI_FIX=0 just switch` — skip the auto-fix; the log path is printed so you can
+- `OMP_FIX=0 just switch` — skip the auto-fix; the log path is printed so you can
   inspect it yourself.
 - Interrupts (`Ctrl-C`) exit 130 and a signal-killed build (e.g. 134/SIGABRT)
-  exits with that status *without* calling pi — those are not config errors.
+  exits with that status *without* calling omp — those are not config errors.
 - Elevation failures (`Failed to set Darwin system profile`, or sudo's own "a
-  terminal/password is required") skip pi too: the build succeeded and root
+  terminal/password is required") skip omp too: the build succeeded and root
   access is what failed, which no change in the repository can fix.
 - The build log is a temp file (path printed on failure) and is kept, so it can
   be read after the run.

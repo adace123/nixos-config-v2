@@ -244,11 +244,12 @@ Pi is a Rust-based conversational coding agent.
   activation from the `tinyfish-api-key` SOPS secret. Note the path: because
   this machine sets `XDG_CONFIG_HOME`, the runtime reads `~/.config/pi/`, not
   `~/.pi/`.
-- **Unattended repair** — `scripts/pi-fix.sh` hands a failed build or activation
-  log to `pi -p --no-session --approve` so it can diagnose and edit the config.
-  Both `just switch` and the daily auto-update agent
-  (`modules/darwin/auto-update.nix`) call it; the repair is left uncommitted for
-  review, and `PI_FIX=0` disables it. See
+- **Unattended repair** — `scripts/omp-fix.sh` hands a failed build or activation
+  log to `omp` so it can diagnose and edit the config: interactive TUI with a
+  terminal (`just switch`, so the repair streams live), `omp -p
+  --auto-approve` headless (daily auto-update agent). Both are normal omp
+  sessions, saved under `~/.omp/agent/sessions` and reopenable with `omp -r`.
+  The repair is left uncommitted for review, and `OMP_FIX=0` disables it. See
   [docs/deployment.md](deployment.md#when-a-switch-fails).
 
 ### OpenCode session headers (`pi-extensions/`)

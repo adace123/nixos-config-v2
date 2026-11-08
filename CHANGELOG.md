@@ -140,6 +140,7 @@ commit kinds that are exempt, live in
 - fix(home-assistant): drop the migrated http block from configuration.yaml
 - fix(caddy): refresh the Cloudflare-plugin fixed-output hash
 - fix(nix): raise the zsh file-descriptor limit and prune Determinate's tarball cache so nix flake update stops failing with Too many open files
+- fix(just): run the omp repair with the shell's own stdio as a normal saved session, so it stops hanging and leaving escape garbage
 
 ## [2026.10.07.3] - 2026-10-07
 
