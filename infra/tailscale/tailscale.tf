@@ -71,6 +71,19 @@ resource "tailscale_acl" "policy" {
 		{"src": ["autogroup:member"], "dst": ["coruscant", "dathomir"], "ip": ["icmp:*"]},
 	],
 	"ssh": [
+		// Herdr's mobile app drives herdr-core over Tailscale SSH, but its SSH
+		// client cannot carry the interactive check: dathomir's log shows the
+		// connection handled and no session started. So a member's nixos login to
+		// dathomir is accepted, not checked. Scoped to the infra tag + nixos:
+		// root still has to pass the check below. Caveat: nixos is wheel with
+		// passwordless sudo on dathomir, so this path is root-equivalent — it is
+		// the price of the app working.
+		{
+			"action": "accept",
+			"src": ["autogroup:member"],
+			"dst": ["tag:server-infra"],
+			"users": ["nixos"],
+		},
 		// check mode (12h): identity PLUS fresh IdP sign-in. Only SSH
 		// mitigation until Tailscale patches Tailworm. BatchMode deploys FAIL
 		// past expiry — re-auth in browser, re-run. autogroup:self REMOVED:
