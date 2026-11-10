@@ -69,6 +69,7 @@ commit kinds that are exempt, live in
 - feat(dathomir): deploy OpenKnowledge as wiki.figtreelab.dev, tailnet-only and backed up to R2
 - chore(infra): add the wiki A record through OpenTofu
 - feat(dathomir): serve Collie and the herdr core so the phone drives this host's agents
+- feat(dathomir): install git so agents can work on a checkout
 
 ### Changed
 

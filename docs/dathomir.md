@@ -562,6 +562,9 @@ What it installs:
 
 - **`herdr-core`** from llm-agents — the runtime holding every terminal, with
   `hc` on the login shell's `PATH` (via `environment.systemPackages`).
+- **`git`** — agents work on checkouts of real repositories, and the base system
+  ships no git. `curl` and `rsync` are already there for moving files on and off
+  the host; there is no sync layer between it and the laptop.
 - **Claude Code and omp**, which report through OSC 7501 and so land in the
   app's Inbox. omp is the **prebuilt llm-agents** package, not the repo's own
   `omp` flake input: that input's `omp-native` bun compile OOMed this guest

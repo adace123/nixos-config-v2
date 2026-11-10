@@ -21,6 +21,10 @@ in
 {
   environment.systemPackages = [
     herdrCore
+    # Agents work on checkouts of real repositories, so the host needs git and a
+    # way to move files off it. curl/rsync are already in the base system; git
+    # is not, and `hc run --cwd <repo>` has nothing to operate on without it.
+    pkgs.git
     # The harnesses the phone's Inbox shows. Agents report through OSC 7501;
     # omp comes from llm-agents prebuilt on purpose, because the repo's own `omp`
     # flake input builds `omp-native` with bun, which OOMed this 2 OCPU / 12 GB
