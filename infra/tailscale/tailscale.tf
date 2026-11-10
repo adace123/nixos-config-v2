@@ -84,17 +84,18 @@ resource "tailscale_acl" "policy" {
 			"dst": ["tag:server-infra"],
 			"users": ["nixos"],
 		},
-		// check mode (12h): identity PLUS fresh IdP sign-in. Only SSH
-		// mitigation until Tailscale patches Tailworm. BatchMode deploys FAIL
-		// past expiry — re-auth in browser, re-run. autogroup:self REMOVED:
-		// both servers are tagged, endor->servers rides the tag dsts.
-		// users exactly root + nixos (nonroot would admit any Unix account).
+		// check mode (12h): identity PLUS fresh IdP sign-in, for root only.
+		// Only SSH mitigation until Tailscale patches Tailworm. BatchMode
+		// deploys FAIL past expiry — re-auth in browser, re-run. autogroup:self
+		// REMOVED: both servers are tagged. `nixos` is deliberately not here: it
+		// is accepted above so the Herdr mobile app can connect at all, and on
+		// dathomir nixos is wheel with passwordless sudo anyway.
 		{
 			"action": "check",
 			"checkPeriod": "12h",
 			"src": ["autogroup:member"],
 			"dst": ["tag:machine", "tag:nixos-machine", "tag:server-ha", "tag:server-infra"],
-			"users": ["root", "nixos"],
+			"users": ["root"],
 		},
 	],
 	"tests": [
@@ -114,7 +115,7 @@ resource "tailscale_acl" "policy" {
 		{"src": "muse", "deny": ["dathomir:1411", "dathomir:8090", "coruscant:22", "dathomir:22"]},
 	],
 	"sshTests": [
-		{"src": "endor", "dst": ["coruscant", "dathomir"], "check": ["root", "nixos"]},
+		{"src": "endor", "dst": ["coruscant", "dathomir"], "check": ["root"]},
 	],
 }
 

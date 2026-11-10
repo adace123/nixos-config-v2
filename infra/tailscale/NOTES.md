@@ -26,20 +26,18 @@ flow below fails silently at the filter — the server never sees the packet.
 - Hub backend `:8090` (localhost-only).
 - Servers → personal devices (any port). Servers → internet.
 
-## SSH (`check`, 12h)
+## SSH (`check` for root, `accept` for nixos)
 
-Needs BOTH the `:22` grant and the `ssh` rule. `users: root + nixos`
-exactly (`nonroot` would admit any Unix account on tagged dsts). Expired
-window: BatchMode deploys FAIL — re-auth via any interactive `ssh` (prints
-the sign-in URL), re-run. The phone's `:22` path is limited to dathomir, for the
-Herdr mobile app.
+Needs BOTH the `:22` grant and the `ssh` rule. `root` is `check` (12h) on every
+server tag; `nixos` is `accept` for members, because the Herdr mobile app's SSH
+client cannot carry the interactive check — dathomir's log showed the connection
+handled and then no session. Expired check window: BatchMode root deploys FAIL —
+re-auth via any interactive `ssh` (prints the sign-in URL), re-run. The phone's
+`:22` path is limited to dathomir, for the Herdr mobile app.
 
-**One exception:** `nixos` on `tag:server-infra` (dathomir) is `accept`, not
-`check`, because the Herdr mobile app's SSH client cannot carry the interactive
-check — the connection is handled and then stalls on the auth welcome, with no
-session started. `root` still checks. Note that `nixos` is `wheel` with
-passwordless sudo on dathomir, so treat that exemption as root-equivalent; the
-stricter alternative is tagging the phone and accepting only `tag:mobile`.
+`nixos` is `wheel` with passwordless sudo on dathomir, so the `accept` path is
+root-equivalent there; the stricter alternative is tagging the phone and
+accepting only `tag:mobile`.
 
 ## If a host re-registers with a new IP
 
