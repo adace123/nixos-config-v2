@@ -68,6 +68,7 @@ commit kinds that are exempt, live in
 - feat(home): install agent-browser from llm-agents
 - feat(dathomir): deploy OpenKnowledge as wiki.figtreelab.dev, tailnet-only and backed up to R2
 - chore(infra): add the wiki A record through OpenTofu
+- feat(omp): add GOAT-tuned model roles for task, plan, design, commit, tiny and vision
 
 ### Changed
 

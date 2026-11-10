@@ -81,13 +81,36 @@ Model roles (`modelRoles`, thinking suffix after `:`):
   "blocker"`, `immuneTurns = 5`. Passive review, deliberately cross-family from
   the DeepSeek default. Same reviewer Pi's `rpiv-advisor` points at;
   $0.15/$0.50 per 1M makes it affordable on most turns.
+- **`task` — `commandcode/deepseek/deepseek-v4.1-flash:high`**: general
+  subagent work; the same model as `default` so parallel workers draw on the
+  largest allowance.
+- **`plan` — `commandcode/Qwen/Qwen3.8-Max-0902:xhigh`**: plan-mode
+  architecture. Cross-family from DeepSeek/Muse/GLM, 1M context, ~1.3k
+  requests/month. `xhigh` because the model declares low/medium/xhigh only.
+- **`designer` — `commandcode/claude-sonnet-5-5:medium`**: UI/UX work. The
+  highest-scored model on the plan (56.0) with native vision, but only ~$10
+  allowance; the fallback drops to Qwen when it runs out.
+- **`commit` — `commandcode/claude-haiku-5-5`**: single-shot, diff-heavy
+  commit messages. No `:effort` — the commandcode entry declares no thinking
+  levels. Keep inputs under 100k, where the long-context tier starts.
+- **`tiny` — `commandcode/xiaomi/mimo-v2.6-flash`**: titles, memory
+  summaries, speech cleanup; cheapest output, 1M context.
+- **`vision` — `commandcode/google/gemini-3.8-flash:medium`**: image
+  inspection with 1M context and a $40 allowance.
 
-Fallbacks: `retry.fallbackChains.{default,smol,slow,advisor}` walks ordered
-alternates on provider errors (429s, quota walls, outages). Every role, primary
-and fallback, is a `commandcode` selector, so the chains cover a model-level
-quota wall or one model going down, not a whole-provider outage; they stay
-cross-family where it matters (DeepSeek ↔ Muse ↔ GLM). smol fallbacks pin
-`:low` effort to stay cheap.
+`task.agentModelOverrides.security-reviewer =
+"commandcode/xiaomi/mimo-v2.6-pro"` puts security review on a fourth family
+(46.3, $0.435/$0.87 per 1M); `task.agentAdvisor` turns the advisor off for the
+reviewer and security-reviewer, which are already the independent check.
+
+Fallbacks: `retry.fallbackChains` covers every role above (`default`, `smol`,
+`slow`, `advisor`, `task`, `plan`, `designer`, `commit`, `tiny`, `vision`) and
+walks ordered alternates on provider errors (429s, quota walls, outages). Every
+role, primary and fallback, is a `commandcode` selector, so the chains cover a
+model-level quota wall or one model going down, not a whole-provider outage;
+they stay cross-family where it matters (DeepSeek ↔ Muse ↔ GLM ↔ Qwen). The
+Muse contributor endpoint is kept out of the `plan`/`task` chains, and
+`smol`/`tiny`/`commit` fallbacks pin `:low` effort to stay cheap.
 
 Memory: `memory.backend = "local"` builds project-scoped summaries/lessons
 from persisted sessions, injected as a Memory Guidance block at startup

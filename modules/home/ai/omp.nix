@@ -109,7 +109,9 @@ in
       modelRoles = {
         # Normal interactive work: commandcode deepseek-v4.1-flash (native
         # vision, 1M ctx, 66K max out). Thinking level pins reasoning effort;
-        # high is the default.
+        # high is the default. The GOAT plan gives this model the largest
+        # allowance (~256k requests/month) and its $0.003 cache-read rate is
+        # the cheapest reasoning model there, so long sessions stay cheap.
         default = "commandcode/deepseek/deepseek-v4.1-flash:high";
         # Fast, cheap utility work: reads, searches, titles, handoffs. Nothing
         # reasons from its output, so the cheapest bulk model wins — MiMo
@@ -120,7 +122,7 @@ in
         # problems. Muse is full-size but agentic-tuned and cross-family from
         # the DeepSeek default; the contributor endpoint is the cheap one
         # ($0.10/$0.20 per 1M) and carries the same paid/training opt-in as the
-        # advisor entry.
+        # advisor entry. GOAT allows ~90.9k requests/month on it.
         slow = "commandcode/meta/muse-spark-1.3-contributor:high";
         # Passive per-turn review (see `advisor` below): deliberately
         # cross-family from the DeepSeek default for independent judgment.
@@ -128,6 +130,43 @@ in
         # points at ($0.15/$0.50 per 1M, 1M ctx) — a full-strength flash model
         # rather than a contributor endpoint, and still cheap per turn.
         advisor = "commandcode/z-ai/glm-5.3-flash:high";
+        # General subagent work. Same model as `default` so parallel workers
+        # draw on the plan's largest allowance (~256k requests/month) instead
+        # of draining a small one.
+        task = "commandcode/deepseek/deepseek-v4.1-flash:high";
+        # Plan-mode architecture: cross-family from DeepSeek/Muse/GLM, 45.4,
+        # 1M context, ~1.3k requests/month for bursty planning. `xhigh` because
+        # this model declares low/medium/xhigh and no plain `high`.
+        plan = "commandcode/Qwen/Qwen3.8-Max-0902:xhigh";
+        # UI/UX work: the highest-scored model on the plan (56.0) with native
+        # vision and 1M context, but only ~$10/month. Designer runs are
+        # occasional, and the fallback chain drops to Qwen when it runs out.
+        designer = "commandcode/claude-sonnet-5-5:medium";
+        # Commit messages: single-shot, diff-heavy, judgment over speed.
+        # Haiku 5.5 scores 43.4 at $0.10/$0.50 per 1M (~29.9k requests/month).
+        # The commandcode entry declares no thinking levels, so no `:effort`;
+        # the 1M window bills at the long-context tier past 100k input, which
+        # commit diffs never reach.
+        commit = "commandcode/claude-haiku-5-5";
+        # Titles, memory summaries, speech cleanup: cheapest output wins, and
+        # MiMo Flash's 1M context keeps long session summaries safe.
+        tiny = "commandcode/xiaomi/mimo-v2.6-flash";
+        # Image inspection: a declared-vision model with 1M context and a $40
+        # allowance. The DeepSeek default is vision-capable on its own entry,
+        # hence it backs the fallback.
+        vision = "commandcode/google/gemini-3.8-flash:medium";
+      };
+      # Independent security review: MiMo V2.6 Pro is a distinct family from
+      # the DeepSeek default, the Muse reviewer, and the Qwen planner; it
+      # scores 46.3 at $0.435/$0.87 per 1M. The entry declares no thinking
+      # levels, so no `:effort` suffix.
+      task.agentModelOverrides.security-reviewer = "commandcode/xiaomi/mimo-v2.6-pro";
+      # The reviewer and security-reviewer already are the independent check;
+      # stacking the advisor on them doubles review cost for a second opinion
+      # that is the same model.
+      task.agentAdvisor = {
+        reviewer = "off";
+        security-reviewer = "off";
       };
       # Retry fallback chains: the active chat model's primary is its
       # `modelRoles.<role>` above; these are the ordered fallbacks walked on
@@ -137,8 +176,11 @@ in
       # quota wall or a single upstream model going down — not a full
       # provider outage. Cross-family where it matters: default/slow fall back
       # across DeepSeek/Muse/GLM so one model failing doesn't kill the turn.
-      # smol fallbacks pin `:low` effort to stay cheap — nothing reasons from
-      # smol output.
+      # The Muse contributor endpoint stays out of the plan/task chains so an
+      # outage there cannot take three roles with it and data-use exposure is
+      # limited to the roles that already use it as a primary. smol/tiny/commit
+      # fallbacks pin `:low` effort to stay cheap — nothing reasons from their
+      # output.
       retry.fallbackChains = {
         default = [
           "commandcode/meta/muse-spark-1.3-contributor:high"
@@ -154,6 +196,25 @@ in
         ];
         advisor = [
           "commandcode/meta/muse-spark-1.3-contributor:high"
+          "commandcode/deepseek/deepseek-v4.1-flash:high"
+        ];
+        task = [
+          "commandcode/z-ai/glm-5.3-flash:high"
+        ];
+        plan = [
+          "commandcode/xai/grok-4.7:high"
+          "commandcode/z-ai/glm-5.3-flash:high"
+        ];
+        designer = [
+          "commandcode/Qwen/Qwen3.8-Max-0902:xhigh"
+        ];
+        commit = [
+          "commandcode/deepseek/deepseek-v4.1-flash:low"
+        ];
+        tiny = [
+          "commandcode/deepseek/deepseek-v4.1-flash:low"
+        ];
+        vision = [
           "commandcode/deepseek/deepseek-v4.1-flash:high"
         ];
       };
