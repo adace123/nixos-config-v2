@@ -13,7 +13,8 @@ flow below fails silently at the filter — the server never sees the packet.
 | Tag / device | Ports | Notes |
 |---|---|---|
 | endor + S23 (UNTAGGED, `autogroup:member`) | → servers `tcp:443`; → internet via exit node | Personal devices. Never tag without rewriting member grants. |
-| endor only (host alias) | → servers `tcp:22` | Only root-capable network path. Phone has none. |
+| endor (host alias) | → servers `tcp:22` | Root-capable network path for deploys. |
+| s23 + other members | → dathomir `tcp:22` | Herdr mobile app drives herdr-core; still gated by the `check` ssh rule. No path to coruscant. |
 | `tag:server-ha` (coruscant 100.66.226.84) | → dathomir `tcp:443` (beszel agent out) | Home Assistant via Caddy :443. Exit-node offer (`0.0.0.0/0`) approved in console. |
 | `tag:server-infra` (dathomir 100.89.136.120) | → coruscant `tcp:443` (liveness); → self `tcp:443` (hairpin) | Beszel hub + Pocket ID via Caddy :443. |
 | `tag:agent-muse` (muse 100.82.236.107) | → servers `tcp:443` only | Meta Muse agent. No :22, no internet. |
@@ -30,7 +31,8 @@ flow below fails silently at the filter — the server never sees the packet.
 Needs BOTH the `:22` grant and the `ssh` rule. `users: root + nixos`
 exactly (`nonroot` would admit any Unix account on tagged dsts). Expired
 window: BatchMode deploys FAIL — re-auth via any interactive `ssh` (prints
-the sign-in URL), re-run. Phone has no `:22` network path at all.
+the sign-in URL), re-run. The phone's `:22` path is limited to dathomir, for the
+Herdr mobile app.
 
 ## If a host re-registers with a new IP
 

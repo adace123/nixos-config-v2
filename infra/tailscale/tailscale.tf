@@ -48,6 +48,11 @@ resource "tailscale_acl" "policy" {
 		{"src": ["autogroup:member"], "dst": ["coruscant", "dathomir"], "ip": ["tcp:443"]},
 		// Endor-only :22 network path (Tailscale SSH + plain-OpenSSH deploys).
 		{"src": ["endor"], "dst": ["coruscant", "dathomir"], "ip": ["tcp:22"]},
+		// Herdr's mobile app drives herdr-core over SSH, so a personal device
+		// needs a real :22 path to dathomir. Scoped to dathomir on purpose:
+		// coruscant keeps its endor+CI-only path, and the `check` ssh rule below
+		// still gates every connection on a fresh IdP sign-in.
+		{"src": ["autogroup:member"], "dst": ["dathomir"], "ip": ["tcp:22"]},
 		// Personal devices -> internet via exit node (Option A). Servers are
 		// tagged, so this now truly covers only personal devices.
 		{"src": ["autogroup:member"], "dst": ["autogroup:internet"], "ip": ["*"]},
@@ -81,16 +86,16 @@ resource "tailscale_acl" "policy" {
 	],
 	"tests": [
 		{"src": "endor", "proto": "tcp", "accept": ["coruscant:443", "dathomir:443", "coruscant:22", "dathomir:22"]},
-		{"src": "s23", "proto": "tcp", "accept": ["coruscant:443", "dathomir:443"]},
+		{"src": "s23", "proto": "tcp", "accept": ["coruscant:443", "dathomir:443", "dathomir:22"]},
 		{"src": "coruscant", "proto": "tcp", "accept": ["dathomir:443"]},
 		{"src": "dathomir", "proto": "tcp", "accept": ["coruscant:443", "dathomir:443"]},
 		{"src": "muse", "proto": "tcp", "accept": ["coruscant:443", "dathomir:443"]},
 		{"src": "endor", "proto": "icmp", "accept": ["coruscant:0", "dathomir:0"]},
 		// Full isolation (transitional grant gone): servers cannot initiate to
-		// personal devices; raw :1411/:8090 closed to everyone; s23 and muse
-		// have no :22 path.
+		// personal devices; raw :1411/:8090 closed to everyone; muse has no :22
+		// path and s23 has none to coruscant.
 		{"src": "endor", "deny": ["dathomir:1411", "dathomir:8090"]},
-		{"src": "s23", "deny": ["dathomir:1411", "dathomir:8090", "coruscant:22", "dathomir:22"]},
+		{"src": "s23", "deny": ["dathomir:1411", "dathomir:8090", "coruscant:22"]},
 		{"src": "coruscant", "deny": ["endor:443", "s23:443", "dathomir:1411", "dathomir:8090"]},
 		{"src": "dathomir", "deny": ["endor:443", "s23:443", "dathomir:1411", "dathomir:8090"]},
 		{"src": "muse", "deny": ["dathomir:1411", "dathomir:8090", "coruscant:22", "dathomir:22"]},
