@@ -550,72 +550,60 @@ it first locks everyone out of the hub.
 Neither Pocket ID's database nor the hub's is backed up, so losing this host means
 re-enrolling passkeys and re-adding systems; see [docs/backups.md](backups.md).
 
-## Collie (agent phone UI, tailnet-only)
+## Herdr core (agents on your phone, over SSH)
 
-`collie.<domain>` (`collie.figtreelab.dev`) serves
-[ColliePWA](https://github.com/AltanS/collie) — a self-hosted PWA for driving the
-AI agents in a terminal multiplexer from a phone. It mirrors this host's
-**Herdr core** (`herdr-core` / `hc`), so the agents it shows are the ones
-running here, not on the workstation. Same tailnet-only posture as everything
-else: the A record (`cloudflare_dns_record.collie` in `infra/dns.tf`) points at
-dathomir's tailscale address, Caddy terminates TLS with the DNS-01 setup, and
-the bridge listens on `127.0.0.1:8787` only.
+`modules/nixos/herdr-core.nix` makes this host one the official
+[Herdr mobile app](https://herdr.dev/mobile/) can drive. There is no bridge, no
+port and no vhost: the phone connects to **herdr-core** (`hc`) over SSH and talks
+to the core directly, so the only thing that has to be reachable is sshd on the
+tailnet, and the only credential is the tailnet's own.
 
-`modules/nixos/collie.nix` installs the Collie package (`inputs.collie` wraps
-the published release tarball, so nothing builds Bun at deploy time), the core,
-Claude Code and omp. omp is the **prebuilt llm-agents** package, not the repo's
-own `omp` flake input: that input's `omp-native` bun compile OOMed this guest
-twice while deploying (2026-11-08), each time wedging it hard enough to need an
-OCI reset. Two per-user pieces make Collie survive logout and reboot:
+What it installs:
+
+- **`herdr-core`** from llm-agents — the runtime holding every terminal, with
+  `hc` on the login shell's `PATH` (via `environment.systemPackages`).
+- **Claude Code and omp**, which report through OSC 7501 and so land in the
+  app's Inbox. omp is the **prebuilt llm-agents** package, not the repo's own
+  `omp` flake input: that input's `omp-native` bun compile OOMed this guest
+  twice while deploying (2026-11-08), each time wedging it hard enough to need
+  an OCI reset.
+
+Two per-user pieces keep the herd alive:
 
 - `users.users.nixos.linger = true` — without it the systemd `--user` manager
-  stops at logout and takes the bridge and the core's socket with it.
-- `systemd.user.services.herdr-core` — a oneshot running `hc server start`.
-  There is no herdr-app on a headless host, so this unit is what makes the
-  phone's terminals exist at boot.
+  stops at logout and takes the core, with every terminal in it, along.
+- `systemd.user.services.herdr-core` — a oneshot running `hc server start` (it
+  daemonizes and returns). There is no herdr-app on a headless host, so this
+  unit is what makes the terminals exist at boot.
 
-`COLLIE_SKIP_SERVE=1` is deliberate: Caddy already owns `:443` for the hub,
-Pocket ID, Gatus and the wiki, and `tailscale serve` would fight it for the
-tailnet listener. The consequence is that the `Tailscale-User-Login` header is
-absent, so `COLLIE_TRUSTED_USER` does nothing here and **device pairing is the
-only gate** on top of the tailnet. The bridge's `.env` comes from
-`sops.templates."collie-env"` (rendered from `collie-domain`) through a tmpfiles
-symlink at `~/.config/collie/.env` — never hand-edit it on the host. The rule
-declares `~/.config` as well: when tmpfiles has to create it, the intermediate
-directory is root-owned, and every later run then refuses the chain as an unsafe
-path transition, so `.env` never appears and the bridge starts without its proxy
-URL.
+Connecting the phone:
 
-First run, as `nixos`, after the first deploy:
+1. Install Herdr from the App Store or Google Play and tap **Connect a machine**.
+2. Use `nixos@dathomir` (or the tailnet address). Tailscale SSH is on, so no key
+   has to be copied — but the tailnet policy puts a member's SSH in **check
+   mode** (`infra/tailscale/tailscale.tf`), so the first connection, and any
+   after the 12-hour check window, asks for a browser sign-in.
+3. Connect as the **same user the core runs as** (`nixos`); the core is
+   per-user, so root's core is a different, empty herd.
 
-```bash
-hc server status              # the unit started the core at boot
-collie hooks install claude   # Chat/History for Claude panes; omp needs none
-collie start                  # registers the systemd --user bridge unit
-collie status                 # banner + the tailnet name
-collie qr                     # open on the phone, add to home screen
-collie pair                   # 8-char code → Settings → System → Paired devices
-```
+Agents started from the phone live in that core, so they survive the phone
+disconnecting and the laptop being closed. Terminals and agents appear as soon
+as the core runs; spaces and tabs appear once the desktop Herdr app has looked
+at this machine (`hc machine add --install root@dathomir` from the Mac, then open
+that machine there).
 
-Then log in to the harnesses once (`claude`, `omp`) over SSH — credentials live
-in `nixos`'s home, and nothing about the workstation's 1Password SSH agent
-reaches this host. Any repo the agents push to needs its own credential here
-too; Collie never moves files between machines.
+Harness credentials live in `nixos`'s home: log in once over SSH (`claude`,
+`omp`). Any repo the agents push to needs its own credential here too — the
+mobile app moves no files between machines.
 
 Operational notes:
 
-- **`collie start` pins a store path.** It writes a `systemd --user` unit whose
-  `ExecStart` is this revision's `collie` binary. Run it again after
-  `just update-input collie`; the weekly GC removes the old path once the next
-  generation stops referencing it. `collie update` declines a package-managed
-  install by design.
-- **Pairing is the whole access model.** Keep the tailnet to people you trust,
-  never `tailscale funnel` this vhost (it would publish a shell to the
-  internet), and revoke a lost phone with `collie devices revoke <label>`.
-- Telemetry is off (`COLLIE_TELEMETRY=0` in the rendered `.env`).
-- The `herdr-core` backend in Collie is upstream-experimental (tested against
-  `hc` 0.1.14; this repo pins 0.1.18): screens are plain text with no colour,
-  and a few harness dialogs can only be answered with Escape from the phone.
+- `hc server status` and `hc ls` as `nixos` show what the core holds; `hc kill
+  <t>` ends one terminal.
+- A lost terminal (core crash, reboot) gets a shell in its last folder; its
+  original command is never re-run. Use `hc run --keep` where that matters.
+- Nothing is published: no DNS name, no Caddy vhost, no tunnel. Keep it that
+  way — the app is a shell into this host, gated only by the tailnet.
 
 ## Destroying the VPS
 

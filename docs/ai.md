@@ -574,27 +574,21 @@ The shortcuts worth knowing from here:
 - `s` — send the selected card, `!` — show only the cards whose agents are
   waiting on an answer
 
-## Collie (phone UI, dathomir)
+## Herdr mobile (dathomir)
 
-[ColliePWA](https://github.com/AltanS/collie) is the phone client for agents
-running in a Herdr core. It is **not** part of the home-manager setup: it runs
-on `dathomir`, because that is the machine whose core owns the agents, and its
-NixOS module is
-[`modules/nixos/collie.nix`](../modules/nixos/collie.nix) — package
-(`inputs.collie`, wrapping the published release tarball), the Herdr core
-(`herdr-core`), Claude Code and omp, plus the linger and `systemd --user` core
-unit that keep a session alive across logouts.
+The official [Herdr mobile app](https://herdr.dev/mobile/) drives agents through
+**herdr-core** over SSH — no bridge, no vhost, no pairing. That host-side setup
+is not home-manager: it runs on `dathomir`, the machine whose core owns the
+agents, in [`modules/nixos/herdr-core.nix`](../modules/nixos/herdr-core.nix) —
+the core, Claude Code and omp (prebuilt llm-agents omp; the source-built
+`omp-native` OOMs the 2 OCPU guest), plus linger and a `systemd --user` oneshot
+that keeps the core running across logouts.
 
-The bridge is Caddy-fronted at `collie-domain` (`COLLIE_SKIP_SERVE=1`, loopback
-`:8787`), so the Tailscale identity header is absent and **pairing is the only
-gate** on top of the tailnet. Its `.env` is rendered from sops; nothing about it
-is hand-written on the host. `collie start` still has to be run once as `nixos`
-(upstream ships no NixOS module) and again after each `update-input collie` —
-see [docs/dathomir.md → Collie](dathomir.md#collie-agent-phone-ui-tailnet-only).
-
-Agents there work on that host's checkouts: Collie does not sync files, so code
-moves over git (or `rsync`) and the phone's Files/Changes screens are read-only
-views of dathomir.
+The phone connects as the **same Unix user** as the core (`nixos`), through
+Tailscale SSH, which the tailnet policy puts in check mode. Agents started there
+work on dathomir's checkouts; the app moves no files, so code travels over git
+(or `rsync`). See
+[docs/dathomir.md → Herdr core](dathomir.md#herdr-core-agents-on-your-phone-over-ssh).
 
 ## Adding / changing agents
 

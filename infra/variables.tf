@@ -154,11 +154,6 @@ variable "wiki_domain" {
   type        = string
 }
 
-variable "collie_domain" {
-  description = "Public name for the Collie phone UI (set via TF_VAR_collie_domain). Served from dathomir, tailnet-only like the rest."
-  type        = string
-}
-
 variable "home_assistant_tailnet_ip" {
   description = "Coruscant's Tailscale address. The record points here deliberately: the name resolves publicly but is routable only from inside the tailnet. Update it if that node ever re-registers."
   type        = string

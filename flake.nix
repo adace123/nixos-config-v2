@@ -73,16 +73,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # ColliePWA, the phone UI for the agents running in a Herdr core. Its package
-    # wraps the published release tarball and only rewrites the ELF interpreter,
-    # so unlike llm-agents there is no cache key pinned to a second nixpkgs:
-    # nixpkgs follows ours to keep one pin in the lock. Consumed by
-    # modules/nixos/collie.nix on dathomir only.
-    collie = {
-      url = "github:AltanS/collie";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
     # OmniWM's own flake, not the module home-manager ships. OmniWM rejects any
     # settings.toml that is not its complete schema, and the stock module writes
     # exactly what you hand it — so a partial `programs.omniwm.settings` file is

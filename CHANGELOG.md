@@ -89,6 +89,7 @@ commit kinds that are exempt, live in
 - chore(darwin): replace Handy with Hex for dictation
 - chore(darwin): go back to the handy dictation cask
 - feat(darwin): disable the Option+Command+Space Finder search window shortcut
+- refactor(dathomir): replace Collie with the official Herdr mobile app over herdr-core
 
 ### Fixed
 
