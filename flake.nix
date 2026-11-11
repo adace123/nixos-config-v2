@@ -97,7 +97,7 @@
     # Official OMP package and Home Manager module. Pin a release deliberately;
     # the upstream flake builds from source rather than using llm-agents' cache.
     omp = {
-      url = "github:can1357/oh-my-pi/v18.16.0";
+      url = "github:can1357/oh-my-pi/v18.17.0";
     };
 
     # Pi's current `main` Nix package is not evaluable: its install lock omits
