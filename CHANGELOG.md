@@ -187,6 +187,7 @@ commit kinds that are exempt, live in
 - fix(home-assistant): run the front-door motion light on the WiZ bulb for the whole night
 - fix(omp): harden GOAT model routing fallback chains and isolate contributor endpoint
 - fix(beszel): initialise the hub's restic repository on first backup
+- fix(dathomir): link Collie's .env through a nixos-owned .config and run the prebuilt omp
 
 ## [2026.10.07.3] - 2026-10-07
 
