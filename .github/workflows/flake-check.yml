@@ -90,3 +90,23 @@ jobs:
           flakehub: false
       - name: Build darwin configuration (endor)
         run: nix build .#darwinConfigurations.endor.system --accept-flake-config --no-link
+  # Realise both NixOS toplevels natively on arm64. `linux-check` only
+  # evaluates and builds the pre-commit checks, so a flake bump that breaks
+  # coruscant or dathomir (wrong arch package, Linux-only test) merged green
+  # until this job existed. No secrets, no tailnet: pure build gate.
+  # Intended as a required check in the `Main` ruleset alongside darwin-build.
+  nixos-build:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+        with:
+          flakehub: false
+      - name: Build NixOS configurations (coruscant, dathomir)
+        run: |
+          nix build .#nixosConfigurations.coruscant.config.system.build.toplevel --accept-flake-config --no-link
+          nix build .#nixosConfigurations.dathomir.config.system.build.toplevel --accept-flake-config --no-link

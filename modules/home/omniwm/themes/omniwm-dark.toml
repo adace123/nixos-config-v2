@@ -1,0 +1,85 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# A dark-only OmniShell palette for the workspace bar, modelled on the
+# Catppuccin Mocha sketchybar setup in
+# https://github.com/sertdfyguhi/dotfiles: a translucent base-coloured strip,
+# a hairline border, soft lavender accents and pill-shaped item backgrounds.
+#
+# OmniWM's bundled themes key their colours off macOS's appearance, so a light
+# desktop drops the bar back to a light palette; both tables here carry the same
+# colours, so the bar stays dark either way.
+#
+# `barFill`/`barBorder` are the keys the bundled Default style leaves unset, so
+# they survive from here. `backgroundOpacity` and `showItemBackgrounds` do not:
+# the style pins them, which is why `deploy-shell.nu` pins them again in the
+# profile layer on top.
+
+[light]
+background = "#1E1E2E"
+surface = "#313244"
+elevatedSurface = "#45475A"
+foreground = "#CDD6F4"
+secondaryForeground = "#BAC2DE"
+mutedForeground = "#A6ADC8"
+border = "#45475A"
+accent = "#CBA6F7"
+accentForeground = "#1E1E2E"
+success = "#A6E3A1"
+warning = "#F9E2AF"
+error = "#F38BA8"
+focus = "#CBA6F7"
+shadow = "#11111B"
+scrim = "#11111B80"
+badge = "#F38BA8"
+red = "#F38BA8"
+orange = "#FAB387"
+yellow = "#F9E2AF"
+green = "#A6E3A1"
+mint = "#94E2D5"
+teal = "#94E2D5"
+cyan = "#89DCEB"
+blue = "#89B4FA"
+indigo = "#B4BEFE"
+purple = "#CBA6F7"
+pink = "#F5C2E7"
+brown = "#C2977A"
+gray = "#7F849C"
+
+[dark]
+background = "#1E1E2E"
+surface = "#313244"
+elevatedSurface = "#45475A"
+foreground = "#CDD6F4"
+secondaryForeground = "#BAC2DE"
+mutedForeground = "#A6ADC8"
+border = "#45475A"
+accent = "#CBA6F7"
+accentForeground = "#1E1E2E"
+success = "#A6E3A1"
+warning = "#F9E2AF"
+error = "#F38BA8"
+focus = "#CBA6F7"
+shadow = "#11111B"
+scrim = "#11111B80"
+badge = "#F38BA8"
+red = "#F38BA8"
+orange = "#FAB387"
+yellow = "#F9E2AF"
+green = "#A6E3A1"
+mint = "#94E2D5"
+teal = "#94E2D5"
+cyan = "#89DCEB"
+blue = "#89B4FA"
+indigo = "#B4BEFE"
+purple = "#CBA6F7"
+pink = "#F5C2E7"
+brown = "#C2977A"
+gray = "#7F849C"
+
+# Base colour at 85% so the bar reads as dark smoked glass over the wallpaper.
+# The reference sketchybar sits at ~40% (`BG=0x651e1e2e`) because it also blurs
+# what is behind it; an OmniShell palette fill gets no blur, so the tint has to
+# carry the depth on its own.
+[workspaceBar]
+barFill = "background/0.85"
+barBorder = "border/0.35"

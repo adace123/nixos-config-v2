@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# The widget talks only to its local bridge on loopback; nothing leaves the
+# machine. OmniWM records the approval in `shellPermissions`, which the module
+# declares for this widget's principal.
+
+[capabilities]
+network = ["127.0.0.1"]
+purpose = "Switch the Tailscale login profile through the local tailscale-profiles bridge"

@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
+
+[options.hoverExpand]
+type = "boolean"
+title = "Drop the player on hover"
+default = true
+
+[options.showArtist]
+type = "boolean"
+title = "Show the artist"
+default = true
+
+[options.showAlbum]
+type = "boolean"
+title = "Show the album"
+default = true

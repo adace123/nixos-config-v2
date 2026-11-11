@@ -108,9 +108,16 @@ Fallbacks: `retry.fallbackChains` covers every role above (`default`, `smol`,
 walks ordered alternates on provider errors (429s, quota walls, outages). Every
 role, primary and fallback, is a `commandcode` selector, so the chains cover a
 model-level quota wall or one model going down, not a whole-provider outage;
-they stay cross-family where it matters (DeepSeek ↔ Muse ↔ GLM ↔ Qwen). The
-Muse contributor endpoint is kept out of the `plan`/`task` chains, and
-`smol`/`tiny`/`commit` fallbacks pin `:low` effort to stay cheap.
+they stay cross-family where it matters (DeepSeek ↔ Muse ↔ GLM ↔ Qwen) and give
+every role at least two fallback stages. The Muse contributor endpoint is kept
+strictly to the `slow` primary and purged from all fallback chains — default and
+advisor fall back to standard non-contributor endpoints. Designer matches
+`:medium` effort on Qwen 3.8 Max then falls back to DeepSeek; task falls back to
+the fast DeepSeek SKU then GLM; `smol`/`tiny`/`commit` fallbacks pin `:low`
+effort to stay cheap. GLM-5.3-Flash fan-in (advisor primary, plus a fallback
+leg of default/plan/slow/task/vision) is deliberate: cheap, ~59k req/mo, the
+deepest pool after DeepSeek. Muse Spark 1.3 standard (~2.1k req/mo) is only
+the last leg of default and advisor.
 
 Memory: `memory.backend = "local"` builds project-scoped summaries/lessons
 from persisted sessions, injected as a Memory Guidance block at startup
@@ -342,6 +349,15 @@ with `-e` and auto-discovered from an `extensions/` directory).
 
 ## Hermes (`hermes.nix`)
 
+- **Package** — the `hermes-agent` flake input is pinned in `flake.nix` to
+  revision `44ec783`, the last one packaged with npm. Upstream switched its JS
+  workspaces to pnpm on 2026-11-05 and pins a single `fetchPnpmDeps` hash in
+  `nix/pnpm-deps-hash`, generated on Linux; on aarch64-darwin pnpm installs a
+  different store (platform-specific optional dependencies), so every later
+  revision fails its fixed-output build with
+  `hash mismatch in hermes-agent-pnpm-deps`. Upstream's `nix.yml` builds only
+  on ubuntu, so its CI does not catch this. Unpin deliberately once upstream
+  ships a per-platform hash or its CI covers darwin.
 - `config.yaml` (`~/.hermes/config.yaml`) and `.env` are **Nix-managed** — do
   **not** run `hermes config set KEY VAL` (the atomic-replace will fail on a
   store symlink).
@@ -587,6 +603,22 @@ The shortcuts worth knowing from here:
   sends it in one keystroke
 - `s` — send the selected card, `!` — show only the cards whose agents are
   waiting on an answer
+
+## Herdr mobile (dathomir)
+
+The official [Herdr mobile app](https://herdr.dev/mobile/) drives agents through
+**herdr-core** over SSH — no bridge, no vhost, no pairing. That host-side setup
+is not home-manager: it runs on `dathomir`, the machine whose core owns the
+agents, in [`modules/nixos/herdr-core.nix`](../modules/nixos/herdr-core.nix) —
+the core, Claude Code and omp (prebuilt llm-agents omp; the source-built
+`omp-native` OOMs the 2 OCPU guest), plus linger and a `systemd --user` oneshot
+that keeps the core running across logouts.
+
+The phone connects as the **same Unix user** as the core (`nixos`), through
+Tailscale SSH, which the tailnet policy puts in check mode. Agents started there
+work on dathomir's checkouts; the app moves no files, so code travels over git
+(or `rsync`). See
+[docs/dathomir.md → Herdr core](dathomir.md#herdr-core-agents-on-your-phone-over-ssh).
 
 ## Adding / changing agents
 

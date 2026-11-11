@@ -1,6 +1,6 @@
 - id: "front_door_light_motion"
   alias: "Front Door Light on Motion after Sunset"
-  description: "Turn on the front door light immediately for 30 seconds when the Ring doorbell detects motion after sunset (local MQTT sensor via ring-mqtt)."
+  description: "Turn on the WiZ front door light for 30 seconds when the Ring doorbell detects motion after sunset (local MQTT sensor via ring-mqtt)."
   mode: "restart"
   max_exceeded: silent
   trigger:
@@ -8,13 +8,19 @@
       entity_id: binary_sensor.front_door_motion
       to: "on"
   condition:
-    - condition: sun
-      after: sunset
+    # `sun.is_set` is the current condition for sunset-to-sunrise. The older
+    # `condition: sun` with only `after: sunset` stops passing at midnight (it
+    # compares against today's sunset), so the porch light went dark after 00:00
+    # while motion kept firing. Do not drop back to `after: sunset` alone.
+    - condition: sun.is_set
   action:
     - action: light.turn_on
       target:
-        entity_id: light.front_door_light
+        entity_id: light.front_door_front_door_light
+      data:
+        brightness_pct: 100
+        color_temp_kelvin: 2700
     - delay: "00:00:30"
     - action: light.turn_off
       target:
-        entity_id: light.front_door_light
+        entity_id: light.front_door_front_door_light

@@ -43,7 +43,8 @@ if [ "${YUBIKEY_SUDO_BLOCK:-0}" = 1 ]; then
 			if command -v terminal-notifier &>/dev/null; then
 				terminal-notifier -title "🔐 YubiKey Required" \
 					-message "No YubiKey detected — plug it in, then press Enter here to continue." \
-					-sound default
+					-sound default >/dev/null 2>&1 &
+				disown
 			elif command -v osascript &>/dev/null; then
 				osascript -e 'display notification "No YubiKey detected — plug it in, then press Enter to continue." with title "🔐 YubiKey Required" sound name "Ping"'
 			fi
@@ -70,9 +71,12 @@ else
 fi
 
 if command -v terminal-notifier &>/dev/null; then
+	# Detached: -timeout keeps terminal-notifier alive after delivery and it
+	# never exits on its own — nh waits on sudo, sudo waits on the shim.
 	terminal-notifier -title "🔐 sudo Authentication Needed" \
 		-message "$touch_msg" \
-		-timeout 8 -sound default
+		-timeout 8 -sound default &>/dev/null &
+	disown
 elif command -v osascript &>/dev/null; then
 	osascript -e "display notification \"$touch_msg\" with title \"🔐 sudo Authentication Needed\" sound name \"Ping\""
 fi

@@ -15,6 +15,7 @@
     ./python.nix
     ./nodejs.nix
     ./ollama.nix
+    ./launchd.nix
     ./git.nix
     ./omniwm.nix
     ./ghostty.nix

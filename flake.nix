@@ -58,8 +58,16 @@
       url = "github:numtide/llm-agents.nix";
     };
 
+    # Pin the last revision packaged with npm. Upstream switched its JS
+    # workspaces to pnpm on 2026-11-05 and pins one `fetchPnpmDeps` hash in
+    # nix/pnpm-deps-hash, generated on Linux; the store that pnpm installs on
+    # aarch64-darwin differs (platform-specific optional dependencies), so
+    # every revision since fails the fixed-output build with
+    # `hash mismatch in hermes-agent-pnpm-deps` — upstream's `nix.yml` only
+    # builds on ubuntu, so its CI cannot see it. Unpin once upstream ships a
+    # per-platform hash or its CI covers darwin.
     hermes-agent = {
-      url = "github:NousResearch/hermes-agent";
+      url = "github:NousResearch/hermes-agent/44ec783afd1193afb7576d9c01d7fe9d18c87339";
     };
 
     # The herdr kanban board plugin. It has its own repo because the Nix

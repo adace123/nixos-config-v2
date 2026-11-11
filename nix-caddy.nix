@@ -14,8 +14,12 @@
 # Refreshed again 2026-10-26: the flake.lock update moved nixpkgs (newer Go
 # toolchain changes the vendored module graph), so the same pinned sources
 # hash differently. Adopted the builder-reported content hash.
+#
+# Refreshed again 2026-11-07: nixpkgs moved Caddy itself to 2.11.9, so the same
+# pinned plugin sources vendor against a newer upstream module graph. Adopted the
+# builder-reported content hash (dathomir deploy build).
 { pkgs }:
 pkgs.caddy.withPlugins {
   plugins = [ "github.com/caddy-dns/cloudflare@v0.2.4" ];
-  hash = "sha256-tubXIDCJnO2mvdnPlZclwDhNGaeeYLSt7lnni3+pXDo=";
+  hash = "sha256-QSiwKqKvSxhksWBF4/MlBOpyXba5xOQ2sRwA0R7399E=";
 }

@@ -1,0 +1,15 @@
+# The Dynamic Island the now-playing widget draws, merged into the active
+# profile's `[island]` by deploy-shell.nu. The built-in notched display shows
+# the widget in the trailing bar lane instead, so the island renders nothing
+# there. `enabled` is the native master
+# switch and lives in modules/home/omniwm.nix; this table is placement.
+#
+# Compact, the root draws a fully rounded 24 pt pill inset 2 pt inside the
+# 28 pt bar, so every corner is on screen and nothing sticks out. On hover it
+# grows down into a 400 pt player card, so the envelope has to hold that drop:
+# 620 x 240 leaves room for the card and its shadow.
+root = "now-playing"
+displays = "all"
+width = 620
+height = 240
+fullscreen = "hide"

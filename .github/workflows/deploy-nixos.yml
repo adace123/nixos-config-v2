@@ -1,0 +1,296 @@
+name: Deploy NixOS
+# Manual (or scheduled) NixOS deploys over Tailscale. Hosts never pull;
+# CI joins the tailnet as an ephemeral tag:ci node and activates via
+# `just nixos-deploy`, which verifies /run/current-system itself and tolerates
+# the sshd-drop exit code. dathomir's closure is built on this runner
+# (BUILD_HOST=here) and copied in, because compiling it on the 2 OCPU Always-Free
+# box OOMed the guest; coruscant still builds on dathomir. See docs/deployment.md.
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: Host to deploy
+        type: choice
+        options: [both, dathomir, coruscant]
+        default: both
+      mode:
+        description: Build only, deploy, or roll back
+        type: choice
+        options: [deploy, build, rollback]
+        default: deploy
+permissions:
+  contents: read
+concurrency:
+  group: nixos-deploy
+  cancel-in-progress: false
+jobs:
+  summarize:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    outputs:
+      risk: ${{ steps.risk.outputs.level }}
+      summary: ${{ steps.summarize.outputs.text }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+        with:
+          flakehub: false
+      # PR-only job (nixos-build in flake-check.yml) covers untrusted code with
+      # no secrets and no tailnet. This job runs on main/schedule/dispatch only.
+      - name: Join tailnet
+        uses: tailscale/github-action@99a8333667fff04fdd6cffb46dfd409f8329a7bf # v4.3.0
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+          # OIDC alternative (no stored secret): oauth-client-id: ${{ vars.TS_OIDC_CLIENT_ID }},
+          # audience: ${{ vars.TS_OIDC_AUDIENCE }}, plus `permissions: id-token: write`.
+      # Resolve targets by tag at runtime — never hardcode MagicDNS names or
+      # IPs (suffixes shift on re-registration). DNSName comes back FQDN with
+      # a trailing dot; rtrimstr it before export.
+      - name: Resolve targets
+        id: targets
+        run: |
+          set -euo pipefail
+          resolve() { # $1 = tag
+            tailscale status --json | jq -r --arg t "$1" '
+              [.peers[] | select(.Tags // [] | index($t))] | sort_by(.HostName)
+              | .[0] | "\(.HostName) \(.DNSName | rtrimstr(".")) \(.TailscaleIPs[0])"'
+          }
+          read -r _ dath_fqdn dath_ip <<<"$(resolve tag:server-infra)"
+          read -r _ coru_fqdn coru_ip <<<"$(resolve tag:server-ha)"
+          [ -n "$dath_fqdn" ] && [ -n "$coru_fqdn" ] || { echo "::error::tag lookup failed"; exit 1; }
+          {
+            echo "dathomir=$dath_fqdn"
+            echo "coruscant=$coru_fqdn"
+            echo "dathomir_ip=$dath_ip"
+            echo "coruscant_ip=$coru_ip"
+          } >> "$GITHUB_OUTPUT"
+      - name: Tailscale reachability
+        env:
+          DATHOMIR_IP: ${{ steps.targets.outputs.dathomir_ip }}
+          CORUSCANT_IP: ${{ steps.targets.outputs.coruscant_ip }}
+        run: |
+          set -euo pipefail
+          for t in "$DATHOMIR_IP" "$CORUSCANT_IP"; do
+            tailscale ping -c 3 "$t"
+          done
+      # Deterministic facts first; the LLM only gets prose, never a verdict.
+      - name: Gather deploy facts
+        id: facts
+        env:
+          NIX_SSHOPTS: "-o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10"
+          DATHOMIR_FQDN: ${{ steps.targets.outputs.dathomir }}
+          CORUSCANT_FQDN: ${{ steps.targets.outputs.coruscant }}
+          SHA: ${{ github.sha }}
+          BEFORE: ${{ github.event.before || 'HEAD~1' }}
+        run: |
+          set -euo pipefail
+          read -r -a ssh_opts <<<"$NIX_SSHOPTS"
+          mkdir -p /tmp/deploy
+          {
+            echo "### Currently deployed"
+            for h in dathomir coruscant; do
+              fqdn="$DATHOMIR_FQDN"
+              [ "$h" = coruscant ] && fqdn="$CORUSCANT_FQDN"
+              rev=$(ssh "${ssh_opts[@]}" "root@$fqdn" \
+                'cat /etc/nixos-deployed-rev 2>/dev/null || echo unknown')
+              echo "$h: $rev"
+            done
+            echo; echo "### Proposed rev: $SHA"
+            echo; echo "### Changed files"
+            git diff --name-only "$BEFORE" "$SHA" || true
+            echo; echo "### Flake input revs"
+            nix flake metadata --json --accept-flake-config \
+              | jq -r '.locks.nodes | to_entries[] | select(.value.locked) | "\(.key) \(.value.locked.rev // .value.locked.ref // "?")"'
+            echo; echo "### Toplevel sizes"
+            for h in dathomir coruscant; do
+              drv=$(nix eval --raw ".#nixosConfigurations.$h.config.system.build.toplevel" --accept-flake-config)
+              echo "$h: $drv $(nix path-info -S "$drv" --accept-flake-config | awk '{print $2}')"
+            done
+          } > /tmp/deploy/facts.txt
+          cat /tmp/deploy/facts.txt
+      - name: Risk verdict (deterministic)
+        id: risk
+        env:
+          SHA: ${{ github.sha }}
+          BEFORE: ${{ github.event.before || 'HEAD~1' }}
+        run: |
+          set -euo pipefail
+          changed=$(git diff --name-only "$BEFORE" "$SHA" || true)
+          level=LOW; why="no Nix-affecting changes"
+          if echo "$changed" | grep -qE '^(flake\.lock|modules/nixos/|hosts/|flake\.nix|nix-.*\.nix|secrets/|flake-parts/)'; then
+            level=MEDIUM; why="NixOS-affecting changes"
+          fi
+          if echo "$changed" | grep -qE 'networking|tailscale|openssh|firewall|boot\.|fileSystems|disko|sops'; then
+            level=HIGH; why="reachability-critical paths touched"
+          fi
+          if nix flake metadata --json --accept-flake-config \
+            | jq -e '.locks.nodes.nixpkgs.locked.rev' >/dev/null 2>&1; then
+            : # nixpkgs moves are read by pi against the input list below
+          fi
+          echo "level=$level" >> "$GITHUB_OUTPUT"
+          echo "why=$why" >> "$GITHUB_OUTPUT"
+      # pi runs headless from the pinned flake input, read-only tools only.
+      # No pi in nixpkgs (unrelated binary); pin the rev from flake.lock.
+      - name: AI summary with pi
+        id: summarize
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        run: |
+          set -euo pipefail
+          PI_REV=$(jq -r '.nodes.pi.locked.rev' flake.lock)
+          # pi has no --max-time flag (that's omp); timeout(1) bounds the run.
+          # 124 on timeout still falls through to the deterministic fallback.
+          timeout 300 nix run "github:earendil-works/pi/$PI_REV" -- -p --no-session \
+            --tools read,grep --no-mcp --no-extensions \
+            --model opencode-go/glm-5.3-flash:low \
+            "@/tmp/deploy/facts.txt" \
+            "Summarize this NixOS deploy for a phone notification. Plain text, no markdown, <=500 chars. First line: one-sentence what-changes. Then PROSE: one short paragraph of context. Rules: risk UP on nixpkgs rev moved, networking/tailscale/sshd/firewall/boot/filesystem/sops changes, dathomir network changes. Risk DOWN on docs-only, single leaf input (pi/nixvim/hermes-agent), Home Assistant-only changes (coruscant stays reachable). Do NOT emit a verdict or risk level — the deterministic rule owns that. Never invent facts not in the input; no web search in CI." \
+            > /tmp/deploy/summary.txt || true
+          cat /tmp/deploy/summary.txt || true
+          {
+            echo "text<<EOF"
+            cat /tmp/deploy/summary.txt
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      - name: Notify with View-run link
+        if: ${{ inputs.mode == 'deploy' }}
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_DEPLOY_TOPIC }}
+          HOST_TARGET: ${{ inputs.host || 'both' }}
+          RISK: ${{ steps.risk.outputs.level }}
+          WHY: ${{ steps.risk.outputs.why }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          summary="$(cat /tmp/deploy/summary.txt 2>/dev/null || head -20 /tmp/deploy/facts.txt)"
+          jq -n \
+            --arg topic "$NTFY_TOPIC" \
+            --arg title "NixOS deploy $HOST_TARGET — RISK $RISK ($WHY)" \
+            --arg msg "$summary" \
+            --arg run "$RUN_URL" '{
+              topic: $topic,
+              title: $title,
+              message: ($msg + "\n\n" + $run),
+              priority: "high",
+              tags: ["robot", "package"],
+              click: $run,
+              actions: [
+                {action: "view", label: "View run & approve", url: $run, clear: true}
+              ]
+            }' | curl -sS -X POST -H "Content-Type: application/json" \
+              -d @- "https://ntfy.sh"
+  deploy:
+    needs: summarize
+    if: ${{ inputs.mode != 'build' }}
+    runs-on: ubuntu-24.04-arm
+    environment: nixos-production
+    timeout-minutes: 90
+    env:
+      NIX_SSHOPTS: "-o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+        with:
+          flakehub: false
+      - name: Join tailnet
+        uses: tailscale/github-action@99a8333667fff04fdd6cffb46dfd409f8329a7bf # v4.3.0
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+      - name: Resolve targets
+        id: targets
+        run: |
+          set -euo pipefail
+          resolve() { # $1 = tag
+            tailscale status --json | jq -r --arg t "$1" '
+              [.peers[] | select(.Tags // [] | index($t))] | sort_by(.HostName)
+              | .[0] | .DNSName | rtrimstr(".")'
+          }
+          echo "dathomir=$(resolve tag:server-infra)" >> "$GITHUB_OUTPUT"
+          echo "coruscant=$(resolve tag:server-ha)" >> "$GITHUB_OUTPUT"
+      # Restasis runs 03:30-05:30 PT; never switch inside it, even manually.
+      - name: Backup-window guard
+        run: |
+          h=$(TZ=America/Los_Angeles date +%H)
+          if [ "$h" -ge 3 ] && [ "$h" -lt 6 ]; then
+            echo "::error::Inside 03:00-06:00 PT backup window — refusing."
+            exit 1
+          fi
+      # Sequential by construction (single job, no matrix): dathomir first —
+      # health-gate it, then coruscant. just nixos-deploy builds on $BUILD_HOST,
+      # tolerates the sshd-drop exit code, and verifies /run/current-system
+      # against the flake build.
+      - name: Deploy
+        env:
+          HOST_TARGET: ${{ inputs.host || 'both' }}
+          MODE: ${{ inputs.mode || 'deploy' }}
+          DATHOMIR_FQDN: ${{ steps.targets.outputs.dathomir }}
+          CORUSCANT_FQDN: ${{ steps.targets.outputs.coruscant }}
+        run: |
+          set -euo pipefail
+          read -r -a ssh_opts <<<"$NIX_SSHOPTS"
+          gate() { # $1 = fqdn, $2 = label
+            local fqdn="$1" label="$2" i=0
+            echo "Health-gating $label ($fqdn)..."
+            until ssh "${ssh_opts[@]}" "root@$fqdn" \
+              'systemctl is-active --quiet tailscaled && systemctl is-active --quiet caddy' \
+              && tailscale ping -c 1 "$fqdn" >/dev/null 2>&1; do
+              i=$((i + 1)); [ "$i" -ge 30 ] && { echo "::error::$label unhealthy after 5m"; return 1; }
+              sleep 10
+            done
+          }
+          deploy() { # $1 = NHOST, $2 = fqdn
+            echo "::group::Deploy $1 ($2)"
+            # dathomir gets its own closure built here (BUILD_HOST=here) and copied
+            # in: the Caddy Go build plus a bun compile is more than the 2 OCPU /
+            # 12 GB Always-Free guest should ever run — it OOMed and wedged the
+            # box on 2026-11-08. coruscant still builds on dathomir, whose store
+            # stays warm for it, and the Pi only copies.
+            local build_host="here"
+            [ "$1" = coruscant ] && build_host="$DATHOMIR_FQDN"
+            if [ "$MODE" = rollback ]; then
+              NHOST="$1" BUILD_HOST="$build_host" \
+                nix run nixpkgs#just -- nixos-rollback "$2"
+            else
+              NHOST="$1" BUILD_HOST="$build_host" \
+                nix run nixpkgs#just -- nixos-deploy "$2"
+            fi
+            echo "$GITHUB_SHA" | ssh "${ssh_opts[@]}" "root@$2" \
+              'sudo tee /etc/nixos-deployed-rev >/dev/null'
+            echo "::endgroup::"
+          }
+          case "$HOST_TARGET" in
+            both)
+              deploy dathomir "$DATHOMIR_FQDN"
+              gate "$DATHOMIR_FQDN" dathomir
+              deploy coruscant "$CORUSCANT_FQDN"
+              gate "$CORUSCANT_FQDN" coruscant
+              ;;
+            dathomir)  deploy dathomir "$DATHOMIR_FQDN"
+                       gate "$DATHOMIR_FQDN" dathomir ;;
+            coruscant) deploy coruscant "$CORUSCANT_FQDN"
+                       gate "$CORUSCANT_FQDN" coruscant ;;
+            *) echo "unknown host: $HOST_TARGET" >&2; exit 1 ;;
+          esac
+      - name: Notify result
+        if: always()
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_DEPLOY_TOPIC }}
+          HOST_TARGET: ${{ inputs.host || 'both' }}
+          STATUS: ${{ job.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          jq -n --arg topic "$NTFY_TOPIC" \
+            --arg title "NixOS deploy $STATUS" \
+            --arg message "$HOST_TARGET $STATUS — $RUN_URL" \
+            '{topic: $topic, title: $title, message: $message}' \
+            | curl -sS -X POST -H "Content-Type: application/json" \
+              -d @- "https://ntfy.sh"

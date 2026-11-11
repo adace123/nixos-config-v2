@@ -32,11 +32,11 @@ commit kinds that are exempt, live in
 - feat(home): add android-tools for adb access to the Fire TV
 - feat(omniwm): focus the browsers' workspace when the lid closes
 - feat(omniwm): replace the two TV workspaces with one 📺 workspace
+- feat(nixos): deploy from CI over Tailscale with ntfy summaries and environment approval
 
 - feat(just): build NixOS configurations on dathomir instead of the target host
 - feat(beszel): collect SMART in the agent on hosts that run smartd
 - feat(beszel): back the hub's PocketBase state up to R2
-- fix(beszel): initialise the hub's restic repository on first backup
 - feat(darwin): build before switching and hand failures to pi in the agent and just switch
 - feat(omp): manage omp via nix with glm-5.3-flash default and muse-spark-1.3 advisor
 - feat(omp): use muse-spark-1.3 for the slow tier instead of glm-5.3 (latency)
@@ -65,13 +65,30 @@ commit kinds that are exempt, live in
 - fix(home-assistant): trigger front-door light on the local MQTT motion sensor instead of Ring cloud event
 - fix(home-assistant): delete the official ring integration, doorbell fully on ring-mqtt
 - feat(home-assistant): record 30s doorbell clips to /media with 7-day purge, no backup
-- feat(home): install agent-browser from llm-agents
+- feat(home-assistant): bridge NextLock smart lock via hass-ttlock cloud integration
+- feat(home-assistant): add ha-ttlock-ble for local Bluetooth lock control alongside the cloud integration
 - feat(dathomir): deploy OpenKnowledge as wiki.figtreelab.dev, tailnet-only and backed up to R2
 - chore(infra): add the wiki A record through OpenTofu
+- feat(home): install agent-browser from llm-agents
+- feat(omniwm): pin OmniWM 0.8.0 and show Herdr agent attention in the OmniShell bar
+- feat(omniwm): give the OmniShell bar a dark Catppuccin theme with pill item backgrounds
+- feat(omniwm): colour the OmniShell battery icon purple
+- feat(omniwm): limit the bar to the first five workspaces and add a weather widget
+- feat(omniwm): move the TV workspace to 2
+- feat(omniwm): slim the bar, trim its centre title and mark occupied workspaces
+- feat(omniwm): bind Control+Option+B to hide and restore the workspace bar
+- feat(omniwm): add a Tailscale login-profile switcher to the bar
+- feat(dathomir): serve Collie and the herdr core so the phone drives this host's agents
+- feat(omniwm): show Bluetooth accessory batteries and charging state in the battery widget popout
+- feat(omniwm): turn the now playing widget into a Dynamic Island that drops out of the bar
+- feat(omniwm): show now playing as a regular bar widget on the notched display
+- feat(home-assistant): open the WiZ UDP ports so bulbs are discovered and push state updates
+- feat(dathomir): install git so agents can work on a checkout
 - feat(omp): add GOAT-tuned model roles for task, plan, design, commit, tiny and vision
 
 ### Changed
 
+- feat(omp): disable the built-in browser and route web work to ego lite or agent-browser
 - refactor(kanban): move the board into its own repo and consume it as a flake input
 - refactor(dathomir): boot an Oracle platform image and convert to NixOS in place
 - chore(secrets): drop dathomir's revoked ts-auth-key
@@ -81,17 +98,19 @@ commit kinds that are exempt, live in
 - refactor(beszel): authenticate agents with a universal token instead of per-system keys
 - chore(infra): commit the provider lockfile for the Cloudflare provider
 - refactor(omniwm): drop app rules for apps that are not installed
-- refactor(zed): remove the Zed editor module, flake input, overlay and project config
-- feat(omp): disable the built-in browser and route web work to ego lite or agent-browser
 - refactor(omp): drop the oh-my-pi flake input, own the module and the theme
 - chore(omp): move every model role and fallback chain to commandcode
+- chore(llm-agents): keep upstream's nixpkgs pin so the agent binaries substitute
 - refactor(omp): hand failed builds and activations to omp instead of pi
 - chore(darwin): replace Handy with Hex for dictation
 - chore(darwin): go back to the handy dictation cask
 - feat(darwin): disable the Option+Command+Space Finder search window shortcut
+- refactor(dathomir): replace Collie with the official Herdr mobile app over herdr-core
+- refactor(zed): remove the Zed editor module, flake input, overlay and project config
 
 ### Fixed
 
+- fix(omniwm): show the charging bolt beside the battery percentage inside the cell
 - fix(nixos): stabilise the Pi hosts with an LTS kernel, chrony, a watchdog and no esphome
 - fix(omniwm): put the TV workspace on the TV when the monitor is away
 - fix(claude): read auto-format hook input from stdin, register context7 at user scope, drop dead settings
@@ -118,6 +137,7 @@ commit kinds that are exempt, live in
 - fix(darwin): install sofka as a homebrew-core formula, not a nonexistent cask
 - fix(just): verify a deploy by the host's running generation, and accept a target
 - fix(dathomir): cap boot generations so the 900MB /boot cannot fill
+- fix(just): detach the sudo-auth notification so a switch cannot hang on it
 - fix(pre-commit): use `excludes`, the option git-hooks.nix actually reads
 - fix(dathomir-convert): refuse piped runs and say why a target is unreachable
 - fix(beszel): keep the agents off until the hub can mint their keys
@@ -149,13 +169,24 @@ commit kinds that are exempt, live in
 - fix(just): refuse to switch without a terminal, and keep sudo failures away from pi
 - docs(skills): harden commit-all sensitive-file sweep
 - fix(home-assistant): drop the migrated http block from configuration.yaml
-- fix(caddy): refresh the Cloudflare-plugin fixed-output hash
+- fix(ha): cast refuel and trip-sampler template variables to float so the automations stop erroring on string arithmetic, and skip refuel detection while the odometer is unavailable
+- fix(just): run omp interactively on switch failures so the repair streams live
+- fix(just): detach terminal-notifier so a successful switch can't hang on its exit
+- fix(just): report the OMP handoff mode and process exit on switch failures
+- fix(pi): hold the Nix input at the last buildable revision until upstream repairs its install lock
+- fix(omp): use the official v18.16.0 flake package and Home Manager module
+- fix(darwin): stop remapping Caps Lock to Control so Handy can bind it as its dictation shortcut
 - fix(nix): raise the zsh file-descriptor limit and prune Determinate's tarball cache so nix flake update stops failing with Too many open files
 - fix(just): run the omp repair with the shell's own stdio as a normal saved session, so it stops hanging and leaving escape garbage
-- fix(just): run omp interactively on switch failures so the repair streams live
-- fix(just): report the OMP handoff mode and process exit on switch failures
-- fix(omp): use the official v18.16.0 flake package and Home Manager module
-- fix(pi): hold the Nix input at the last buildable revision until upstream repairs its install lock
+- fix(hermes): pin the flake input to the last revision packaged with npm, whose pnpm successor cannot build on darwin
+- fix(caddy): refresh the vendor hash for 2.11.9 so fresh builds stop failing
+- fix(ci): build dathomir's closure on the runner so a deploy cannot OOM the VPS
+- fix(omniwm): force-replace the shell widget files so a leftover copy cannot block activation
+- fix(darwin): unload launch agents loaded from outside `~/Library/LaunchAgents` before activation
+- fix(nixos): cap local Nix builds to one job on the Pi hosts so a cold rebuild cannot OOM them
+- fix(home-assistant): run the front-door motion light on the WiZ bulb for the whole night
+- fix(omp): harden GOAT model routing fallback chains and isolate contributor endpoint
+- fix(beszel): initialise the hub's restic repository on first backup
 
 ## [2026.10.07.3] - 2026-10-07
 

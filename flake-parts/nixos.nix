@@ -36,11 +36,26 @@ let
     };
 
   # Modules shared by every Raspberry Pi / Turing Pi node configuration.
+  #
+  # The build cap is not cosmetic: `common.nix` sets `max-jobs = 4` and
+  # `cores = 4` for every NixOS host, which on a 4 GB Pi 4 is 16 compiler
+  # processes against 3.7 GB of RAM plus 1.8 GB of zram — that is what
+  # OOM-killed coruscant during a cold rebuild on 2026-10-23. Deploys build on
+  # dathomir by default (`BUILD_HOST` in the justfile), so this only governs the
+  # `BUILD_HOST=local` fallback and the first rebuild after a fresh flash; one
+  # job keeps those survivable instead of a hard stop.
+  piLocalBuildModule = {
+    nix.settings = {
+      max-jobs = inputs.nixpkgs.lib.mkForce 1;
+      cores = inputs.nixpkgs.lib.mkForce 2;
+    };
+  };
   piBaseModules = [
     nixos-raspberrypi.lib.inject-overlays
     nixos-raspberrypi.nixosModules.raspberry-pi-4.base
     nixos-raspberrypi.nixosModules.trusted-nix-caches
     inputs.sops-nix.nixosModules.sops
+    piLocalBuildModule
   ];
   sdImageModule = nixos-raspberrypi.nixosModules.sd-image;
 
@@ -436,7 +451,10 @@ in
           ../modules/nixos/open-knowledge-restic.nix
         ]
         # Dead-man's switch: pings Healthchecks.io so a silent dathomir pages.
-        ++ [ ../modules/nixos/dathomir-heartbeat.nix ];
+        ++ [ ../modules/nixos/dathomir-heartbeat.nix ]
+        # Herdr core on this host: what the Herdr mobile app connects to over
+        # SSH (no bridge, no vhost), plus the harnesses it can show.
+        ++ [ ../modules/nixos/herdr-core.nix ];
       };
     };
 }

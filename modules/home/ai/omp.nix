@@ -176,15 +176,24 @@ in
       # quota wall or a single upstream model going down — not a full
       # provider outage. Cross-family where it matters: default/slow fall back
       # across DeepSeek/Muse/GLM so one model failing doesn't kill the turn.
-      # The Muse contributor endpoint stays out of the plan/task chains so an
-      # outage there cannot take three roles with it and data-use exposure is
-      # limited to the roles that already use it as a primary. smol/tiny/commit
-      # fallbacks pin `:low` effort to stay cheap — nothing reasons from their
-      # output.
+      # The Muse contributor endpoint is used strictly for the `slow` primary
+      # and kept out of every fallback chain, so data-use exposure is limited to
+      # the role that deliberately chose it. Default and advisor fall back to
+      # standard non-contributor endpoints (GLM-5.3-Flash, Muse Spark 1.3
+      # standard, DeepSeek). GLM-5.3-Flash fan-in is deliberate: advisor's
+      # primary, and a fallback leg of default/plan/slow/task/vision, because
+      # it is cheap with the deepest pool after DeepSeek (~59k req/mo). Task's
+      # first fallback is the fast DeepSeek SKU so a DeepSeek quota wall does
+      # not dump default and task onto GLM at once. Muse Spark 1.3 standard
+      # (~2.1k req/mo) is only the last leg of default and advisor — a thin
+      # pool, not a high-volume primary. Designer fallback matches `:medium`
+      # effort;
+      # smol/tiny/commit fallbacks pin `:low` effort to stay cheap — nothing
+      # reasons from their output. Every role has at least two fallback stages.
       retry.fallbackChains = {
         default = [
-          "commandcode/meta/muse-spark-1.3-contributor:high"
           "commandcode/z-ai/glm-5.3-flash:high"
+          "commandcode/meta/muse-spark-1.3:high"
         ];
         smol = [
           "commandcode/z-ai/glm-5.3-flash:low"
@@ -195,10 +204,11 @@ in
           "commandcode/z-ai/glm-5.3-flash:high"
         ];
         advisor = [
-          "commandcode/meta/muse-spark-1.3-contributor:high"
           "commandcode/deepseek/deepseek-v4.1-flash:high"
+          "commandcode/meta/muse-spark-1.3:high"
         ];
         task = [
+          "commandcode/deepseek/deepseek-v4.1-flash-fast:high"
           "commandcode/z-ai/glm-5.3-flash:high"
         ];
         plan = [
@@ -206,16 +216,20 @@ in
           "commandcode/z-ai/glm-5.3-flash:high"
         ];
         designer = [
-          "commandcode/Qwen/Qwen3.8-Max-0902:xhigh"
+          "commandcode/Qwen/Qwen3.8-Max-0902:medium"
+          "commandcode/deepseek/deepseek-v4.1-flash:high"
         ];
         commit = [
           "commandcode/deepseek/deepseek-v4.1-flash:low"
+          "commandcode/z-ai/glm-5.3-flash:low"
         ];
         tiny = [
           "commandcode/deepseek/deepseek-v4.1-flash:low"
+          "commandcode/z-ai/glm-5.3-flash:low"
         ];
         vision = [
           "commandcode/deepseek/deepseek-v4.1-flash:high"
+          "commandcode/z-ai/glm-5.3-flash:high"
         ];
       };
       # Autonomous memory: project-scoped summaries/lessons from persisted

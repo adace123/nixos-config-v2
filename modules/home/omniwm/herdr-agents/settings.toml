@@ -1,0 +1,4 @@
+[options.showDone]
+type = "boolean"
+title = "Show finished turns"
+default = true

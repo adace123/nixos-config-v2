@@ -25,6 +25,25 @@ let
     hash = "sha256-zrOc7cRcME7v7dy4d+6kSyALdyKx+3LjetOc/cauN1c=";
     stripRoot = false;
   };
+  # TTLock-based smart lock (e.g. NextLock + gateway) via hass-ttlock. The
+  # release zip ships the component files at its root, so stripRoot stays off
+  # and the store path itself is copied to custom_components/ttlock below —
+  # same shape as the authOidc fetchzip above. The hash is the NAR of the
+  # *unpacked* tree (fetchzip is recursive), not the zip file.
+  ttlock = pkgs.fetchzip {
+    url = "https://github.com/jbergler/hass-ttlock/releases/download/v0.17.1/ttlock.zip";
+    hash = "sha256-hAWg1mlRspaXilDr4L5CO1VZuUjfCvPcvUj/fdsnfBo=";
+    stripRoot = false;
+  };
+  # Local BLE control for TTLock-family locks (e.g. NextLock) via
+  # ha-ttlock-ble. Same zip-root layout as the ttlock fetchzip above. The
+  # manifest's ttlock-ble==0.3.3 pip requirement installs from PyPI into
+  # the HA container at startup (writable /config/deps).
+  ttlockBle = pkgs.fetchzip {
+    url = "https://github.com/roquerodrigo/ha-ttlock-ble/releases/download/v3.12.0/ttlock_ble.zip";
+    hash = "sha256-Y+IkvEIOtQZWwd+A0MEps5QO3/FR30vBrXwC6riRrLY=";
+    stripRoot = false;
+  };
   hassGenerated = pkgs.runCommand "hass-generated-config" { } ''
     mkdir -p $out/automations $out/scripts $out/scenes $out/car_scripts $out/dashboards $out/custom_components
     cp ${./automations/system-monitor-alerts.yaml} $out/automations/system-monitor-alerts.yaml
@@ -197,6 +216,12 @@ in
       rm -rf ${hassDir}/custom_components/auth_oidc
       cp -r ${authOidc} ${hassDir}/custom_components/auth_oidc
       chown -R hass:hass ${hassDir}/custom_components/auth_oidc
+      rm -rf ${hassDir}/custom_components/ttlock
+      cp -r ${ttlock} ${hassDir}/custom_components/ttlock
+      chown -R hass:hass ${hassDir}/custom_components/ttlock
+      rm -rf ${hassDir}/custom_components/ttlock_ble
+      cp -r ${ttlockBle} ${hassDir}/custom_components/ttlock_ble
+      chown -R hass:hass ${hassDir}/custom_components/ttlock_ble
       rm -rf ${hassDir}/custom_components/google_health_workouts
       cp -r ${hassGenerated}/custom_components/google_health_workouts ${hassDir}/custom_components/google_health_workouts
       chown -R hass:hass ${hassDir}/custom_components/google_health_workouts
@@ -212,7 +237,17 @@ in
   # but devices reply to the source's ephemeral port (modern python-kasa binds a
   # random port, and broadcast replies aren't matched by conntrack ESTABLISHED).
   # Open both the discovery port and the Linux ephemeral range inbound.
-  networking.firewall.allowedUDPPorts = [ 9999 ];
+  #
+  # WiZ (pywizlight) is the other way round: it *binds* 38899 for the discovery
+  # broadcast socket and 38900 for push updates (LISTEN_PORT), so bulbs unicast
+  # back to those fixed ports. Neither falls inside the ephemeral range, and with
+  # `--network=host` the host netfilter sees the replies — without both ports open
+  # the bulb is never discovered and state only ever lags behind polling.
+  networking.firewall.allowedUDPPorts = [
+    9999
+    38899
+    38900
+  ];
   networking.firewall.allowedUDPPortRanges = [
     {
       from = 32768;

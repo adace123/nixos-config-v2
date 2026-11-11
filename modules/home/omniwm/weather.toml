@@ -1,0 +1,9 @@
+# Weather location for the OmniShell `weather` widget. The coordinates match
+# the Home Assistant location in modules/nixos/home-assistant/configuration.yaml
+# (Los Angeles); OmniWM resolves them through Open-Meteo. `refresh` is in
+# minutes and the app clamps it to 5…1440. Fahrenheit because the widget is
+# declared for this US-based desk.
+latitude = 34.05
+longitude = -118.24
+units = "fahrenheit"
+refresh = 15

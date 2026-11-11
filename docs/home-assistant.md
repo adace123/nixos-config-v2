@@ -20,10 +20,11 @@ modules/nixos/home-assistant/
 
   Auto-starts, mounts `/var/lib/hass`, uses host networking for device discovery.
 
-- **Firewall** — opens TCP 8123 plus UDP 9999 and the ephemeral range
-  (32768–60999) for TP-Link Kasa/Tapo broadcast discovery; modern python-kasa
-  binds a random source port and devices reply there, which conntrack does not
-  treat as ESTABLISHED.
+- **Firewall** — opens TCP 8123, UDP 9999 and 38899/38900, plus the ephemeral
+  range (32768–60999). 9999 + ephemeral is for TP-Link Kasa/Tapo discovery:
+  modern python-kasa binds a random source port and devices reply there, which
+  conntrack does not treat as ESTABLISHED. 38899/38900 are WiZ (pywizlight binds
+  both fixed ports — see [WiZ lights](#wiz-lights)).
 - **ring-mqtt** (`ring-mqtt.nix`, coruscant only) — Ring → MQTT bridge
   (podman, `docker.io/tsightler/ring-mqtt:5.9.3`) plus authed doorbell RTSP at
   `127.0.0.1:8554/<ring-id>_live`, consumed by HA's embedded go2rtc for
@@ -138,6 +139,88 @@ Detection tuning (motion zones, sensitivity, advanced motion) moves that
 window earlier; nothing in HA can. A local PIR aimed at the walkway, firing
 `camera.record` over Zigbee, is the only genuinely faster trigger.
 
+## WiZ lights
+
+WiZ bulbs (Philips Smart LED with WiZ Connected, plus the ~20 white-label
+brands) use Home Assistant's built-in `wiz` integration — pywizlight is already
+in the official `ghcr.io/home-assistant/home-assistant` image, so there is no
+`custom_components` entry and nothing to package. Control is local UDP; the
+cloud is only needed by the WiZ app for setup.
+
+Three things have to be true before HA sees the bulb:
+
+1. **The bulb is on the same L2 network as coruscant.** Discovery is a UDP
+   broadcast to `255.255.255.255:38899`; routed subnets, the eero guest network
+   (client isolation) and the bulb's own pairing-mode AP all fail it. The bulb
+   is 2.4 GHz only, so join it to the main SSID in the WiZ app.
+2. **Local communication is enabled** — WiZ app → settings (top left) →
+   security → **Allow local communication**. On by default, but a cloud-only
+   bulb answers nothing locally.
+3. **UDP 38899 and 38900 are open inbound** (`default.nix`). pywizlight binds
+   38899 for the discovery socket and 38900 for push updates, and the bulb
+   unicasts back to those fixed ports — with `--network=host` that is host
+   input, not a conntrack-matched reply, so the nixos firewall drops it.
+   Discovery then silently finds nothing and push state never arrives.
+
+4. **"Verified control" must be off on firmware 1.3x (ESP25 modules).** Reads
+   answer unsigned, but `setPilot` comes back `-32602 Invalid params` unless the
+   request carries a base64 HMAC-SHA256 signature. HA 2026.11 pins
+   `pywizlight==0.6.3`, which cannot sign (signing landed in 0.6.7, and HA has no
+   config for the key), so the integration reads state and fails every write
+   with `WizLightConnectionError: Error recieved: {'code': -32602, …}`. The
+   app-side escape hatch: WiZ app → **Settings → Security → Allow all
+   controls** (sbidy/pywizlight#213, confirmed on ESP25 1.34/1.38). Leave **Allow
+   local communication** on. With it on, unsigned writes work and no
+   custom component is needed; the alternative — the home's `udp_signing_key`
+   from the WiZ app's home export, 32 hex chars, passed as `signing_key` — needs
+   a pywizlight bump plus HA plumbing that does not exist yet.
+
+Add it in HA with **Settings > Devices & Services > Add Integration > WiZ**
+(auto-discovery usually offers it first). If discovery still misses, add the
+bulb **by IP** — and pin that IP as a DHCP reservation in the eero app, because
+a redialled lease breaks the entry.
+
+Note the bulb MACs seen here (`98:77:D5:*`) are not in HA's DHCP matcher list
+(`A8BB50*`, `D8A011*`, `444F8E*`, `6C2990*`, hostname `wiz_*`), so there is no
+DHCP-triggered discovery; the integration's own UDP broadcast scan runs at
+startup and every 15 min, which is what the 38899 rule above is for.
+
+Also note the entity id: the Kasa "Front door light" entry is disabled but its
+entity stays in the registry, so the WiZ device (also called *Front Door Light*)
+landed as `light.front_door_front_door_light`. Rename it in the UI if the
+doubled name bothers, then update the automation below.
+
+### Porch light on motion
+
+`automations/front-door-light-motion.yaml` fires on the Ring doorbell's **local
+MQTT** motion sensor (`binary_sensor.front_door_motion`, via ring-mqtt — not the
+Ring cloud event), turns the WiZ bulb on at 100 % / 2700 K, and turns it off 30 s
+later. `mode: restart` means each new motion event extends the window instead of
+stacking timers.
+
+The gate is `condition: sun.is_set` (sunset → sunrise). Do **not** replace it
+with the older `condition: sun` + `after: sunset` alone: that compares against
+*today's* sunset and silently stops passing at midnight, which is how the porch
+light went dark for the second half of every night.
+
+Probe from any host on the same LAN to separate network problems from HA
+problems (coruscant has no `python3` in PATH — run it from the Mac):
+
+```bash
+python3 - <<'PY'
+import socket
+s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.settimeout(1.2)
+s.sendto(b'{"method":"getPilot","params":{}}', ("<bulb-ip>", 38899))
+print(s.recvfrom(2048)[0].decode())
+PY
+```
+
+A WiZ bulb answers with a `{"result":{...}}` getPilot payload. A timeout means
+nothing is listening on 38899 at that IP: the bulb is not on this network, the
+IP is stale, or local communication is disabled in the app. `nc -u -w1 <ip>
+38899` works too, but UDP netcat cannot tell "no device" from "device ignored
+us", so prefer the snippet.
+
 ## Pocket ID Login (passkeys via OIDC)
 
 Sign-in is delegated to [Pocket ID](https://pocket-id.org) on dathomir (see
@@ -197,6 +280,43 @@ warning now and breaks in 2027.2. The imported values carry the Caddy trust
 (`use_x_forwarded_for`, `127.0.0.1/32` in trusted proxies), so the OIDC
 callback still builds its `https://` external URL. If the Network page ever
 loses the proxy settings, OIDC login breaks the same way — check there first.
+
+## NextLock smart lock
+
+The NextLock app + gateway is TTLock-compatible. Two integrations are
+packaged declaratively in `default.nix` (each `fetchzip` copied to
+`custom_components/` at activation alongside HACS) — try the local one
+first, keep the cloud one as fallback:
+
+- **TTLock BLE** ([ha-ttlock-ble](https://github.com/roquerodrigo/ha-ttlock-ble),
+  `ttlock_ble` v3.12.0): lock/unlock over the Pi's own Bluetooth, no
+  gateway or cloud round-trip per operation. A one-time NextLock-app login
+  fetches the keys at setup; after that everything stays local. Needs the
+  lock in BLE range of coruscant — if the front door is too far, an
+  ESPHome Bluetooth proxy near the door is the fix (ESPHome itself is
+  currently disabled, see above).
+- **TTLock cloud** ([hass-ttlock](https://github.com/jbergler/hass-ttlock),
+  `ttlock` v0.17.1): lock/unlock via the gateway through TTLock's cloud,
+  with webhook real-time updates. Needs a developer application at
+  <https://open.ttlock.com/manager> (approval takes a few days) and Remote
+  Unlock enabled in the NextLock app while in Bluetooth range.
+
+### Setup (one-time)
+
+BLE first: Settings > Devices & Services > Add Integration > **TTLock
+BLE** — pick the discovered lock (or add manually), sign in once with the
+NextLock-app account when prompted (verification code by email if TTLock
+hasn't seen this HA before). Cloud fallback: add **TTLock** with the
+application Client ID / Secret first, then the NextLock-app username /
+password; paste the webhook URL from the Repairs notice into the
+application's callback URL at `open.ttlock.com`, then lock/unlock once to
+resolve it.
+
+Both provide `lock` / `unlock` plus battery, last-operator and door-state
+sensors. Nothing else is wired yet — doorbell-press alerts stay a later
+step if the lock turns out to emit them. After deploying, restart the HA
+container once (`systemctl restart podman-home-assistant`) so the new
+components load — activation only copies them into place.
 
 ## Accessing Home Assistant
 

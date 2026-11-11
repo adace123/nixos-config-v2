@@ -193,7 +193,7 @@
             age
             sops
           ]
-          ++ lib.optionals pkgs.stdenv.isDarwin [
+          ++ lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
             inputs'.darwin.packages.darwin-rebuild
           ];
 

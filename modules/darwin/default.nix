@@ -43,9 +43,12 @@
     stateVersion = 4;
 
     # Keyboard settings
+    # Caps Lock is deliberately left alone: it is Handy's dictation shortcut,
+    # and a hidutil remap to Control is invisible to it (Handy records Left
+    # Control instead). enableKeyMapping stays on so activation writes an empty
+    # UserKeyMapping, which clears the mapping an old remap left behind.
     keyboard = {
       enableKeyMapping = true;
-      remapCapsLockToControl = true;
     };
 
     defaults = {

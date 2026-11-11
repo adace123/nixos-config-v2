@@ -1,0 +1,11 @@
+Tailscale mark (tailscale.png)
+================================
+
+Rendered white-on-transparent from the Tailscale icon in Simple Icons:
+https://github.com/simple-icons/simple-icons/blob/develop/icons/tailscale.svg
+
+Simple Icons is released under CC0 1.0 Universal:
+https://creativecommons.org/publicdomain/zero/1.0/
+
+The Tailscale name and mark are trademarks of Tailscale Inc. They are used
+here only to identify the Tailscale login profile this bar widget switches.

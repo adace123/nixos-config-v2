@@ -1,0 +1,18 @@
+# Per-widget OmniShell settings, merged into [profiles.<profile>.widgets] by
+# deploy-shell.nu. Each table only carries the keys it changes.
+#
+# - active-window: icon only, so the centre of the bar is not owned by an app
+#   name; the window picker still shows titles.
+# - battery-details: the percentage inside the cell instead of beside it, which
+#   is narrower in the trailing lane.
+# - workspaces: a background behind occupied workspaces, so the five pills say
+#   which workspaces have windows without clicking.
+
+[active-window]
+display = "icon_only"
+
+[battery-details]
+percent = "inside"
+
+[workspaces]
+occupiedBackground = true
