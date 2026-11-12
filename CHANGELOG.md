@@ -189,6 +189,7 @@ commit kinds that are exempt, live in
 - fix(omp): harden GOAT model routing fallback chains and isolate contributor endpoint
 - fix(beszel): initialise the hub's restic repository on first backup
 - fix(dathomir): link Collie's .env through a nixos-owned .config and run the prebuilt omp
+- fix(infra): point tofu-env.sh at the admin age key so local plans decrypt secrets/oci.yaml
 
 ## [2026.10.07.3] - 2026-10-07
 

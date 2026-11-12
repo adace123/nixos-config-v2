@@ -67,6 +67,13 @@ All commands are run from the repo root with `just -f infra/justfile <recipe>`
 These map to `TF_VAR_*` variables consumed by `variables.tf`. Nothing secret is
 committed; only `terraform.tfvars.example` (non-secret) is tracked.
 
+`secrets/oci.yaml` is encrypted to the **admin** editing key and the CI key only
+(no host key — see `.sops.yaml`). `tofu-env.sh` therefore defaults
+`SOPS_AGE_KEY_FILE` to `~/.config/sops/admin-keys.txt` when that file exists and
+the variable is unset; without it sops falls back to
+`~/.config/sops/age/keys.txt`, which holds this machine's *host* key, and every
+local run dies with `identity did not match any of the recipients`.
+
 ## Local develop loop
 
 ```bash

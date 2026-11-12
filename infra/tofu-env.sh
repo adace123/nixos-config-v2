@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# secrets/oci.yaml is encrypted to the admin editing key and the CI key only —
+# never to a host key (see .sops.yaml). sops' default lookup is
+# ~/.config/sops/age/keys.txt, which holds *this machine's* host key, so local
+# tofu runs fail to decrypt with "identity did not match any of the recipients"
+# unless the admin key is named explicitly. CI sets SOPS_AGE_KEY inline and has
+# no admin file, so its environment is left untouched.
+if [ -z "${SOPS_AGE_KEY_FILE:-}" ] && [ -f "${HOME}/.config/sops/admin-keys.txt" ]; then
+	export SOPS_AGE_KEY_FILE="${HOME}/.config/sops/admin-keys.txt"
+fi
+
 # OpenTofu stores the object source timestamp in UTC. Keep local source
 # timestamps stable across plan/apply runs and machines.
 export TZ=UTC
