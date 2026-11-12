@@ -3,7 +3,9 @@
   "mcpServers": {
     "nixos": {
       "command": "uvx",
-      "args": ["mcp-nixos"]
+      "args": [
+        "mcp-nixos==3.1.0"
+      ]
     }
   }
 }

@@ -91,7 +91,6 @@ in
           "Bash(pwd)"
           "Bash(which *)"
           "Bash(command -v *)"
-          "Bash(printenv *)"
           "Bash(readlink *)"
           "Bash(herdr *)"
           "Read(*)"
@@ -101,6 +100,18 @@ in
           "WebFetch(domain:npmjs.com)"
           "mcp__context7__get-library-docs"
           "mcp__context7__resolve-library-id"
+        ];
+        # Never readable, even in auto mode: the age identities (endor's own
+        # and the admin key, which decrypts every host's secrets and the CI
+        # secrets) and the API keys rendered at activation. `Read(*)` above
+        # would otherwise cover them, and an injected instruction only needs one
+        # read to exfiltrate everything. Run env dumps through `ask`, not allow.
+        deny = [
+          "Read(~/.config/sops/**)"
+          "Read(~/.hermes/.env)"
+          "Read(~/.config/pi/web-search.json)"
+          "Bash(cat */.config/sops/*)"
+          "Bash(cat */.hermes/.env)"
         ];
         # Destructive forms the broad `git branch *` allow would otherwise cover.
         ask = [

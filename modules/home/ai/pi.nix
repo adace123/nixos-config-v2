@@ -2,7 +2,6 @@
   pkgs,
   inputs,
   config,
-  lib,
   ...
 }:
 
@@ -33,22 +32,25 @@ in
       quietStartup = true;
       packages = [
         "git:github.com/otahontas/pi-coding-agent-catppuccin"
-        "npm:pi-tool-display"
-        "npm:pi-powerline-footer"
-        "npm:pi-subagents"
+        "npm:pi-tool-display@0.5.0"
+        "npm:pi-powerline-footer@0.22.0"
+        "npm:pi-subagents@0.88.0"
         "git:github.com/nicobailon/pi-web-access"
-        "npm:context-mode"
-        "npm:@juicesharp/rpiv-todo"
-        "npm:@juicesharp/rpiv-ask-user-question"
-        "npm:@juicesharp/rpiv-advisor"
-        "npm:@ff-labs/pi-fff"
+        "npm:context-mode@2.1.8"
+        "npm:@juicesharp/rpiv-todo@2.15.0"
+        "npm:@juicesharp/rpiv-ask-user-question@2.15.0"
+        "npm:@juicesharp/rpiv-advisor@2.15.0"
+        "npm:@ff-labs/pi-fff@0.11.0"
         # Background shell jobs (`bg_run`), inspect-only child Pi agents
         # (`bg_delegate`), and the multi-model Fusion workflows — the pieces
         # pi-subagents does not cover (it orchestrates children, not shell
-        # jobs). Unpinned npm like the rest of the list, so `pi-update` moves
-        # it. Note the package also applies Claude Code OAuth attribution and
+        # jobs). Versions are pinned like the rest of the npm list; nothing
+        # updates them at activation. The two `git:` sources cannot be pinned by
+        # rev (pi clones the URL, there is no ref syntax), so they follow their
+        # default branch and only move on an explicit `pi-update`.
+        # Note the package also applies Claude Code OAuth attribution and
         # exact-match prompt sanitization to Anthropic routes by default.
-        "npm:pi-background-tasks"
+        "npm:pi-background-tasks@2.6.10"
       ];
     };
   };
@@ -142,28 +144,12 @@ in
   }
   // commonSkills.piFiles;
 
-  # Keep the npm/git extensions current at every switch. `pi` runs npm itself
-  # (the package wrapper puts nodejs on its PATH), and `entryAfter writeBoundary`
-  # guarantees the prefer-offline=false `.npmrc` above is on disk first.
-  # NPM_CONFIG_PREFER_OFFLINE=false repeats what that file pins, matching the
-  # `pi-update` alias — env config outranks `.npmrc`.
-  #
-  # git is prepended because upstream's wrapper (unlike the home-manager
-  # `extraPackages` wrapper) does not carry it, and the update shells out to
-  # `git` for the git-sourced extensions (pi-web-access, catppuccin); the
-  # activation PATH alone is not guaranteed to have it.
-  #
-  # Deliberately non-fatal and time-bounded: activation runs under `set -eu`,
-  # so an unguarded failure (offline, flaky registry) would abort the whole
-  # switch. `timeout` is invoked by absolute path because nothing on the
-  # activation PATH stops an unreachable registry hanging npm for minutes.
-  home.activation.piExtensionUpdate = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    export NPM_CONFIG_PREFER_OFFLINE=false
-    export PATH=${lib.makeBinPath [ pkgs.git ]}:$PATH
-    if ! $DRY_RUN_CMD ${pkgs.coreutils}/bin/timeout 300 ${piPackage}/bin/pi update --extensions; then
-      echo "warning: pi extension update failed (offline?); run pi-update manually" >&2
-    fi
-  '';
+  # Extension updates are deliberately NOT run at activation. They used to be
+  # (`pi update --extensions` on every switch), which meant an unattended
+  # `home-manager switch` installed whatever the registry or a git default
+  # branch served at that moment, as code that then runs inside agent sessions.
+  # npm sources are version-pinned above; the git sources cannot be, so they
+  # move only when a human runs `pi-update`.
 
   sops.secrets = {
     tinyfish-api-key = { };

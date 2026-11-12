@@ -195,6 +195,7 @@ commit kinds that are exempt, live in
 - fix(omp): make the headless repair read-only so a build log cannot rewrite the config
 - fix(nixos): stop firewalling Home Assistant 8123 open on every interface
 - fix(security): shut the installer, Caddy and container exposure paths
+- fix(security): pin the agent and bootstrap supply chain
 
 ## [2026.10.07.3] - 2026-10-07
 

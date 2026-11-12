@@ -132,7 +132,19 @@ build:
 install-brew:
     #!/bin/bash
     set -euo pipefail
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    # Pinned to a reviewed upstream commit and hash-verified before exec: the
+    # installer runs sudo steps, and `HEAD` is whatever upstream serves at fetch
+    # time. Bump both values together (keep them in sync with bootstrap.sh).
+    BREW_INSTALL_REV=7986efac25016e41eed7e471666140c06f9d97cf
+    BREW_INSTALL_SHA256=5f333bbe53bc490e51e7ccb1df8779b3dd6ee73a1a7379efda216edb08ccb148
+    BREW_TMP="$(mktemp -t brew-install.XXXXXX)"
+    trap 'rm -f "$BREW_TMP"' EXIT
+    curl -fsSL "https://raw.githubusercontent.com/Homebrew/install/${BREW_INSTALL_REV}/install.sh" -o "$BREW_TMP"
+    if [ "$(shasum -a 256 "$BREW_TMP" | awk '{print $1}')" != "$BREW_INSTALL_SHA256" ]; then
+        echo "Homebrew installer checksum mismatch — refusing to run it" >&2
+        exit 1
+    fi
+    /bin/bash "$BREW_TMP"
 
     # Add Homebrew to PATH for Apple Silicon Macs (idempotent — don't append twice)
     if [[ $(uname -m) == "arm64" ]]; then
@@ -342,10 +354,22 @@ nixos-init TARGET="" CONFIG=NINSTALL:
     fi
     echo "Installing NixOS on $TARGET via nixos-anywhere..."
     echo "(kexec unsupported on Raspberry Pi — skipping)"
-    SSHPASS="installer" nix run github:nix-community/nixos-anywhere -- \
+    # The installer image is key-only (no root password): ssh reaches root with
+    # one of the keys in hosts/rpi-keys.nix, taken from the SSH agent unless
+    # NIXOS_INIT_KEY names an identity file.
+    #
+    # Pinned rev: this tool repartitions the target's disks as root, so it runs
+    # an audited commit rather than whatever the default branch is today. Bump
+    # deliberately. Update the SHA when bumping.
+    NIXOS_ANYWHERE_REV=58132e1d1f813b845382a2aeca4203b18d2ac807
+    SSH_ARGS=()
+    if [ -n "${NIXOS_INIT_KEY:-}" ]; then
+        SSH_ARGS+=(--ssh-option "IdentityFile=$NIXOS_INIT_KEY")
+    fi
+    nix run "github:nix-community/nixos-anywhere/$NIXOS_ANYWHERE_REV" -- \
       "${EXTRA_FILES_ARGS[@]}" \
+      ${SSH_ARGS[@]+"${SSH_ARGS[@]}"} \
       --flake .#{{ CONFIG }} \
-      --env-password \
       --phases "$PHASES" \
       --build-on remote \
       root@$TARGET
@@ -361,7 +385,7 @@ nixos-init TARGET="" CONFIG=NINSTALL:
 
     echo ""
     echo "Shutting down $TARGET..."
-    sshpass -p installer ssh -o StrictHostKeyChecking=no "root@$TARGET" "shutdown now" || true
+    ssh -o StrictHostKeyChecking=accept-new "root@$TARGET" "shutdown now" || true
     echo "Done. Remove the SD card, then power on the Pi to boot from SSD."
 
 # Convert the dathomir OCI instance from its Oracle platform image (Ubuntu) to

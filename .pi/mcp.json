@@ -3,7 +3,7 @@
     "nixos": {
       "command": "uvx",
       "args": [
-        "mcp-nixos"
+        "mcp-nixos==3.1.0"
       ],
       "description": "NixOS, nixpkgs and Home Manager options and packages"
     }

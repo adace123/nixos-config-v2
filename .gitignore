@@ -51,6 +51,11 @@ secrets/*.decrypted
 *.secret
 *.key
 *.pem
+# dotenv files: `.envrc` loads `.env` into every process started in this repo
+# (1Password token, HA token, Kasa credentials), so it must never be staged —
+# do not rely on a machine-local global ignore for this.
+.env
+.env.*
 
 # Local development
 .direnv/

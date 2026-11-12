@@ -270,9 +270,10 @@ Pi is a Rust-based conversational coding agent.
   Code and Herdr). The `programs.pi-coding-agent` module comes from
   home-manager.
 - Ships many Pi packages/extensions (subagents, context-mode, todo, web-access,
-  powerline footer, fff, background-tasks, etc.). Where a version is pinned, the
-  reason is a comment in `pi.nix`; git and npm sources are mixed on purpose
-  (`pi-web-access` follows the repo, the npm extensions follow `latest`).
+  powerline footer, fff, background-tasks, etc.). Every `npm:` source is
+  **version-pinned** in `pi.nix`; the two `git:` sources cannot be pinned by rev
+  (pi clones the URL and has no ref syntax), so they follow their default branch
+  and only move on an explicit `pi-update`. Nothing updates at activation.
 - **`pi-background-tasks`** adds background shell jobs (`bg_run` / `/bg`), an
   inspect-only child Pi agent (`bg_delegate`), the fixed-purpose Fusion
   workflows, and a footer dock (default **Shift↓**). It also applies Claude Code
@@ -288,14 +289,13 @@ Pi is a Rust-based conversational coding agent.
   packuments separately (`vary: accept`) — so a stale full copy can advertise a
   `latest` version it does not contain and npm aborts with
   `ETARGET No matching version found for <pkg>@<version>`.
-- **Extension updates** — `home.activation.piExtensionUpdate` runs `pi update
-  --extensions` on every activation (non-fatal and capped at 5 minutes, so an
-  offline or flaky switch still completes with a warning). `pi-update` is the
-  manual alias for the same command, setting `NPM_CONFIG_PREFER_OFFLINE=false`;
-  env config outranks `.npmrc`, so it stays authoritative even where a stale
-  cache would otherwise win. To diagnose a recurrence, `just npm-cache-check`
-  flags the precondition offline, and `npm cache verify` clears it (details in
-  `scripts/README.md`).
+- **Extension updates** — `pi update --extensions` is **manual** (`pi-update`
+  sets `NPM_CONFIG_PREFER_OFFLINE=false`). It used to run at every activation,
+  which meant an unattended switch installed whatever the registry or a git
+  default branch served at that moment, as code that runs inside agent sessions;
+  that hook is gone and the npm sources are pinned. To diagnose a stale-cache
+  recurrence, `just npm-cache-check` flags the precondition offline, and
+  `npm cache verify` clears it (details in `scripts/README.md`).
 - **`~/.pi/agent/mcp.json`** — `context7` + `grep-mcp`, written by `home.file`
   and read by Pi's **built-in** MCP client. Project-scoped servers live in the
   tracked `.pi/mcp.json` at the repo root (`nixos` via `uvx mcp-nixos`), so that

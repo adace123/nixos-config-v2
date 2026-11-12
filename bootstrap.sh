@@ -8,7 +8,19 @@ echo ""
 # Check if Homebrew is installed
 if ! command -v brew &>/dev/null; then
 	echo "📦 Homebrew is not installed. Installing Homebrew..."
-	/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+	# Pinned to a reviewed upstream commit and hash-verified before exec: the
+	# installer runs sudo steps, and `HEAD` is whatever upstream serves at fetch
+	# time. Bump both values together.
+	BREW_INSTALL_REV=7986efac25016e41eed7e471666140c06f9d97cf
+	BREW_INSTALL_SHA256=5f333bbe53bc490e51e7ccb1df8779b3dd6ee73a1a7379efda216edb08ccb148
+	BREW_TMP="$(mktemp -t brew-install.XXXXXX)"
+	trap 'rm -f "$BREW_TMP"' EXIT
+	curl -fsSL "https://raw.githubusercontent.com/Homebrew/install/${BREW_INSTALL_REV}/install.sh" -o "$BREW_TMP"
+	if [ "$(shasum -a 256 "$BREW_TMP" | awk '{print $1}')" != "$BREW_INSTALL_SHA256" ]; then
+		echo "✗ Homebrew installer checksum mismatch — refusing to run it" >&2
+		exit 1
+	fi
+	/bin/bash "$BREW_TMP"
 
 	# Add Homebrew to PATH for Apple Silicon Macs
 	if [[ $(uname -m) == "arm64" ]]; then

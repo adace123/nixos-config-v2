@@ -196,10 +196,13 @@ next run's summary diffs against what's actually live. Rollback mode runs
 `just nixos-rollback` (previous generation, human-initiated).
 
 Required one-time setup outside the repo: `tag:ci` in the OAuth client's tag
-list, `TS_OAUTH_CLIENT_ID`/`TS_OAUTH_SECRET` (+ `OPENCODE_API_KEY` for the
+list, and `TS_OAUTH_CLIENT_ID`/`TS_OAUTH_SECRET` (+ `OPENCODE_API_KEY` for the
 summarizer, `NTFY_DEPLOY_TOPIC` separate from the Gatus topic) as
-`nixos-production` environment secrets, and a `nixos-production`
-environment with required reviewers. The policy change itself lands via the
+`nixos-production` environment secrets. The `nixos-production` and
+`oci-production` environments are configured with a required reviewer and
+`can_admins_bypass = false` (branch policy: protected branches only), so a
+dispatch cannot reach a host without an explicit approval. The policy change
+itself lands via the
 usual `tofu plan/apply` + inventory-check from the laptop.
 
 ---
@@ -310,7 +313,7 @@ and verifies the full image against the device after flashing.
 `dependabot.yml` enables weekly dependency updates for **GitHub Actions** and
 **Nix flake inputs** (grouped together, labeled `dependencies`). Merged Dependabot
 PRs to `main` may trigger the OCI deploy (if `flake.lock` changed) and are
-auto-merged; the `oci-production` environment can require reviewers before apply.
+auto-merged; the `oci-production` environment requires a reviewer before apply.
 
 ## Updating Flake Inputs
 
