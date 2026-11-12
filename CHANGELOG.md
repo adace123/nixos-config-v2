@@ -192,6 +192,7 @@ commit kinds that are exempt, live in
 - fix(infra): point tofu-env.sh at the admin age key so local plans decrypt secrets/oci.yaml
 - fix(infra): pin dathomir's boot image and break-glass metadata so plans stop proposing a replacement
 - fix(darwin): only auto-apply a lockfile-only diff, and never let the agent re-switch a repair
+- fix(omp): make the headless repair read-only so a build log cannot rewrite the config
 
 ## [2026.10.07.3] - 2026-10-07
 

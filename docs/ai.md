@@ -311,11 +311,12 @@ Pi is a Rust-based conversational coding agent.
   this machine sets `XDG_CONFIG_HOME`, the runtime reads `~/.config/pi/`, not
   `~/.pi/`.
 - **Unattended repair** — `scripts/omp-fix.sh` hands a failed build or activation
-  log to `omp` so it can diagnose and edit the config: interactive TUI with a
-  terminal (`just switch`, so the repair streams live), `omp -p
-  --auto-approve` headless (daily auto-update agent). Both are normal omp
-  sessions, saved under `~/.omp/agent/sessions` and reopenable with `omp -r`.
-  The repair is left uncommitted for review, and `OMP_FIX=0` disables it. See
+  log to `omp`: interactive TUI with a terminal (`just switch`, so the repair
+  streams live), and a **read-only** diagnosis headless (`--diagnose`, the daily
+  auto-update agent) that gets `read,glob,grep,find` only — no edits, no
+  commands, no fetching. Both are normal omp sessions, saved under
+  `~/.omp/agent/sessions` and reopenable with `omp -r`. The interactive repair
+  is left uncommitted for review, and `OMP_FIX=0` disables it. See
   [docs/deployment.md](deployment.md#when-a-switch-fails).
 
 ### OpenCode session headers (`pi-extensions/`)
