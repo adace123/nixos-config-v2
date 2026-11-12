@@ -232,7 +232,14 @@ in
     ];
   };
 
-  networking.firewall.allowedTCPPorts = [ 8123 ];
+  # HA listens on 0.0.0.0 because the container shares the host network
+  # namespace (device discovery needs it), but nothing outside the tailnet may
+  # reach it: Caddy proxies 127.0.0.1:8123, trustedInterfaces covers tailscale0,
+  # and LAN clients use the Caddy vhost. Opening 8123 here exposed the hub in
+  # cleartext on every interface — including global IPv6 when the ISP delegates
+  # a prefix — which contradicts the tailnet-only DNS design. See
+  # docs/home-assistant.md#accessing-home-assistant.
+  #
   # TP-Link Kasa/Tapo discovery (python-kasa): broadcasts go out on UDP 9999/20002,
   # but devices reply to the source's ephemeral port (modern python-kasa binds a
   # random port, and broadcast replies aren't matched by conntrack ESTABLISHED).

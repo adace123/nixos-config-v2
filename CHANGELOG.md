@@ -193,6 +193,7 @@ commit kinds that are exempt, live in
 - fix(infra): pin dathomir's boot image and break-glass metadata so plans stop proposing a replacement
 - fix(darwin): only auto-apply a lockfile-only diff, and never let the agent re-switch a repair
 - fix(omp): make the headless repair read-only so a build log cannot rewrite the config
+- fix(nixos): stop firewalling Home Assistant 8123 open on every interface
 
 ## [2026.10.07.3] - 2026-10-07
 

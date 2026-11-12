@@ -20,11 +20,14 @@ modules/nixos/home-assistant/
 
   Auto-starts, mounts `/var/lib/hass`, uses host networking for device discovery.
 
-- **Firewall** — opens TCP 8123, UDP 9999 and 38899/38900, plus the ephemeral
-  range (32768–60999). 9999 + ephemeral is for TP-Link Kasa/Tapo discovery:
-  modern python-kasa binds a random source port and devices reply there, which
-  conntrack does not treat as ESTABLISHED. 38899/38900 are WiZ (pywizlight binds
-  both fixed ports — see [WiZ lights](#wiz-lights)).
+- **Firewall** — no inbound TCP for HA itself: the container binds 8123 on every
+  interface (host networking), but only loopback and `tailscale0` (a trusted
+  interface) reach it, and Caddy proxies `127.0.0.1:8123`. UDP 9999 and
+  38899/38900, plus the ephemeral range (32768–60999), are open on the LAN.
+  9999 + ephemeral is for TP-Link Kasa/Tapo discovery: modern python-kasa binds
+  a random source port and devices reply there, which conntrack does not treat
+  as ESTABLISHED. 38899/38900 are WiZ (pywizlight binds both fixed ports — see
+  [WiZ lights](#wiz-lights)).
 - **ring-mqtt** (`ring-mqtt.nix`, coruscant only) — Ring → MQTT bridge
   (podman, `docker.io/tsightler/ring-mqtt:5.9.3`) plus authed doorbell RTSP at
   `127.0.0.1:8554/<ring-id>_live`, consumed by HA's embedded go2rtc for
@@ -322,8 +325,12 @@ components load — activation only copies them into place.
 
 | Path | URL |
 |------|-----|
-| Local network | `http://coruscant.local:8123` |
-| HTTPS (Tailscale or public) | `https://<home-assistant-external-domain>` |
+| HTTPS (tailnet) | `https://<home-assistant-external-domain>` — Caddy → `127.0.0.1:8123` |
+| On the host | `http://127.0.0.1:8123` |
+| Local network | Not exposed: 8123 is not firewalled open. Join the tailnet, or use a LAN client that can route to the `100.x` name. |
+
+The external name resolves to a Tailscale address, and the host firewall trusts
+only `tailscale0`, so HA never answers in cleartext on the LAN or on IPv6.
 
 ## Zigbee2MQTT
 

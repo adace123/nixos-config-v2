@@ -184,7 +184,7 @@ uniq -c | sort -rn | head` narrows down before the cap hides the evidence.
 
 | Service | Port | NixOS module |
 |---------|------|--------------|
-| Home Assistant | 8123 | `home-assistant/` (podman) |
+| Home Assistant | 8123 (loopback + tailnet only) | `home-assistant/` (podman) |
 | Mosquitto (MQTT) | 1883 | `home-assistant/` |
 | Zigbee2MQTT | 8091 | `home-assistant/` |
 | ring-mqtt (Ring → MQTT + RTSP) | 8554/55123 (loopback only) | `home-assistant/ring-mqtt.nix` (podman, first boot needs auth UI fwd) |

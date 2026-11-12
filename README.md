@@ -17,7 +17,7 @@ flake.nix
 │           └── AI tools (Claude, Hermes, Pi)
 └── NixOS   (aarch64-linux)
     ├── coruscant      — Raspberry Pi 4 home server
-    │   ├── Home Assistant  (podman container, port 8123)
+    │   ├── Home Assistant  (podman container, port 8123, tailnet-only)
     │   ├── Mosquitto       (MQTT broker, port 1883)
     │   ├── Zigbee2MQTT     (Zigbee bridge, port 8091)
     │   ├── ESPHome         (ESP device manager, port 6052)
