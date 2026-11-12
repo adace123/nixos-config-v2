@@ -138,6 +138,22 @@ resource "oci_core_instance" "nixos" {
   lifecycle {
     prevent_destroy = true
 
+    # Both of these are create-time-only facts, and both have drifted from what
+    # this configuration says:
+    # - metadata["ssh_authorized_keys"] holds a break-glass key that was set in
+    #   the console; OCI cannot add or change keys on a running instance at all,
+    #   and after the in-place conversion the real access comes from
+    #   hosts/dathomir/default.nix, not this metadata.
+    # - source_details: Oracle publishes new builds of the same platform release
+    #   constantly, and the `oci_core_images` data source sorts by creation time,
+    #   so its newest id stops describing what this instance actually booted.
+    # Without these, every `plan` proposes a replacement (metadata is ForceNew)
+    # and then dies on `prevent_destroy`.
+    ignore_changes = [
+      metadata["ssh_authorized_keys"],
+      source_details,
+    ]
+
     precondition {
       condition     = var.instance_shape == "VM.Standard.A1.Flex" && var.instance_ocpus <= 2 && var.instance_memory_gbs <= 12
       error_message = "Refusing to create non-Always-Free compute: use VM.Standard.A1.Flex with <= 2 OCPUs and <= 12 GB RAM."

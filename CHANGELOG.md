@@ -190,6 +190,7 @@ commit kinds that are exempt, live in
 - fix(beszel): initialise the hub's restic repository on first backup
 - fix(dathomir): link Collie's .env through a nixos-owned .config and run the prebuilt omp
 - fix(infra): point tofu-env.sh at the admin age key so local plans decrypt secrets/oci.yaml
+- fix(infra): pin dathomir's boot image and break-glass metadata so plans stop proposing a replacement
 
 ## [2026.10.07.3] - 2026-10-07
 

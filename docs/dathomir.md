@@ -696,12 +696,19 @@ it was converted in place — so destroying it throws the conversion away. Delet
 the `lifecycle` block first when a replacement is genuinely what you want, then
 re-run `just dathomir-convert` afterwards.
 
-Note that plans currently *fail* with `Resource instance cannot be destroyed`,
-because the instance metadata still carries the throwaway key used during the
-first provisioning (OCI refuses to change `ssh_authorized_keys` on a live
-instance, so the metadata cannot be reconciled in place). Accepting one
-replacement resolves it for good — and is the moment to widen `ssh_public_key`
-first if you want more than one key usable during the pre-conversion window.
+The same block pins two create-time attributes, so ordinary plans stay clean
+instead of proposing that replacement:
+
+- `metadata["ssh_authorized_keys"]` — the live metadata still carries the
+  throwaway break-glass key used during the first provisioning, and OCI refuses
+  to change `ssh_authorized_keys` on a running instance, so it can only ever be
+  set at creation. Post-conversion access comes from `hosts/dathomir/default.nix`.
+- `source_details` — Oracle publishes new builds of the same platform release,
+  and the `oci_core_images` data source sorts by creation time, so its newest id
+  stops describing the image this instance booted.
+
+A deliberate replacement (lifecycle block removed) reseeds both from the current
+config and data source.
 
 ## Related docs
 
