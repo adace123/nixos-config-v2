@@ -197,6 +197,7 @@ commit kinds that are exempt, live in
 - fix(security): shut the installer, Caddy and container exposure paths
 - fix(security): pin the agent and bootstrap supply chain
 - fix(ci): require an approval gate on both deploy environments
+- fix(secrets): ignore .env, which direnv exports into every process here
 
 ## [2026.10.07.3] - 2026-10-07
 
