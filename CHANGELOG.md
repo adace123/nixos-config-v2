@@ -196,6 +196,7 @@ commit kinds that are exempt, live in
 - fix(nixos): stop firewalling Home Assistant 8123 open on every interface
 - fix(security): shut the installer, Caddy and container exposure paths
 - fix(security): pin the agent and bootstrap supply chain
+- fix(ci): require an approval gate on both deploy environments
 
 ## [2026.10.07.3] - 2026-10-07
 
