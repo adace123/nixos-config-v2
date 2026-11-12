@@ -356,6 +356,78 @@ does not rename the live one: the suffix was fixed when this node registered whi
 this host) and MagicDNS follows — the host's own hostname is already `dathomir`, so
 nothing on the box needs changing.
 
+## Tailscale exit node (cloud egress)
+
+dathomir offers itself as an exit node: selecting it routes a client's internet
+traffic through OCI instead of the local network. It exists because the home
+uplink is a single point of failure — coruscant as an exit node dies with the
+home connection, while dathomir keeps working from anywhere. From endor the path
+is direct (OCI's NAT gateway gives the box a public SNAT address that Tailscale
+traverses; no `assign_public_ip`) at roughly 32 ms, in `us-sanjose-1`.
+
+The configuration is three options in the host's inline module
+(`flake-parts/nixos.nix`):
+
+```nix
+useRoutingFeatures = "server";                # IPv4/IPv6 forwarding for NAT
+extraSetFlags = [ "--advertise-exit-node" ];  # `tailscale set`, every start
+```
+
+`extraSetFlags`, not `extraUpFlags`: nixpkgs only runs `tailscale up` when the
+node has no identity, and `/var/lib/tailscale` survives a switch, so an
+`extraUpFlags` advertisement never reaches a live node. `modules/nixos/common.nix`
+already uses `extraSetFlags`, so coruscant and threepio advertise as well — the
+Pi hosts were simply never *approved*, which is why `tailscale exit-node list`
+used to come back empty.
+
+The setter is a oneshot (`tailscaled-set`) wired `WantedBy=tailscaled.service`,
+so the first switch that adds the flag does **not** start it on an already
+running daemon — run `sudo systemctl start tailscaled-set` once (a daemon
+restart or reboot would too). It only has to happen once: the advertisement
+lives in Tailscale's prefs afterwards.
+
+Approval is separate from advertising. `infra/tailscale/tailscale.tf` has an
+`autoApprovers.exitNode` entry for `tag:server-ha` and `tag:server-infra`, so the
+console click is not needed; apply the policy with `just -f infra/justfile tf
+apply` before expecting the node to show up. `tailscale exit-node list` is the
+only reliable check, and it hides two cases: advertising without approval, and
+approval without advertising. Auto-approval fires when a node advertises, so a
+node that was already advertising before the policy changed needs its
+advertisement toggled once (`tailscale set --advertise-exit-node=false`, then
+`--advertise-exit-node`) instead of a console click — that is how coruscant
+became selectable.
+
+**Key expiry is disabled on both servers** (`tailscale status --json` reports
+`KeyExpiry: null` for each): exit-node routes are fail-closed, so a client keeps
+sending traffic to a node whose key lapsed and loses internet rather than
+falling back.
+
+Use it:
+
+```bash
+sudo tailscale set --exit-node=dathomir   # route all traffic through OCI
+sudo tailscale set --exit-node=           # back to the local network
+```
+
+Caveats worth knowing before defaulting to it:
+
+- **No IPv6.** dathomir has no global IPv6, so IPv6 destinations do not work
+  while it is the exit node. Adding an IPv6 /64 to the OCI VNIC is the fix and is
+  not done yet.
+- **No failover.** Tailscale does not switch exit nodes automatically; if
+  dathomir is down while selected, the client has no internet until it is
+  deselected. Leave the default unset and switch by hand.
+- **Egress is metered.** Everything a client pulls while exiting leaves OCI, so
+  it counts against the Always Free 10 TB/month. Fine for remote work; not for
+  seeding or all-day 4K.
+- **It is a datacenter address.** Streaming services and some geo-gated sites
+  treat OCI ranges differently from a home connection, and every byte is visible
+  to the provider in the same way an ISP sees it.
+- **Blast radius.** The `nixos` user is `wheel` with passwordless sudo on this
+  host and members may SSH to it (see the policy notes in
+  `infra/tailscale/NOTES.md`), so an exit node here makes that path worth
+  attacking, not just a build host.
+
 ## Beszel hub (tailnet-only, with a real TLS name)
 
 dathomir runs the beszel **hub**, as the Pi hosts do, published by Caddy at

@@ -23,9 +23,13 @@ resource "tailscale_acl" "policy" {
 	//   network paths. Deploys ride this grant either way.
 	// - Pocket ID via Caddy :443 only; raw :1411 and hub :8090 have NO grant —
 	//   absence is the closure. Cleanup: bind Pocket ID to 127.0.0.1.
-	// - Exit-node grant names ANY exit node; "coruscant is the only one" is an
-	//   operational invariant. Servers are tagged now, so it truly covers only
-	//   personal devices.
+	// - Exit-node grant names ANY approved exit node, and the autoApprovers
+	//   below approve every server we tag that way *when it advertises* (a node
+	//   already advertising before the policy changed must re-advertise once).
+	//   Two offers are intended: coruscant (home egress, dies with the home
+	//   uplink) and dathomir (OCI egress, independent of it). "Approved" is not
+	//   the same as "advertising" — `tailscale exit-node list` hides both
+	//   mismatches and is the only real check.
 	"hosts": {
 		"endor": "100.69.133.88",
 		"s23": "100.110.89.98",
@@ -43,6 +47,17 @@ resource "tailscale_acl" "policy" {
 		"tag:server-ha": ["autogroup:admin"],
 		"tag:server-infra": ["autogroup:admin"],
 		"tag:agent-muse": ["autogroup:admin"],
+	},
+	// Exit-node approval is otherwise a console click per device, and it is
+	// silently absent after a VPS is replaced (a fresh registration is a new
+	// device). Auto-approving the server tags keeps `tailscale up
+	// --advertise-exit-node` sufficient on its own; the tags are owner-only, and
+	// the internet grant below is member-scoped, so a server can only *be* an
+	// exit node — it still has no way to *use* one. (A policy `test` cannot pin
+	// this: test accept/deny entries parse as `host:port`, so
+	// `autogroup:internet` there is rejected as an unknown host.)
+	"autoApprovers": {
+		"exitNode": ["tag:server-ha", "tag:server-infra"],
 	},
 	"grants": [
 		// Personal devices -> servers: HTTPS UI + Pocket ID auth (via Caddy).

@@ -85,6 +85,7 @@ commit kinds that are exempt, live in
 - feat(home-assistant): open the WiZ UDP ports so bulbs are discovered and push state updates
 - feat(dathomir): install git so agents can work on a checkout
 - feat(omp): add GOAT-tuned model roles for task, plan, design, commit, tiny and vision
+- feat(dathomir): offer a Tailscale exit node with cloud egress independent of the home uplink
 
 ### Changed
 

@@ -185,6 +185,19 @@ in
                 # the preserved /var/lib/tailscale node identity is unavailable.
                 authKeyFile = "/etc/nixos/tailscale-authkey";
                 extraUpFlags = [ "--ssh" ];
+                # Offer this box as an exit node: an OCI egress path that does not
+                # depend on the home uplink, reachable directly from endor. The
+                # flag has to live in extraSetFlags, not extraUpFlags — nixpkgs
+                # only runs `tailscale up` (the extraUpFlags path) when the node
+                # has no identity, and /var/lib/tailscale is preserved across
+                # switches, so an extraUpFlags advertisement never reaches a live
+                # node. `server` turns on IPv4/IPv6 forwarding, which tailscaled
+                # needs to NAT client traffic out to the internet.
+                #
+                # Approval is separate: infra/tailscale/tailscale.tf auto-approves
+                # exit nodes on this host's tag. See docs/dathomir.md.
+                useRoutingFeatures = "server";
+                extraSetFlags = [ "--advertise-exit-node" ];
               };
 
               # The tailnet is the only way in, so trust it. `services.tailscale.
