@@ -36,10 +36,13 @@ in
         type = lib.types.bool;
         default = true;
         description = ''
-          Build and activate new commits automatically. The build always runs
-          when `main` moves; activation then needs non-interactive root, which a
-          launchd agent only has if sudo is configured for it. Without that the
-          build is still reported and the switch is left to `just switch`.
+          Build and activate *lockfile-only* updates automatically. A push that
+          touches anything besides `flake.lock` is reported and left for a human
+          (`just switch`): modules, activation scripts, the justfile and CI all
+          run code, so only a reviewed commit may be applied. Activation also
+          needs non-interactive root, which a launchd agent only has if sudo is
+          configured for it; without that the build is still reported and the
+          switch is left to `just switch`.
         '';
       };
 
@@ -47,9 +50,11 @@ in
         type = lib.types.bool;
         default = true;
         description = ''
-          Hand a failed build or activation to `omp` (see `scripts/omp-fix.sh`),
-          then rebuild and re-switch once. The repair is left uncommitted, which
-          also makes every later run skip this repository until it is reviewed.
+          Hand a failed build or activation to `omp` (see `scripts/omp-fix.sh`)
+          for a **read-only** diagnosis. The agent neither edits the repository
+          nor retries the switch: a build log can carry text from fetched
+          sources, so no unattended run may act on it. `just switch` keeps the
+          interactive, editing repair.
         '';
       };
 
@@ -89,19 +94,26 @@ in
         };
       };
 
-      # Each run: pull, and only if `main` actually moved, build and (if sudo
-      # allows) activate. The build comes before the switch on purpose — a commit
-      # that evaluates but does not build must never reach activation, and the
-      # review happens upstream in CI, not here.
+      # Each run: fetch, and only when `main` moved *and* the diff is
+      # `flake.lock` alone, fast-forward, build, and (if sudo allows) activate.
+      # Anything else is reported and never materialized locally: a commit that
+      # touches modules, activation scripts, the justfile or CI runs code as
+      # this user (and, through sudo, as root), so only a human may apply it.
+      # The build comes before the switch on purpose — a commit that evaluates
+      # but does not build must never reach activation.
       script = ''
         REPO_DIR="${cfg.repoDir}"
         FLAKE="$REPO_DIR#darwinConfigurations.${cfg.darwinConfigName}"
         GIT=${lib.getExe pkgs.git}
-        NH=${lib.getExe pkgs.nh}
+        # Stable, root-owned path so the sudoers rule in docs/deployment.md can
+        # name one exact binary; `nh` is in environment.systemPackages
+        # (modules/darwin/default.nix). The store path changes on every bump.
+        NH=/run/current-system/sw/bin/nh
         NOTIFY=${pkgs.terminal-notifier}/bin/terminal-notifier
         OMP=${ompPackage}/bin/omp
         FIX="$REPO_DIR/scripts/omp-fix.sh"
         BUILD_LOG=/tmp/nix-darwin-build.log
+        FIX_LOG=/tmp/nix-darwin-fix.log
         AUTO_SWITCH=${lib.boolToString cfg.autoSwitch}
         AUTO_FIX=${lib.boolToString cfg.autoFix}
 
@@ -116,17 +128,18 @@ in
           "$NH" darwin build "$FLAKE" >"$BUILD_LOG" 2>&1
         }
 
-        # omp gets one attempt per stage. A second failure is reported instead of
-        # retried: looping on the same commit burns tokens and tells nobody.
-        repair() {
+        # Read-only: `--diagnose` gives omp read/glob/grep/find only and no
+        # `--auto-approve`, so a log carrying instructions from fetched sources
+        # cannot make this run rewrite the config. See scripts/omp-fix.sh.
+        diagnose() {
           [ -x "$FIX" ] || return 1
-          OMP_BIN="$OMP" "$FIX" "$BUILD_LOG" "$1"
+          OMP_BIN="$OMP" "$FIX" "$BUILD_LOG" "$1" --diagnose >"$FIX_LOG" 2>&1
         }
 
         cd "$REPO_DIR" || exit 1
 
-        # Only ever act on main. On a feature branch or a detached HEAD the pull
-        # would either fail (--ff-only) or fold main into someone's work.
+        # Only ever act on main. On a feature branch or a detached HEAD the
+        # merge would either fail (--ff-only) or fold main into someone's work.
         if [ "$("$GIT" rev-parse --abbrev-ref HEAD)" != "main" ]; then
           exit 0
         fi
@@ -134,7 +147,7 @@ in
         # Modified or staged *tracked* files mean someone is working here. Never
         # pull or switch under them: the rebuild would apply a configuration they
         # never reviewed. Untracked files are ignored — they are common, and git
-        # refuses a pull that would overwrite one (which lands in the failure
+        # refuses a merge that would overwrite one (which lands in the failure
         # notification below).
         if [ -n "$("$GIT" status --porcelain --untracked-files=no)" ]; then
           notify "❄️ Nix Config Update Skipped" "Uncommitted changes in $REPO_DIR"
@@ -142,34 +155,50 @@ in
         fi
 
         BEFORE=$("$GIT" rev-parse HEAD)
-        # --ff-only: a diverged local main is a human problem, not something a
-        # timer should paper over with a merge or a rebase.
-        if ! "$GIT" pull --ff-only --quiet origin main; then
-          notify "⚠️ Nix Config Update Failed" "git pull failed in $REPO_DIR (diverged branch?) See /tmp/nix-darwin-update.log"
+        # Fetch before merging so the changed-path set is known before any of it
+        # exists locally. Explicit refspec: `git fetch origin main` updates
+        # FETCH_HEAD, not necessarily refs/remotes/origin/main.
+        if ! "$GIT" fetch --quiet origin '+refs/heads/main:refs/remotes/origin/main'; then
+          notify "⚠️ Nix Config Update Failed" "git fetch failed in $REPO_DIR"
           exit 1
         fi
-        AFTER=$("$GIT" rev-parse HEAD)
+        REMOTE=$("$GIT" rev-parse refs/remotes/origin/main)
 
         # Quiet no-op: the common case is that nothing moved.
-        if [ "$BEFORE" = "$AFTER" ]; then
+        if [ "$BEFORE" = "$REMOTE" ]; then
           exit 0
         fi
 
-        REV=$("$GIT" rev-parse --short HEAD)
+        REV=$("$GIT" rev-parse --short "$REMOTE")
+        NON_LOCK=$("$GIT" diff --name-only "$BEFORE" "$REMOTE" | grep -vx 'flake.lock' || true)
+        if [ -n "$NON_LOCK" ]; then
+          COUNT=$(printf '%s\n' "$NON_LOCK" | wc -l | tr -d ' ')
+          notify "❄️ Nix Config Update Needs Review" "main moved to $REV with $COUNT non-lockfile change(s). Review it, then run 'just switch'."
+          exit 0
+        fi
+
+        # --ff-only: a diverged local main is a human problem, not something a
+        # timer should paper over with a merge or a rebase.
+        if ! "$GIT" merge --ff-only --quiet "$REMOTE"; then
+          notify "⚠️ Nix Config Update Failed" "could not fast-forward to $REV in $REPO_DIR (diverged branch?) See /tmp/nix-darwin-update.log"
+          exit 1
+        fi
+        if [ "$("$GIT" rev-parse HEAD)" != "$REMOTE" ]; then
+          notify "⚠️ Nix Config Update Failed" "HEAD did not move to $REV"
+          exit 1
+        fi
 
         if [ "$AUTO_SWITCH" != "true" ]; then
-          notify "❄️ Nix Config Updated" "New commits on main ($REV). Run 'just switch' to apply them."
+          notify "❄️ Nix Config Updated" "Lockfile bump to $REV applied. Run 'just switch' to activate it."
           exit 0
         fi
 
         if ! build; then
-          notify "🛠️ Nix Config Build Failed" "main is at $REV and does not build. Asking omp to repair it."
-          if [ "$AUTO_FIX" = "true" ] && repair build && build; then
-            notify "🛠️ Nix Config Repaired" "omp fixed the build at $REV. Changes are uncommitted — review with 'git diff' and commit."
-          else
-            notify "⚠️ Nix Config Build Failed" "main is at $REV and does not build. See $BUILD_LOG"
-            exit 1
+          notify "🛠️ Nix Config Build Failed" "main is at $REV and does not build."
+          if [ "$AUTO_FIX" = "true" ] && diagnose build; then
+            notify "🔎 Nix Config Diagnosis" "omp diagnosed the $REV build failure and made no changes. See $FIX_LOG"
           fi
+          exit 1
         fi
 
         # Activation needs root, and a launchd agent has no terminal for Touch
@@ -182,10 +211,11 @@ in
 
         if /usr/bin/sudo -n "$NH" darwin switch "$FLAKE" >"$BUILD_LOG" 2>&1; then
           notify "✅ Nix Config Auto-Applied" "Built and activated $REV."
-        elif [ "$AUTO_FIX" = "true" ] && repair switch && /usr/bin/sudo -n "$NH" darwin switch "$FLAKE" >"$BUILD_LOG" 2>&1; then
-          notify "🛠️ Nix Config Repaired" "omp fixed the activation failure at $REV and it is now applied. Review with 'git diff' and commit."
         else
-          notify "⚠️ Nix Config Switch Failed" "Built $REV but activation failed. See $BUILD_LOG"
+          notify "⚠️ Nix Config Switch Failed" "Built $REV but activation failed."
+          if [ "$AUTO_FIX" = "true" ] && diagnose switch; then
+            notify "🔎 Nix Config Diagnosis" "omp diagnosed the $REV activation failure and made no changes. See $FIX_LOG"
+          fi
           exit 1
         fi
       '';

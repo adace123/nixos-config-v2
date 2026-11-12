@@ -31,15 +31,17 @@ run unattended. `just build` and `just check` never need sudo.
 
 ### When a switch fails
 
-If the build/activation fails, the recipe hands the log to `omp` for
-automated diagnosis and fixing. With a terminal (`just switch`) omp runs
-interactively in the full TUI so the repair streams as it works — exit omp
-(`Ctrl-C` / `/quit`) once it reports back and the recipe continues; the fix
-is left uncommitted for review, then re-run `just switch`. Without a
-terminal (launchd agent) it falls back to `omp -p --auto-approve`, which only
-emits on exit. Either way the run is a saved omp session, so it appears in the
-session list and can be reopened with `omp -r`. The helper is
-`scripts/omp-fix.sh`, and the daily auto-update agent calls the same script.
+If the build/activation fails, the recipe hands the log to `omp`. With a
+terminal (`just switch`) omp runs interactively in the full TUI so the repair
+streams as it works — exit omp (`Ctrl-C` / `/quit`) once it reports back and the
+recipe continues; the fix is left uncommitted for review, then re-run
+`just switch`. Without a terminal — and always for the daily auto-update agent,
+which passes `--diagnose` — the run is **read-only**: `--tools
+read,glob,grep,find`, no `--auto-approve`, so it reports the root cause and the
+minimal change but cannot edit files, run commands, or fetch anything. A build
+log can carry text from fetched sources and an unattended run must never act on
+it. Either way the run is a saved omp session, so it appears in the session
+list and can be reopened with `omp -r`. The helper is `scripts/omp-fix.sh`.
 
 - `OMP_FIX=0 just switch` — skip the auto-fix; the log path is printed so you can
   inspect it yourself.
@@ -359,29 +361,38 @@ Manual equivalents: `just update` and `just update-input <input>`.
 
 1. exits immediately when the working tree is dirty, so local work is never
    pulled or switched out from under you;
-2. `git pull --ff-only origin main`, then exits quietly when `main` did not move;
-3. otherwise `nh darwin build` — a commit that evaluates but does not build is
-   reported and never activated;
-4. then `sudo -n nh darwin switch`;
-5. if either stage fails, the log goes to `omp` via `scripts/omp-fix.sh` — the same
-   helper `just switch` uses — which rebuilds and re-switches once. The repair is
-   left uncommitted on purpose, so every later run skips this repository until
-   you review it. `services.nix-config-auto-update.autoFix = false` turns it off.
+2. fetches `origin/main` and exits quietly when `main` did not move;
+3. **stops unless the diff is `flake.lock` alone.** Modules, activation scripts,
+   the justfile and workflows all run code — as you, then as root — so a commit
+   that touches any of them is reported and never materialized locally;
+4. fast-forwards to the fetched commit, then `nh darwin build` — a commit that
+   evaluates but does not build is reported and never activated;
+5. then `sudo -n nh darwin switch`;
+6. if either stage fails, the log goes to `omp` via `scripts/omp-fix.sh
+   --diagnose`, a **read-only** run (`--tools read,glob,grep,find`, no
+   `--auto-approve`): it reports the cause and the minimal change but cannot
+   edit or re-apply anything. `services.nix-config-auto-update.autoFix = false`
+   turns it off.
 
 `sudo -n` is deliberate: the agent has no terminal, so Touch ID and YubiKey
-cannot answer a password prompt. Without a sudoers rule step 4 fails at once,
+cannot answer a password prompt. Without a sudoers rule step 5 fails at once,
 the agent still builds and notifies, and `just switch` finishes the job. To let
-it activate unattended, put `nh` on a stable path and whitelist that path:
+it activate lockfile bumps unattended, whitelist **one exact command line** —
+sudoers matches the arguments too:
 
 ```nix
-environment.systemPackages = [ pkgs.nh ];
+environment.systemPackages = [ pkgs.nh ]; # already set in modules/darwin/default.nix
 security.sudo.extraConfig = ''
-  <user> ALL=(root) NOPASSWD: /run/current-system/sw/bin/nh
+  <user> ALL=(root) NOPASSWD: /run/current-system/sw/bin/nh darwin switch /Users/<user>/Projects/personal/nixos-config-v2#darwinConfigurations.<host>
 '';
 ```
 
-That grants passwordless root activation from your account — only worth it if
-full auto-apply is what you want.
+The agent invokes exactly that path and flake ref (`/run/current-system/sw/bin`
+is root-owned; the store path of `nh` changes on every bump). Any other
+invocation — a different flake, `just switch`, a shell — still prompts. What the
+rule cannot protect against is a hostile commit inside the local checkout that
+the agent already trusts, so keep `main` review-gated and the rule off unless
+auto-apply is what you want.
 
 ```bash
 just auto-update-status                  # launchd service status

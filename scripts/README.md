@@ -11,8 +11,8 @@ This directory contains utility scripts for the Nix configuration.
   (`just setup-asix-ethernet`); Homebrew's cask is disabled upstream
 - `setup-yubikey-sudo.sh` - Configure YubiKey for sudo authentication
 - `yubikey-sudo-shim.sh` - Notify when sudo auth is required (used by `just switch`; only installed when the laptop lid is closed)
-- `omp-fix.sh` - Hand a failed build or activation log to `omp` for repair: interactive TUI with a terminal (`just switch`), `omp -p` headless (daily auto-update agent); `OMP_FIX=0` skips
-- `check-for-updates.sh` - Check `flake.lock` for upstream changes and notify (`just check-updates`)
+- `omp-fix.sh` - Hand a failed build or activation log to `omp`: interactive repair with a terminal (`just switch`), read-only diagnosis headless (`--diagnose`, daily auto-update agent); `OMP_FIX=0` skips
+- `check-for-updates.sh` - Report whether `origin/main` has a `flake.lock` bump and fast-forward only that (`just check-updates`); non-lockfile changes are reported and left alone
 - `check-npm-cache.sh` - Report stale npm metadata that breaks `npm install
   <pkg>@latest` and `pi update --extensions` (`just npm-cache-check`)
 - `check-nix-caches-sync.sh` - Fail if `flake.nix`'s literal `nixConfig` drifts
@@ -37,17 +37,21 @@ ai-selector
 
 The automatic update functionality lives in `modules/darwin/auto-update.nix` as a nix-darwin launchd agent, enabled in `modules/darwin/default.nix` (`services.nix-config-auto-update.enable = true`). Full behaviour is documented in [docs/deployment.md → Auto-updates](../docs/deployment.md#auto-updates).
 
-`check-for-updates.sh` remains the manual, read-only check: `just check-updates` reports whether `flake.lock` has upstream changes without touching the working tree.
+`check-for-updates.sh` remains the manual counterpart: `just check-updates`
+reports whether `origin/main` carries a `flake.lock` bump and fast-forwards only
+that commit. A push that touches anything else is listed and never pulled.
 
 ### How It Works
 
 - **Schedule**: Runs daily at 10:00 AM
 - **Guard**: Skips when the checkout is not on `main`, or when tracked files are modified — local work is never pulled or switched out from under you
-- **Pull**: `git pull --ff-only origin main`; exits quietly when `main` did not move
+- **Fetch**: `git fetch origin main`; exits quietly when `main` did not move
+- **Trust gate**: proceeds only when the diff is `flake.lock` alone. Modules, activation scripts, the justfile and workflows run code (as you, then as root), so such commits are only reported — apply them yourself with `just switch`
+- **Merge**: `git merge --ff-only <origin/main>`; exits quietly when `main` did not move
 - **Build**: `nh darwin build` — a commit that does not build is reported and never activated
-- **Repair**: a failed build or activation goes to `omp` through `omp-fix.sh` (interactive TUI with a terminal, `omp -p` headless). The repair stays uncommitted, so later runs then skip the repo until you review it (`autoFix = false` disables)
+- **Diagnosis**: a failed build or activation goes to `omp` through `omp-fix.sh --diagnose`, which is strictly read-only (`read,glob,grep,find`); it reports the cause and makes no changes (`autoFix = false` disables)
 - **Switch**: `sudo -n nh darwin switch`; without a sudoers rule this fails immediately (no terminal for Touch ID) and the agent notifies you to run `just switch`
-- **Notification**: One persistent notification per outcome: applied, repaired, built-only, build failed, switch failed
+- **Notification**: One persistent notification per outcome: applied, needs review, built-only, build failed, switch failed
 - **Never**: runs `nix flake update` — the lockfile is bumped in CI, not on the host
 
 ### Checking Service Status

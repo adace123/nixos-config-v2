@@ -29,6 +29,11 @@
     curl
     wget
     mas # Mac App Store CLI for homebrew masApps
+    # Stable, root-owned path (/run/current-system/sw/bin/nh) for the
+    # auto-update agent's argument-scoped sudoers rule — see
+    # docs/deployment.md#auto-updates. Interactive `just switch` uses the user
+    # profile copy.
+    nh
   ];
 
   # System configuration
