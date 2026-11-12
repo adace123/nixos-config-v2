@@ -28,7 +28,10 @@
 
   services.caddy = {
     enable = true;
-    openFirewall = true;
+    # No `openFirewall`: every vhost name resolves to a tailnet address and
+    # `trustedInterfaces = [ "tailscale0" ]` (common.nix) is the only path in.
+    # Opening 80/443 made the "tailnet-only" vhosts reachable by LAN address and
+    # by global IPv6, since the firewall applies to both.
     configFile = config.sops.templates."caddyfile".path;
     # Shared with dathomir's config so the Cloudflare DNS plugin (and its hash)
     # is defined once — see nix-caddy.nix.

@@ -401,7 +401,10 @@ in
 
               services.caddy = {
                 enable = true;
-                openFirewall = true;
+                # Tailnet-only, like the Pi hosts: names resolve to 100.x and
+                # `trustedInterfaces = [ "tailscale0" ]` is the only path in.
+                # dathomir has no public IP, so this only removes the LAN/v6
+                # surface.
                 configFile = config.sops.templates."caddyfile".path;
                 # The Cloudflare DNS plugin, defined once in nix-caddy.nix.
                 package = import ../nix-caddy.nix { inherit pkgs; };

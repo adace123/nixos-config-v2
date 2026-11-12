@@ -23,12 +23,15 @@
 
   networking.hostName = "${host.hostName}-installer";
 
-  # Installer image: allow root login with password for initial setup
+  # Installer image: key-only SSH with the keys the hosts already authorize
+  # (hosts/rpi-keys.nix). The old `root:installer` account was a credential
+  # printed in this public repo and listening on the LAN, so a booted card left
+  # in a drawer was root for anyone. `just nixos-init` authenticates through the
+  # SSH agent (NIXOS_INIT_KEY points at a specific identity file if needed).
   services.openssh.settings = lib.mkForce {
-    PermitRootLogin = "yes";
-    PasswordAuthentication = true;
+    PermitRootLogin = "prohibit-password";
+    PasswordAuthentication = false;
   };
-  users.users.root.initialPassword = "installer";
 
   # Override avahi hostname to match the installer hostname
   services.avahi.hostName = "${host.hostName}-installer";

@@ -33,7 +33,10 @@ modules/nixos/home-assistant/
   `127.0.0.1:8554/<ring-id>_live`, consumed by HA's embedded go2rtc for
   low-latency WebRTC dashboards. First boot needs the one-time auth UI on
   `127.0.0.1:55123` (SSH forward) to store the Ring refresh token.
-- **Podman auto-update** — pulls newer images weekly.
+- **Images** — Home Assistant and ring-mqtt are **digest-pinned** (`ghcr.io/…@sha256:…`,
+  `docker.io/…@sha256:…`) and nothing opts into `io.containers.autoupdate`, so a
+  registry push never becomes a running, host-networked container. Bump the digest
+  in the module and deploy deliberately.
 - **`hass` system user** with `dialout`, `gpio`, `i2c` group membership.
 
 Automations use a hybrid model. Files under `automations/` are declarative and

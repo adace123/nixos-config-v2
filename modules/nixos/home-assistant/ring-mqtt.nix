@@ -11,7 +11,11 @@ let
   # repo (403 on the token endpoint from every network we tried), while the
   # publisher's own Docker Hub mirror serves the same tags. Verified
   # multi-arch incl. arm64; the Pi pulls it clean.
-  ringImage = "docker.io/tsightler/ring-mqtt:5.9.3";
+  # Digest-pinned, not `5.9.3`: a tag can be re-pushed, and the old
+  # `pull = "newer"` + auto-update label replaced a running, host-networked
+  # bridge with whatever the tag pointed at on the next timer tick. Bump the
+  # digest deliberately.
+  ringImage = "docker.io/tsightler/ring-mqtt@sha256:4a4e0db460d7023aa5851ff25491401fd23b2fd153b7269af481f0953cd6f00a";
 in
 {
   # Only coruscant has the doorbell: base.nix is shared with threepio, which
@@ -52,10 +56,6 @@ in
     # generic-camera cover ding/motion/live-view, then delete that config entry.
     virtualisation.oci-containers.containers.ring-mqtt = {
       image = ringImage;
-      pull = "newer";
-      labels = {
-        "io.containers.autoupdate" = "registry";
-      };
       volumes = [
         "${ringDataDir}:/data"
       ];
@@ -64,10 +64,11 @@ in
       };
       # Host networking like HA: the container must reach mosquitto on the
       # host's 127.0.0.1:1883 (bridge loopback is the container itself —
-      # the ECONNREFUSED loop observed 2026-10-26). Consequence: --publish
-      # is a no-op on host network, so ports are bound by ringstream itself
-      # and RTSP auth returns (unauthenticated RTSP on all interfaces is
-      # not the loopback-only posture the bridge publish gave us).
+      # the ECONNREFUSED loop observed 2026-10-26). Consequence: --publish is a
+      # no-op on host network, so ringstream binds :8554 on every interface. It
+      # requires the livestream_user/pass from the config above, and 8554 is not
+      # in networking.firewall.allowedTCPPorts — so only localhost and the
+      # trusted tailscale0 interface reach it.
       extraOptions = [
         "--network=host"
       ];

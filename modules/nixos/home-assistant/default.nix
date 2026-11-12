@@ -90,7 +90,11 @@ in
     oci-containers = {
       backend = "podman";
       containers.home-assistant = {
-        image = "ghcr.io/home-assistant/home-assistant:latest";
+        # Digest-pinned, not `:latest`. The container runs with the host network
+        # namespace and writes to /run/dbus, so an unreviewed upstream push must
+        # never become a running service: bump the digest deliberately (podman
+        # image inspect … --format '{{index .RepoDigests 0}}') and deploy.
+        image = "ghcr.io/home-assistant/home-assistant@sha256:6785d1eca68747a524c156faae1b139ed415c07357386ae6fe17291986e59e82";
         autoStart = true;
         volumes = [
           "${hassDir}:/config"
@@ -98,16 +102,10 @@ in
           "/run/dbus:/run/dbus:ro"
           "/media:/media"
         ];
-        pull = "newer";
-        labels = {
-          "io.containers.autoupdate" = "registry";
-        };
         environment.TZ = config.time.timeZone;
         extraOptions = [
           "--network=host"
           "--group-add=dialout"
-          "--cap-add=NET_ADMIN"
-          "--cap-add=NET_RAW"
         ];
       };
     };
@@ -127,19 +125,12 @@ in
     };
   };
 
-  # Auto-update keeps the container on the stable channel (ghcr's `latest` tracks
-  # stable releases), which is what we want on a home-automation server — but the
-  # timer must never fire during the boot clock step. The Pi has no RTC, so it boots
-  # months in the past and chrony then steps the clock forward; every missed
-  # OnCalendar timer elapses at once, and `podman auto-update` stopped Home Assistant
-  # three times that way (2026-10-23). Two guards:
-  #
-  #   - the timer is ordered after time-sync.target, so it is not even armed until
-  #     the clock is real (and if the network never syncs, it never runs);
-  #   - Persistent = false, so a missed window is skipped rather than caught up at
-  #     boot.
-  #
-  # A fixed weekly window plus a randomized delay keeps it clear of the restic jobs.
+  # No container opts into `io.containers.autoupdate` any more — Home Assistant
+  # and ring-mqtt are digest-pinned — so this timer no longer replaces running
+  # software. It is kept for the image prune and so restic's `after
+  # podman-auto-update.service` ordering stays stable. The boot-clock guards
+  # below still matter: a missed OnCalendar window elapsing at boot is what once
+  # stopped the whole stack.
   systemd.services."podman-auto-update" = {
     wants = [
       "network-online.target"

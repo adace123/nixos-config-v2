@@ -99,16 +99,19 @@ Two more pieces of the same story:
 
 ### Automatic updates must not race the clock step
 
-`podman auto-update` keeps Home Assistant on the stable channel, but on a host with
-no RTC it must never fire during boot: every missed `OnCalendar` timer elapses at
-once when chrony steps the clock, and that stopped Home Assistant three times on
-2026-10-23. The timer is therefore ordered after `time-sync.target` (so it is not
-armed until the clock is real, and never runs if the network never syncs), set to a
-fixed `Sun 04:00` window with `Persistent = false` (a missed window is skipped, not
-caught up at boot), and the heavy oneshots (`logrotate`, `nix-gc`, the restic jobs,
-`podman auto-update`) are chained with `After=` so a stampede runs them serially.
-`Persistent` on the *backup* timers is deliberately left alone — skipping a backup
-is worse than a busy minute.
+No container opts into `io.containers.autoupdate` any more — Home Assistant and
+ring-mqtt are digest-pinned — so `podman auto-update` no longer replaces running
+software; the timer remains for the image prune and to keep the restic ordering
+stable. It still must never fire during boot on a host with no RTC: every missed
+`OnCalendar` timer elapses at once when chrony steps the clock, and that stopped
+Home Assistant three times on 2026-10-23. The timer is therefore ordered after
+`time-sync.target` (so it is not armed until the clock is real, and never runs if
+the network never syncs), set to a fixed `Sun 04:00` window with `Persistent =
+false` (a missed window is skipped, not caught up at boot), and the heavy
+oneshots (`logrotate`, `nix-gc`, the restic jobs, `podman auto-update`) are
+chained with `After=` so a stampede runs them serially. `Persistent` on the
+*backup* timers is deliberately left alone — skipping a backup is worse than a
+busy minute.
 
 ### Watching for the next failure
 
@@ -192,7 +195,7 @@ uniq -c | sort -rn | head` narrows down before the cap hides the evidence.
 | Beszel agent | 45876 | `nixos/beszel-agent.nix` (hub runs on dathomir) |
 | OpenKnowledge (wiki) | 8080 (loopback, via Caddy) | `nixos/open-knowledge.nix` (dathomir only) |
 | Herdr core (mobile app) | — (SSH only) | `nixos/herdr-core.nix` (dathomir only) |
-| Caddy (HTTPS proxy) | 443 | `caddy.nix` |
+| Caddy (HTTPS proxy) | 443 (tailnet only) | `caddy.nix` |
 | Podman (container engine) | socket | `podman.nix` |
 | SMART (`smartd`) | — | `nixos/ssd.nix` |
 | Under-voltage poll | — | `nixos/rpi-boot.nix` (`rpi-voltage-check`) |
@@ -204,6 +207,10 @@ uniq -c | sort -rn | head` narrows down before the cap hides the evidence.
 
 1. Build and flash the minimal installer SD image (see below).
 2. Boot the Pi from the SD card; wait until it is reachable on the network.
+   The installer image has **no password login**: root SSH accepts only the
+   keys in `hosts/rpi-keys.nix`, so the machine running `just nixos-init` needs
+   one of those private keys in its SSH agent (set `NIXOS_INIT_KEY` to name an
+   identity file explicitly).
 3. Prepare the age key so secrets can be decrypted on the target:
 
    ```bash
