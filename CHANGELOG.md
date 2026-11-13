@@ -105,6 +105,7 @@ commit kinds that are exempt, live in
 - refactor(omp): hand failed builds and activations to omp instead of pi
 - chore(darwin): replace Handy with Hex for dictation
 - chore(darwin): go back to the handy dictation cask
+- chore(darwin): switch back to the Hex dictation cask
 - feat(darwin): disable the Option+Command+Space Finder search window shortcut
 - refactor(dathomir): replace Collie with the official Herdr mobile app over herdr-core
 - refactor(zed): remove the Zed editor module, flake input, overlay and project config
