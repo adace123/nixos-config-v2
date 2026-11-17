@@ -583,6 +583,71 @@ write the notes. If that ever needs to change, the fix belongs at the edge
 (Cloudflare Access, `oauth2-proxy`) — the server has no authentication of its
 own, and `OK_ALLOW_EXTERNAL=1` is what makes it accept proxied requests at all.
 
+## Audiobookshelf (audiobooks and podcasts, tailnet-only)
+
+`audiobookshelf.<domain>` serves [Audiobookshelf](https://www.audiobookshelf.org)
+— a self-hosted audiobook and podcast server with its own Android and iOS apps,
+progress sync, offline downloads and background playback — from this host.
+Same tailnet-only posture as the hub, Pocket ID, Gatus and the wiki: the A
+record (`cloudflare_dns_record.audiobookshelf` in `infra/dns.tf`) points at
+dathomir's tailnet address, Caddy terminates TLS via the same Cloudflare
+DNS-01 setup, and the server itself listens only on `127.0.0.1:8000`
+(`services.audiobookshelf` in `modules/nixos/audiobookshelf.nix`, NixOS
+default port 8000).
+
+The point of it here is the private podcast series: the episodes are made
+elsewhere and uploaded to Audiobookshelf, which becomes the listening library.
+It is **not** a public podcast host. Because the address is only routable on
+the tailnet, a server-side fetcher such as Pocket Casts cannot reach it at all,
+and its RSS feed (opened per library item in Audiobookshelf) is only usable
+from a client already on the tailnet — the Audiobookshelf app itself, or
+AntennaPod on a phone with Tailscale running. If a public feed is ever wanted,
+that is a different design (public IP or tunnel), not a flag on this one.
+
+Two steps are manual, and the order matters:
+
+1. Add the domain in **both** secrets files, with the same value
+   (for example `audiobookshelf.figtreelab.dev`): `audiobookshelf-domain` in
+   `secrets/dathomir.yaml` (what Caddy reads) and `audiobookshelf-domain` in
+   `secrets/oci.yaml` (what `infra/tofu-env.sh` turns into
+   `TF_VAR_audiobookshelf_domain` for the DNS record). A missing sops secret
+   fails activation, so do this before deploying. On the DNS side a missing
+   key is caught earlier: `infra/tofu-env.sh` refuses to run when the key is
+   absent or `null`, because `yq` would otherwise hand OpenTofu the literal
+   string `null` and apply a record named after it.
+2. Apply the DNS record (`just -f infra/justfile tf apply`), then deploy
+   (`NHOST=dathomir just nixos-deploy dathomir`).
+
+First run, in the web UI at `https://<audiobookshelf-domain>`:
+
+1. Create the root admin account (first account becomes admin).
+2. Add a **Podcast** library pointing at `/var/lib/audiobookshelf/podcasts`
+   (created by the module, owned by the `audiobookshelf` user). Podcast
+   libraries are flat: one folder per show, episodes directly inside it, e.g.
+   `<show>/Episode 1.mp3` under that path — no season folders.
+3. Upload episodes either in the UI (**Upload Media**), via the API
+   (`POST /api/upload`, with an API key from Settings), or by copying the
+   MP3s into the library folder over SSH and scanning the library. The two
+   media directories are `0750 audiobookshelf:audiobookshelf`, so an SSH copy
+   has to run as root and end with
+   `chown -R audiobookshelf:audiobookshelf` on what was copied — otherwise the
+   scanner cannot read the files.
+   Juno uploads this way once the server is up: it needs the server URL and
+   an API key (or SSH access to the library folder), not a new Nix change.
+
+State is `/var/lib/audiobookshelf`: the SQLite database (users, libraries,
+progress) in `config/`, metadata, and the MP3s under `podcasts/` and
+`audiobooks/`. `modules/nixos/audiobookshelf-restic.nix` backs it up nightly
+to the R2 `dathomir` repository under its own `audiobookshelf` tag, as two
+snapshots: `config/` and `metadata/` while the service is stopped (seconds,
+like the other jobs), then the media directories with it running, because a
+media upload to R2 can take minutes and the app must not be offline for it.
+Restoring therefore means restoring both snapshots: stop
+`audiobookshelf.service`, restore into `/var/lib/audiobookshelf`, start it
+again. The backup grows with the library, since it includes the MP3s — if the
+library ever gets large, revisit whether media belongs in the backup or only
+the database does.
+
 ## Pocket ID (passkey login for the hub)
 
 `id.<domain>` serves [Pocket ID](https://pocket-id.org) from dathomir — a

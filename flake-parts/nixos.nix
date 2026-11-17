@@ -224,6 +224,11 @@ in
                   # Public name for the OpenKnowledge wiki: Caddy's vhost and the
                   # server's OK_EXTERNAL_URL are both rendered from it.
                   wiki-domain = { };
+                  # Public name for Audiobookshelf: Caddy's vhost is rendered
+                  # from it (see modules/nixos/audiobookshelf.nix). The same
+                  # name also lives in secrets/oci.yaml as
+                  # `audiobookshelf-domain`, for the DNS record in infra/dns.tf.
+                  audiobookshelf-domain = { };
                   # Private notes repo URL and its write deploy key. The key must be
                   # readable by the service user, which is what git authenticates
                   # with.
@@ -393,6 +398,14 @@ in
                   ${config.sops.placeholder.wiki-domain} {
                     reverse_proxy 127.0.0.1:8080
                   }
+
+                  # Audiobookshelf. Same tailnet-only posture as the hub, Pocket
+                  # ID, Gatus and the wiki. Caddy's reverse_proxy handles the
+                  # websocket / socket.io traffic the web UI and the mobile
+                  # apps use for live updates, so no extra proxy settings.
+                  ${config.sops.placeholder.audiobookshelf-domain} {
+                    reverse_proxy 127.0.0.1:8000
+                  }
                 '';
                 owner = "caddy";
                 group = "caddy";
@@ -417,6 +430,7 @@ in
                 config.sops.secrets.pocket-id-domain.path
                 config.sops.secrets.gatus-domain.path
                 config.sops.secrets.wiki-domain.path
+                config.sops.secrets.audiobookshelf-domain.path
                 # A sops template is rewritten on every activation but keeps the same
                 # path, so a change to the template itself is invisible to systemd and
                 # Caddy would go on serving the old config until something else
@@ -465,6 +479,13 @@ in
         ++ [
           ../modules/nixos/open-knowledge.nix
           ../modules/nixos/open-knowledge-restic.nix
+        ]
+        # Audiobookshelf and its backup. Unconditional like the wiki: the
+        # service is the point, and its state dir (users, libraries, progress
+        # and the podcast MP3s under it) is the only copy on this machine.
+        ++ [
+          ../modules/nixos/audiobookshelf.nix
+          ../modules/nixos/audiobookshelf-restic.nix
         ]
         # Dead-man's switch: pings Healthchecks.io so a silent dathomir pages.
         ++ [ ../modules/nixos/dathomir-heartbeat.nix ]

@@ -92,6 +92,18 @@
           alerts = [ { type = "ntfy"; } ];
         }
         {
+          name = "audiobookshelf";
+          # /healthcheck is the server's own readiness path: 200 once the API
+          # answers, no auth. The UI itself is behind Caddy and only reachable
+          # from the tailnet, so check the service directly.
+          url = "http://127.0.0.1:8000/healthcheck";
+          interval = "60s";
+          conditions = [
+            "[STATUS] == 200"
+          ];
+          alerts = [ { type = "ntfy"; } ];
+        }
+        {
           name = "status-cert";
           url = "tls://status.figtreelab.dev:443";
           interval = "30m";

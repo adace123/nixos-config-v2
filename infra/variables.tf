@@ -154,6 +154,11 @@ variable "wiki_domain" {
   type        = string
 }
 
+variable "audiobookshelf_domain" {
+  description = "Public name for Audiobookshelf, the audiobook and podcast server (set via TF_VAR_audiobookshelf_domain). Served from dathomir too."
+  type        = string
+}
+
 variable "home_assistant_tailnet_ip" {
   description = "Coruscant's Tailscale address. The record points here deliberately: the name resolves publicly but is routable only from inside the tailnet. Update it if that node ever re-registers."
   type        = string

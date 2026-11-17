@@ -194,6 +194,7 @@ uniq -c | sort -rn | head` narrows down before the cap hides the evidence.
 | ESPHome | — | disabled — upstream removed the built-in dashboard, see `home-assistant/` |
 | Beszel agent | 45876 | `nixos/beszel-agent.nix` (hub runs on dathomir) |
 | OpenKnowledge (wiki) | 8080 (loopback, via Caddy) | `nixos/open-knowledge.nix` (dathomir only) |
+| Audiobookshelf (audiobooks, podcasts) | 8000 (loopback, via Caddy) | `nixos/audiobookshelf.nix` (dathomir only) |
 | Herdr core (mobile app) | — (SSH only) | `nixos/herdr-core.nix` (dathomir only) |
 | Caddy (HTTPS proxy) | 443 (tailnet only) | `caddy.nix` |
 | Podman (container engine) | socket | `podman.nix` |
