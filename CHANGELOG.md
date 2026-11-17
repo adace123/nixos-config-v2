@@ -89,6 +89,7 @@ commit kinds that are exempt, live in
 - feat(dathomir): offer a Tailscale exit node with cloud egress independent of the home uplink
 - feat(dathomir): add Audiobookshelf (tailnet-only podcast/audiobook server)
 - feat(dathomir): build audiobookshelf from the episode-covers fork
+- feat(coruscant): advertise home LAN as Tailscale subnet route
 
 ### Changed
 
