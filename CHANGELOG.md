@@ -110,6 +110,7 @@ commit kinds that are exempt, live in
 - feat(darwin): disable the Option+Command+Space Finder search window shortcut
 - refactor(dathomir): replace Collie with the official Herdr mobile app over herdr-core
 - refactor(zed): remove the Zed editor module, flake input, overlay and project config
+- feat(omp): move the vision role to muse-spark-1.3
 
 ### Fixed
 

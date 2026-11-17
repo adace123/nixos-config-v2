@@ -95,8 +95,11 @@ Model roles (`modelRoles`, thinking suffix after `:`):
   levels. Keep inputs under 100k, where the long-context tier starts.
 - **`tiny` — `commandcode/xiaomi/mimo-v2.6-flash`**: titles, memory
   summaries, speech cleanup; cheapest output, 1M context.
-- **`vision` — `commandcode/google/gemini-3.8-flash:medium`**: image
-  inspection with 1M context and a $40 allowance.
+- **`vision` — `commandcode/meta/muse-spark-1.3:high`**: image inspection. The
+  strongest declared-vision model that keeps a whole pool to itself (48.1,
+  $1.25/$4.25 per 1M, 1M context); Sonnet 5.5 scores higher but its $10
+  allowance belongs to `designer`, and the role is too rare for ~2.1k
+  requests/month to bind.
 
 `task.agentModelOverrides.security-reviewer =
 "commandcode/xiaomi/mimo-v2.6-pro"` puts security review on a fourth family
@@ -116,8 +119,8 @@ advisor fall back to standard non-contributor endpoints. Designer matches
 the fast DeepSeek SKU then GLM; `smol`/`tiny`/`commit` fallbacks pin `:low`
 effort to stay cheap. GLM-5.3-Flash fan-in (advisor primary, plus a fallback
 leg of default/plan/slow/task/vision) is deliberate: cheap, ~59k req/mo, the
-deepest pool after DeepSeek. Muse Spark 1.3 standard (~2.1k req/mo) is only
-the last leg of default and advisor.
+deepest pool after DeepSeek. Muse Spark 1.3 standard (~2.1k req/mo) is the
+`vision` primary and the last leg of default and advisor.
 
 Memory: `memory.backend = "local"` builds project-scoped summaries/lessons
 from persisted sessions, injected as a Memory Guidance block at startup

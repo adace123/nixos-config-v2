@@ -151,10 +151,16 @@ in
         # Titles, memory summaries, speech cleanup: cheapest output wins, and
         # MiMo Flash's 1M context keeps long session summaries safe.
         tiny = "commandcode/xiaomi/mimo-v2.6-flash";
-        # Image inspection: a declared-vision model with 1M context and a $40
-        # allowance. The DeepSeek default is vision-capable on its own entry,
-        # hence it backs the fallback.
-        vision = "commandcode/google/gemini-3.8-flash:medium";
+        # Image inspection: the strongest declared-vision model that still has
+        # a whole monthly pool to itself. Muse Spark 1.3 scores 48.1 at
+        # $1.25/$4.25 per 1M with 1M context and native vision, ahead of Gemini
+        # 3.8 Flash (40.9, $1.50/$7.50) on both intelligence and price at the
+        # same $0.15 cache rate, and the role is rare enough that its ~2.1k
+        # requests/month never bind. Sonnet 5.5 (56.0) scores higher but its
+        # $10 allowance belongs to `designer`. The DeepSeek default and
+        # GLM-5.3-Flash both declare vision on their own entries, hence they
+        # back the fallback.
+        vision = "commandcode/meta/muse-spark-1.3:high";
       };
       # Independent security review: MiMo V2.6 Pro is a distinct family from
       # the DeepSeek default, the Muse reviewer, and the Qwen planner; it
@@ -185,11 +191,11 @@ in
       # it is cheap with the deepest pool after DeepSeek (~59k req/mo). Task's
       # first fallback is the fast DeepSeek SKU so a DeepSeek quota wall does
       # not dump default and task onto GLM at once. Muse Spark 1.3 standard
-      # (~2.1k req/mo) is only the last leg of default and advisor — a thin
-      # pool, not a high-volume primary. Designer fallback matches `:medium`
-      # effort;
-      # smol/tiny/commit fallbacks pin `:low` effort to stay cheap — nothing
-      # reasons from their output. Every role has at least two fallback stages.
+      # (~2.1k req/mo) is the `vision` primary — rare enough that the thin pool
+      # never binds — and only the last leg of default and advisor. Designer
+      # fallback matches `:medium` effort; smol/tiny/commit fallbacks pin
+      # `:low` effort to stay cheap — nothing reasons from their output. Every
+      # role has at least two fallback stages.
       retry.fallbackChains = {
         default = [
           "commandcode/z-ai/glm-5.3-flash:high"
