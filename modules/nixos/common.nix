@@ -1,4 +1,4 @@
-{ host, ... }:
+{ host, lib, ... }:
 let
   caches = import ../../nix-caches.nix;
 in
@@ -124,7 +124,18 @@ in
     enable = true;
     openFirewall = true;
     useRoutingFeatures = "server";
-    extraSetFlags = [ "--advertise-exit-node" ];
+    # Exit node for every Pi host, plus any subnet routes the host opts
+    # into via host.tailscaleSubnetRoutes (coruscant only, today).
+    # extraSetFlags, not extraUpFlags: nixpkgs only runs `tailscale up`
+    # when the node has no identity, and /var/lib/tailscale survives a
+    # switch, so an extraUpFlags advertisement never reaches a live node.
+    # `server` already turns on IPv4/IPv6 forwarding, which tailscaled
+    # needs to route LAN traffic. Advertising alone does nothing until
+    # the tailnet policy approves the route (autoApprovers in
+    # infra/tailscale/tailscale.tf) and grants members access to it.
+    extraSetFlags = [ "--advertise-exit-node" ]
+      ++ lib.optional (host.tailscaleSubnetRoutes or [ ] != [ ])
+        "--advertise-routes=${lib.concatStringsSep "," host.tailscaleSubnetRoutes}";
   };
 
   # ZRAM swap configuration

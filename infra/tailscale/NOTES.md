@@ -18,8 +18,28 @@ flow below fails silently at the filter — the server never sees the packet.
 | `tag:server-ha` (coruscant 100.66.226.84) | → dathomir `tcp:443` (beszel agent out) | Home Assistant via Caddy :443. Exit-node offer (`0.0.0.0/0`) approved in console. |
 | `tag:server-infra` (dathomir 100.89.136.120) | → coruscant `tcp:443` (liveness); → self `tcp:443` (hairpin) | Beszel hub + Pocket ID via Caddy :443. |
 | `tag:agent-muse` (muse 100.82.236.107) | → servers `tcp:443` only | Meta Muse agent. No :22, no internet. |
+| Home LAN `192.168.4.0/24` via coruscant | members → LAN `*` (all ports) | Subnet route advertised by coruscant (`hosts/coruscant/default.nix`); auto-approved for `tag:server-ha`. Servers and muse have no path in. |
 | cachyos (UNTAGGED, 100.110.142.85) | members → cachyos `tcp:22`; `dale` via Tailscale SSH (`check`, 12h) | Personal CachyOS box, same owner as endor. Untagged, so the ssh rule rides `autogroup:self` — Tailscale refuses a hostname or IP in an ssh `dst`. `dale` is `wheel`, hence check mode. No server-side path in. |
 | `tag:machine` / `tag:nixos-machine` | legacy | Both servers still carry `tag:nixos-machine` (console). Strip in console, then drop from policy (follow-up). |
+
+## Subnet route (home LAN)
+
+coruscant advertises `192.168.4.0/24` (the eero LAN) as a subnet route, so
+personal devices can reach LAN devices that do not run Tailscale — router,
+printers, cameras, ESPHome nodes, smart plugs — by their LAN IP, from
+anywhere on the tailnet. Three pieces, all in this PR: the Nix flag in
+`hosts/coruscant/default.nix` / `modules/nixos/common.nix`, the
+`autoApprovers.routes` entry in `tailscale.tf`, and the member grant to the
+`/24`. Advertising alone does nothing without the other two.
+
+After deploying, verify from a device *off* the LAN with `--accept-routes`
+on: `tailscale status` should show the route, and e.g. the LAN gateway
+should answer. The `tailscaled-set` oneshot note from the exit-node setup
+applies here too: the first switch that adds the flag does not start it on
+an already-running daemon — run `sudo systemctl start tailscaled-set` once,
+or reboot. If the route was already awaiting approval in the console before
+the policy landed, approve it there once; auto-approval only catches the
+first advertisement.
 
 ## Closed by absence (no grant = denied)
 
