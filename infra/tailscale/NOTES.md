@@ -18,6 +18,7 @@ flow below fails silently at the filter — the server never sees the packet.
 | `tag:server-ha` (coruscant 100.66.226.84) | → dathomir `tcp:443` (beszel agent out) | Home Assistant via Caddy :443. Exit-node offer (`0.0.0.0/0`) approved in console. |
 | `tag:server-infra` (dathomir 100.89.136.120) | → coruscant `tcp:443` (liveness); → self `tcp:443` (hairpin) | Beszel hub + Pocket ID via Caddy :443. |
 | `tag:agent-muse` (muse 100.82.236.107) | → servers `tcp:443` only | Meta Muse agent. No :22, no internet. |
+| cachyos (UNTAGGED, 100.110.142.85) | members → cachyos `tcp:22`; `dale` via Tailscale SSH (`check`, 12h) | Personal CachyOS box, same owner as endor. Untagged, so the ssh rule rides `autogroup:self` — Tailscale refuses a hostname or IP in an ssh `dst`. `dale` is `wheel`, hence check mode. No server-side path in. |
 | `tag:machine` / `tag:nixos-machine` | legacy | Both servers still carry `tag:nixos-machine` (console). Strip in console, then drop from policy (follow-up). |
 
 ## Closed by absence (no grant = denied)
@@ -38,6 +39,15 @@ re-auth via any interactive `ssh` (prints the sign-in URL), re-run. The phone's
 `nixos` is `wheel` with passwordless sudo on dathomir, so the `accept` path is
 root-equivalent there; the stricter alternative is tagging the phone and
 accepting only `tag:mobile`.
+
+`cachyos` is the same story in the other direction: `dale` is `wheel` (verified
+on the box), so members reach it only through a `check` rule. Its `dst` is
+`autogroup:self`, not the host alias — the ssh block only accepts tags,
+`autogroup:self`, or a same-user selector, so `"dst": ["cachyos"]` is rejected
+by `/acl/validate` with `invalid dst`. The network half still names the alias
+(`{"src": ["autogroup:member"], "dst": ["cachyos"], "ip": ["tcp:22"]}`); both
+halves are required. `sshTests` *do* take host aliases, so
+`{"src": "endor", "dst": ["cachyos"], "check": ["dale"]}` pins the result.
 
 ## If a host re-registers with a new IP
 

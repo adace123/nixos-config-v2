@@ -36,6 +36,7 @@ resource "tailscale_acl" "policy" {
 		"coruscant": "100.66.226.84",
 		"dathomir": "100.89.136.120",
 		"muse": "100.82.236.107",
+		"cachyos": "100.110.142.85",
 	},
 	"tagOwners": {
 		// tag:machine / tag:nixos-machine: KEPT because both servers still
@@ -86,6 +87,11 @@ resource "tailscale_acl" "policy" {
 		{"src": ["dathomir"], "dst": ["dathomir"], "ip": ["tcp:443"]},
 		// muse (tag:agent-muse): outbound 443 to both servers only.
 		{"src": ["muse"], "dst": ["coruscant", "dathomir"], "ip": ["tcp:443"]},
+		// cachyos (personal CachyOS box, untagged member device): Tailscale SSH
+		// as `dale` needs a real :22 path. Members only — it is a personal
+		// device, so no server-side path to it exists, and the ssh rule below
+		// still gates the session.
+		{"src": ["autogroup:member"], "dst": ["cachyos"], "ip": ["tcp:22"]},
 		// Member debugging: ping between member devices.
 		{"src": ["autogroup:member"], "dst": ["autogroup:member"], "ip": ["icmp:*"]},
 		{"src": ["autogroup:member"], "dst": ["coruscant", "dathomir"], "ip": ["icmp:*"]},
@@ -117,6 +123,19 @@ resource "tailscale_acl" "policy" {
 			"dst": ["tag:machine", "tag:nixos-machine", "tag:server-ha", "tag:server-infra"],
 			"users": ["root"],
 		},
+		// cachyos (untagged, same owner as endor/s23): Tailscale forbids a
+		// hostname/IP in an ssh rule's dst, so `autogroup:self` is the lever —
+		// a member may open a session only on their own devices, here as `dale`.
+		// `dale` is the box's admin account (wheel on a CachyOS install), so it
+		// gets check-mode posture: identity plus a fresh IdP sign-in every 12h.
+		// The :22 grant above is the other half; both are required.
+		{
+			"action": "check",
+			"checkPeriod": "12h",
+			"src": ["autogroup:member"],
+			"dst": ["autogroup:self"],
+			"users": ["dale"],
+		},
 		// CI deploy runner: accept, never check — a tagged source cannot do
 		// check mode, and there is no browser headless. Root only, Tailscale
 		// SSH, no key. Human check-mode rule above untouched.
@@ -133,6 +152,8 @@ resource "tailscale_acl" "policy" {
 		{"src": "coruscant", "proto": "tcp", "accept": ["dathomir:443"]},
 		{"src": "dathomir", "proto": "tcp", "accept": ["coruscant:443", "dathomir:443"]},
 		{"src": "muse", "proto": "tcp", "accept": ["coruscant:443", "dathomir:443"]},
+		{"src": "endor", "proto": "tcp", "accept": ["cachyos:22"]},
+		{"src": "s23", "proto": "tcp", "accept": ["cachyos:22"]},
 		{"src": "tag:ci", "proto": "tcp", "accept": ["coruscant:22", "dathomir:22"]},
 		{"src": "endor", "proto": "icmp", "accept": ["coruscant:0", "dathomir:0"]},
 		// Full isolation (transitional grant gone): servers cannot initiate to
@@ -143,9 +164,16 @@ resource "tailscale_acl" "policy" {
 		{"src": "coruscant", "deny": ["endor:443", "s23:443", "dathomir:1411", "dathomir:8090"]},
 		{"src": "dathomir", "deny": ["endor:443", "s23:443", "dathomir:1411", "dathomir:8090"]},
 		{"src": "muse", "deny": ["dathomir:1411", "dathomir:8090", "coruscant:22", "dathomir:22"]},
+		// cachyos is an untagged personal device: it reaches dathomir:22 as a
+		// member (Herdr), but never coruscant:22 and never the raw services.
+		{"src": "cachyos", "deny": ["coruscant:22", "dathomir:1411", "dathomir:8090"]},
+		// No server-side path into a personal device.
+		{"src": "coruscant", "deny": ["cachyos:22"]},
+		{"src": "dathomir", "deny": ["cachyos:22"]},
 	],
 	"sshTests": [
 		{"src": "endor", "dst": ["coruscant", "dathomir"], "check": ["root"]},
+		{"src": "endor", "dst": ["cachyos"], "check": ["dale"]},
 		{"src": "tag:ci", "dst": ["coruscant", "dathomir"], "accept": ["root"]},
 	],
 }

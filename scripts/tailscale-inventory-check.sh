@@ -15,14 +15,14 @@ trap 'unset TOK' EXIT
 DEVICES=$(curl -s -H "Authorization: Bearer $TOK" \
 	"https://api.tailscale.com/api/v2/tailnet/-/devices?fields=all")
 fail=0
-for host in endor s23 coruscant dathomir muse; do
+for host in endor s23 coruscant dathomir muse cachyos; do
 	# configured IP: the quoted IPv4 on the alias line in tailscale.tf
 
 	cfg=$(grep "\"$host\"" infra/tailscale/tailscale.tf | head -1 | grep -oE '"[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"')
 	live=$(echo "$DEVICES" | python3 -c "
 import json,sys
 d=json.load(sys.stdin)['devices']
-names={'endor':'enervee-ltqcw2y7pv','s23':'Aaron\\'s S23','coruscant':'coruscant','dathomir':'dathomir','muse':'muse'}
+names={'endor':'enervee-ltqcw2y7pv','s23':'Aaron\\'s S23','coruscant':'coruscant','dathomir':'dathomir','muse':'muse','cachyos':'cachyos-x8664'}
 want=names['$host']
 for v in d:
   if v.get('hostname')==want:
