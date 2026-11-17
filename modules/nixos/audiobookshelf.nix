@@ -39,6 +39,6 @@ _:
   # somewhere to point at and an API/filesystem upload has somewhere to land.
   systemd.tmpfiles.rules = [
     "d /var/lib/audiobookshelf/podcasts 0750 audiobookshelf audiobookshelf -"
-    "d /var/lib/audiobookshelf/audiobooks 0750 audiobookshelf audiobooks -"
+    "d /var/lib/audiobookshelf/audiobooks 0750 audiobookshelf audiobookshelf -"
   ];
 }

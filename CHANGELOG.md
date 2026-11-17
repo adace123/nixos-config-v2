@@ -115,6 +115,7 @@ commit kinds that are exempt, live in
 
 ### Fixed
 
+- fix(dathomir): create the audiobookshelf media directory under its own group
 - fix(omniwm): show the charging bolt beside the battery percentage inside the cell
 - fix(nixos): stabilise the Pi hosts with an LTS kernel, chrony, a watchdog and no esphome
 - fix(omniwm): put the TV workspace on the TV when the monitor is away
