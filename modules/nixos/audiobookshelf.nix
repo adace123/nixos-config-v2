@@ -1,4 +1,4 @@
-_:
+{ pkgs, ... }:
 # Audiobookshelf: self-hosted audiobook and podcast server on dathomir,
 # published tailnet-only as <audiobookshelf-domain> via the shared Caddy.
 #
@@ -41,4 +41,38 @@ _:
     "d /var/lib/audiobookshelf/podcasts 0750 audiobookshelf audiobookshelf -"
     "d /var/lib/audiobookshelf/audiobooks 0750 audiobookshelf audiobookshelf -"
   ];
+
+  # Per-episode cover artwork, which upstream 2.37.2 has no support for
+  # (advplyr/audiobookshelf#1573). This builds github:adace123/audiobookshelf
+  # instead of the official package: upstream v2.37.2 plus
+  # advplyr/audiobookshelf#5699 (server: podcastEpisodes.coverPath/imageURL,
+  # embedded-art extraction in the podcast scanner,
+  # GET /api/podcasts/:id/episode/:episodeId/cover with a 302 fallback to the
+  # show cover) and the web-client half that PR leaves out — the episode view,
+  # the episode rows and the player now show the episode's own image.
+  #
+  # The version bump to 2.38.0 is load-bearing, not cosmetic: MigrationManager
+  # skips migrations when the server version equals the recorded database
+  # version, so the bundled v2.38.0-add-episode-cover migration would never run
+  # against a 2.37.2 database. Note the database version is then 2.38.0, which
+  # is ahead of upstream — when upstream ships its own 2.38.0, re-check its
+  # migrations against this one before switching back to the official package.
+  #
+  # Both npmDepsHash pins stay valid: the fork touches neither
+  # package-lock.json. Overriding `src` is enough because nixpkgs threads
+  # `finalAttrs`, so the client derivation is rebuilt from the same source.
+  services.audiobookshelf.package = pkgs.audiobookshelf.overrideAttrs (old: {
+    version = "2.38.0";
+    src = pkgs.fetchFromGitHub {
+      owner = "adace123";
+      repo = "audiobookshelf";
+      rev = "fd8a7538d6162b5072b2166aa5347221dd3ab657";
+      hash = "sha256-/uew+SO+LAhSA69OpVoDNTf84b8QMPrak1sqqL4a1IQ=";
+    };
+    # Upstream's changelog link interpolates src.tag, which a rev-based fetch
+    # does not carry.
+    meta = (old.meta or { }) // {
+      changelog = "https://github.com/adace123/audiobookshelf/commits/fork-2.37.2-episode-covers";
+    };
+  });
 }

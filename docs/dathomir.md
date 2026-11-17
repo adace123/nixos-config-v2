@@ -635,6 +635,42 @@ First run, in the web UI at `https://<audiobookshelf-domain>`:
    Juno uploads this way once the server is up: it needs the server URL and
    an API key (or SSH access to the library folder), not a new Nix change.
 
+### Per-episode cover artwork (local fork)
+
+Upstream has no per-episode artwork — one image per show, tracked in
+[advplyr/audiobookshelf#1573](https://github.com/advplyr/audiobookshelf/issues/1573)
+— so `modules/nixos/audiobookshelf.nix` builds
+[adace123/audiobookshelf](https://github.com/adace123/audiobookshelf) branch
+`fork-2.37.2-episode-covers` instead of the official package. That branch is
+upstream `v2.37.2` plus
+[#5699](https://github.com/advplyr/audiobookshelf/pull/5699) (server:
+`podcastEpisodes.coverPath`/`imageURL`, embedded-art extraction in the podcast
+scanner, `GET /api/podcasts/:id/episode/:episodeId/cover` which 302s to the show
+cover when an episode has none) plus the web-client half that PR leaves out:
+the episode view, the episode rows and the player show the episode's own image.
+
+Two things to know before touching it:
+
+- **The version bump is load-bearing.** The fork reports `2.38.0` because
+  `MigrationManager` skips migrations when the server version equals the recorded
+  database version; at `2.37.2` the bundled `v2.38.0-add-episode-cover` migration
+  would never run and the podcast tables would lack the new columns. The cost is
+  that the database is then at `2.38.0`, ahead of upstream — when upstream ships
+  its own `2.38.0`, compare its migrations with
+  `v2.38.0-add-episode-cover.js` before switching back to the official package
+  (switching back while `2.38.0` is "newer" runs the down migration and drops
+  the columns, which is safe but means the fork must be re-deployed to get the
+  artwork again). First start backs the database up to
+  `config/absdatabase.backup.sqlite` automatically.
+- **Updating the fork** means bumping the `rev` and `hash` on the package
+  override in `modules/nixos/audiobookshelf.nix`, then reapplying the branch on
+  the new upstream tag. Both `npmDepsHash` pins stay valid as long as the fork
+  touches neither `package-lock.json`.
+
+Art comes from the file: an episode shows its own image when the uploaded MP3
+carries embedded art (`APIC`), and the show cover otherwise. The official
+Android and iOS apps are separate projects and still show one image per show.
+
 State is `/var/lib/audiobookshelf`: the SQLite database (users, libraries,
 progress) in `config/`, metadata, and the MP3s under `podcasts/` and
 `audiobooks/`. `modules/nixos/audiobookshelf-restic.nix` backs it up nightly
