@@ -59,6 +59,19 @@ resource "cloudflare_dns_record" "gatus" {
   comment = "Gatus status page on dathomir — Tailscale-only by design (managed by OpenTofu, nixos-config-v2)"
 }
 
+# Audiobookshelf. Same tailnet-only treatment as the hub, Pocket ID, Gatus
+# and the wiki: the name resolves publicly, the address is only routable on
+# the tailnet.
+resource "cloudflare_dns_record" "audiobookshelf" {
+  zone_id = var.cloudflare_zone_id
+  name    = var.audiobookshelf_domain
+  type    = "A"
+  content = var.dathomir_tailnet_ip
+  ttl     = 1 # automatic
+  proxied = false
+  comment = "Audiobookshelf on dathomir — Tailscale-only by design (managed by OpenTofu, nixos-config-v2)"
+}
+
 # OpenKnowledge, the wiki. Same tailnet-only treatment as the hub, Pocket ID and
 # Gatus: the name resolves publicly, the address is only routable on the tailnet.
 resource "cloudflare_dns_record" "wiki" {
