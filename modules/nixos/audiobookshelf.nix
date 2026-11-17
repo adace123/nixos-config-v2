@@ -66,8 +66,8 @@
     src = pkgs.fetchFromGitHub {
       owner = "adace123";
       repo = "audiobookshelf";
-      rev = "fd8a7538d6162b5072b2166aa5347221dd3ab657";
-      hash = "sha256-/uew+SO+LAhSA69OpVoDNTf84b8QMPrak1sqqL4a1IQ=";
+      rev = "7dbbf9dd3f0ca74b05cccbaf57184b0efc25faa8";
+      hash = "sha256-4iX4aXfDfG9vU1c687y9RCa/1SYNVWlFTViLyJoN8kA=";
     };
     # Upstream's changelog link interpolates src.tag, which a rev-based fetch
     # does not carry.
