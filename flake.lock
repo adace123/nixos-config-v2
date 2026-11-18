@@ -16,6 +16,23 @@
         "type": "github"
       }
     },
+    "audiobookshelf-fork": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1794977373,
+        "narHash": "sha256-sWCBF/V8Rfo5VUESKV7xRQ0N2YLKKTpuOQs5hrSsFNU=",
+        "owner": "adace123",
+        "repo": "audiobookshelf",
+        "rev": "752d04f387ed8d6843bd1122802f9827ef794137",
+        "type": "github"
+      },
+      "original": {
+        "owner": "adace123",
+        "ref": "fork-2.37.2-episode-covers",
+        "repo": "audiobookshelf",
+        "type": "github"
+      }
+    },
     "bun2nix": {
       "inputs": {
         "flake-parts": [
@@ -818,6 +835,7 @@
     },
     "root": {
       "inputs": {
+        "audiobookshelf-fork": "audiobookshelf-fork",
         "darwin": "darwin",
         "disko": "disko",
         "flake-parts": "flake-parts",
