@@ -64,7 +64,7 @@ resource "tailscale_acl" "policy" {
 		// rebuild. Like exit nodes, auto-approval only catches a route
 		// the first time it is advertised — a route already awaiting
 		// approval in the console must be approved there once.
-		"routes": {"192.168.4.0/24": ["tag:server-ha"]},
+		"routes": {"192.168.4.0/22": ["tag:server-ha"]},
 	},
 	"grants": [
 		// Personal devices -> servers: HTTPS UI + Pocket ID auth (via Caddy).
@@ -84,12 +84,14 @@ resource "tailscale_acl" "policy" {
 		// tagged, so this now truly covers only personal devices.
 		{"src": ["autogroup:member"], "dst": ["autogroup:internet"], "ip": ["*"]},
 		// Personal devices -> home LAN via coruscant's subnet route
-		// (192.168.4.0/24, advertised from hosts/coruscant/default.nix).
-		// All ports on purpose: LAN devices speak many of them (router
-		// admin, printers, cameras, ESPHome, smart plugs), and the scope
-		// is the /24 only. Servers and muse get no path in — see the deny
-		// tests below — so this does not open a server->LAN direction.
-		{"src": ["autogroup:member"], "dst": ["192.168.4.0/24"], "ip": ["*"]},
+		// (192.168.4.0/22, advertised from hosts/coruscant/default.nix —
+		// the eero LAN is a /22, not a /24; the eero nodes live at
+		// 192.168.6.51/.52). All ports on purpose: LAN devices speak many
+		// of them (router admin, printers, cameras, ESPHome, smart plugs),
+		// and the scope is this /22 only. Servers and muse get no path in —
+		// see the deny tests below — so this does not open a server->LAN
+		// direction.
+		{"src": ["autogroup:member"], "dst": ["192.168.4.0/22"], "ip": ["*"]},
 		// coruscant -> dathomir:443: beszel agent dials OUT to the hub.
 		{"src": ["coruscant"], "dst": ["dathomir"], "ip": ["tcp:443"]},
 		// dathomir -> coruscant:443: liveness check (tailscale ping needs no
@@ -160,8 +162,11 @@ resource "tailscale_acl" "policy" {
 		},
 	],
 	"tests": [
-		{"src": "endor", "proto": "tcp", "accept": ["coruscant:443", "dathomir:443", "coruscant:22", "dathomir:22", "192.168.4.1:80"]},
-		{"src": "s23", "proto": "tcp", "accept": ["coruscant:443", "dathomir:443", "dathomir:22", "192.168.4.1:80"]},
+		// LAN tests are policy-only, not reachability probes: the address only
+		// has to fall inside the granted /22. 192.168.6.73 is above the old
+		// /24 boundary on purpose — it pins the widened route.
+		{"src": "endor", "proto": "tcp", "accept": ["coruscant:443", "dathomir:443", "coruscant:22", "dathomir:22", "192.168.4.35:80", "192.168.6.73:80"]},
+		{"src": "s23", "proto": "tcp", "accept": ["coruscant:443", "dathomir:443", "dathomir:22", "192.168.4.35:80", "192.168.6.73:80"]},
 		{"src": "coruscant", "proto": "tcp", "accept": ["dathomir:443"]},
 		{"src": "dathomir", "proto": "tcp", "accept": ["coruscant:443", "dathomir:443"]},
 		{"src": "muse", "proto": "tcp", "accept": ["coruscant:443", "dathomir:443"]},
@@ -174,9 +179,11 @@ resource "tailscale_acl" "policy" {
 		// path and s23 has none to coruscant.
 		{"src": "endor", "deny": ["dathomir:1411", "dathomir:8090"]},
 		{"src": "s23", "deny": ["dathomir:1411", "dathomir:8090", "coruscant:22"]},
-		{"src": "coruscant", "deny": ["endor:443", "s23:443", "dathomir:1411", "dathomir:8090", "192.168.4.1:80"]},
-		{"src": "dathomir", "deny": ["endor:443", "s23:443", "dathomir:1411", "dathomir:8090", "192.168.4.1:80"]},
-		{"src": "muse", "deny": ["dathomir:1411", "dathomir:8090", "coruscant:22", "dathomir:22", "192.168.4.1:80"]},
+		{"src": "coruscant", "deny": ["endor:443", "s23:443", "dathomir:1411", "dathomir:8090", "192.168.4.35:80", "192.168.6.73:80"]},
+		{"src": "dathomir", "deny": ["endor:443", "s23:443", "dathomir:1411", "dathomir:8090", "192.168.4.35:80", "192.168.6.73:80"]},
+		{"src": "muse", "deny": ["dathomir:1411", "dathomir:8090", "coruscant:22", "dathomir:22", "192.168.4.35:80", "192.168.6.73:80"]},
+		// The CI runner is ephemeral and untrusted: it never reaches the home LAN.
+		{"src": "tag:ci", "deny": ["192.168.4.35:80", "192.168.6.73:80"]},
 		// cachyos is an untagged personal device: it reaches dathomir:22 as a
 		// member (Herdr), but never coruscant:22 and never the raw services.
 		{"src": "cachyos", "deny": ["coruscant:22", "dathomir:1411", "dathomir:8090"]},
