@@ -55,9 +55,20 @@ router's own address. Note the ACL is enforced on the *sender's* filter
 grants access to those routes"), so no coruscant-side change closes this.
 
 Order matters: apply the policy **before** the first switch advertises
-the route (`just -f infra/justfile tf apply` from the laptop, then deploy
-coruscant). autoApprovers only catch the first advertisement — a route
-that landed before the policy must be approved in the console once.
+the route, then deploy coruscant. autoApprovers only catch the first
+advertisement — a route that landed before the policy must be approved in
+the console once. This workspace is its own root module with local state,
+so the `infra/justfile` `tf` recipe (OCI/Cloudflare) does **not** touch the
+policy; apply from `infra/tailscale/`:
+
+```bash
+cd infra/tailscale
+set -a; . ~/.config/tailscale-oauth.env; set +a   # TS_CLIENT_ID / TS_CLIENT_SECRET
+TF_VAR_tailscale_oauth_client_id="$TS_CLIENT_ID" \
+TF_VAR_tailscale_oauth_client_secret="$TS_CLIENT_SECRET" \
+  tofu plan   # then: tofu apply
+```
+
 The `tailscaled-set` oneshot note from the exit-node setup applies here
 too: the first switch that adds the flag does not start it on an
 already-running daemon — run `sudo systemctl start tailscaled-set` once,
