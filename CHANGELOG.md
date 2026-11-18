@@ -87,6 +87,7 @@ commit kinds that are exempt, live in
 - feat(dathomir): install git so agents can work on a checkout
 - feat(omp): add GOAT-tuned model roles for task, plan, design, commit, tiny and vision
 - feat(dathomir): offer a Tailscale exit node with cloud egress independent of the home uplink
+- feat(darwin): replace Docker Desktop and colima with Kiri
 
 ### Changed
 

@@ -233,6 +233,50 @@ takes effect at the next login, not in the current session.
 See also [docs/ai.md](ai.md) for the AI agents (Claude, Pi, Hermes, Herdr)
 that run in this shell.
 
+## Containers
+
+[Kiri](https://runkiri.com) is the container runtime on endor. It replaces
+Docker Desktop and colima: a small Linux VM that serves the Docker Engine API,
+so `docker`, Compose and buildx work unchanged, with the `kiri` context as the
+default. It is installed as the `libracoder/kiri/kiri` cask from Kiri's own tap
+(declared `trusted = true` in `modules/darwin/homebrew.nix`; there is no
+homebrew-cask or nixpkgs package yet). The app bundles the matching docker CLI,
+Compose and buildx, links them into `~/.kiri/bin`, and self-updates.
+
+- **PATH** — `home.sessionPath` in `modules/home/base.nix` adds `~/.kiri/bin`.
+  Kiri's own setup appends it to `~/.zshrc`, but zsh here reads
+  `ZDOTDIR=~/.config/zsh` (`zsh.nix`), so that edit never loads.
+- **Adoption** — `brew bundle` refuses to install over an existing
+  `/Applications/Kiri.app` ("It seems there is already an App at …"). A machine
+  that installed the DMG by hand must delete the app once; activation then
+  installs the cask.
+- **Removed with it** — `colima` and the `docker-desktop` cask. Docker Desktop
+  also supplied `/usr/local/bin/kubectl` and the `docker-credential-*` helpers,
+  so `kubernetes-cli`, `docker-credential-helper` (osxkeychain) and
+  `docker-credential-helper-ecr` are declared in `brews`. `~/.docker/config.json`
+  names `"credsStore": "desktop"`; change it to `"osxkeychain"` once, or
+  `docker login` fails with `error getting credentials - err: exec:
+  "docker-credential-desktop": executable file not found in $PATH`. Swap the
+  helper in place:
+
+  ```shell
+  jq '.credsStore = "osxkeychain"' ~/.docker/config.json > /tmp/c && mv /tmp/c ~/.docker/config.json
+  ```
+
+  Then `docker login` once per registry: the old Docker Desktop token in the
+  Keychain is stale, so pulls answer `asked for a login`. The
+  `docker-credential-helper-ecr` entry keeps `credHelpers` working without a
+  `credsStore` rewrite.
+- **The first switch** — `docker-desktop`'s zap stanza deletes `~/.docker`
+  (contexts, the `auths` entry, Kiri's plugin dir) and its privileged helpers,
+  which needs root; activation has it. Kiri recreates its context the next time
+  it opens. Set `"credsStore": "osxkeychain"` in the fresh `~/.docker/config.json`
+  and run `docker login` again for any private registry. Uninstalling `colima`
+  does not stop its VM — run `colima stop` and delete `~/.colima` by hand
+  (a running container keeps the VM busy until then).
+- **Remote podman** — the `podman` brew stays; it is the client for coruscant's
+  socket (see [docs/nixos.md](nixos.md#podman)).
+
 ## Ollama
 
 `modules/home/ollama.nix` runs [Ollama](https://ollama.com) as a local LLM

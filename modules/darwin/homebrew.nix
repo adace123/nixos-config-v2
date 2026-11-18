@@ -22,9 +22,15 @@ _: {
     # Formulae (command-line packages)
     brews = [
       "awscli" # AWS CLI
-      "colima" # Lightweight container runtime
       "gh" # GitHub CLI
       "podman" # Container engine (remote client for coruscant)
+
+      # Container tooling. Kiri.app bundles the docker CLI, Compose and buildx
+      # and links them into ~/.kiri/bin; these replace what Docker Desktop used
+      # to supply: kubectl, and the credential helpers its config.json names.
+      "kubernetes-cli" # kubectl (sofka, kiri k8s)
+      "docker-credential-helper" # osxkeychain credsStore for `docker login`
+      "docker-credential-helper-ecr" # `ecr-login`, which ~/.docker/config.json names
       "pam-u2f" # YubiKey PAM module for sudo authentication
       "pre-commit" # Git hooks manager
       "sofka" # Kubernetes TUI, reimagined in Rust (k9s alternative)
@@ -45,7 +51,13 @@ _: {
       "fwdcloudsec/granted/granted" # Granted AWS access
     ];
 
-    taps = [ "fwdcloudsec/granted" ];
+    taps = [
+      "fwdcloudsec/granted"
+      {
+        name = "libracoder/kiri"; # Kiri's cask tap
+        trusted = true;
+      }
+    ];
 
     # Casks (GUI applications)
     casks = [
@@ -58,10 +70,19 @@ _: {
       "bruno" # API client
       "codex" # OpenAI Codex CLI
       "codex-app" # OpenAI Codex App
+      # Kiri — container runtime that speaks the Docker Engine API. Only in its
+      # own tap so far (not homebrew-cask yet), hence `trusted`. The cask ships
+      # the docker CLI, Compose and buildx inside the app; the app links them
+      # into ~/.kiri/bin (see home.sessionPath in modules/home/base.nix). `brew
+      # bundle` cannot adopt an existing /Applications/Kiri.app, so a machine
+      # that had the DMG installed needs it removed once first.
+      {
+        name = "libracoder/kiri/kiri";
+        trusted = true;
+      }
       # Hand-installed; declare it or `cleanup = "zap"` zaps it, and paseo's zap
       # moves files to the Trash, which fails activation without Full Disk Access.
       "paseo" # AI coding agent desktop app
-      "docker-desktop" # Docker
       "ghostty" # Terminal emulator
       "warp" # AI terminal
       "session-manager-plugin" # AWS SSM

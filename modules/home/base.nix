@@ -12,6 +12,11 @@
     # Prepend to PATH.
     sessionPath = [
       "$HOME/.npm-global/bin" # Global npm packages (e.g. @coinbase/coinbase-cli)
+      # Kiri links its own `kiri` and the docker CLI (with Compose and buildx
+      # plugins) here. Kiri's setup appends this to ~/.zshrc, which is not the
+      # dotdir zsh reads (ZDOTDIR is ~/.config/zsh), so home.sessionPath is the
+      # only place that actually reaches the shell.
+      "$HOME/.kiri/bin"
     ];
 
     sessionVariables = {
