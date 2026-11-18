@@ -361,7 +361,11 @@ subnet route, via `host.tailscaleSubnetRoutes` in
 that do not run Tailscale by their LAN IP, from anywhere. The route is
 auto-approved for `tag:server-ha` and granted to members in
 `infra/tailscale/tailscale.tf`; see `infra/tailscale/NOTES.md` for the
-verification steps. Clients need `--accept-routes` to use it.
+runbook (apply the policy **before** the first switch — autoApprovers
+only catch the first advertisement), verification steps, and the caveat
+that this grant also exposes coruscant's own services (`:8123`, `:22`)
+at its LAN IP. macOS/iOS/Android accept routes by default; Linux clients
+need `tailscale set --accept-routes`.
 
 ## Podman
 

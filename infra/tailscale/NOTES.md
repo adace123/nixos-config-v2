@@ -54,15 +54,18 @@ router's own address. Note the ACL is enforced on the *sender's* filter
 (Tailscale docs: "To restrict access to a subnet, make sure that no ACL
 grants access to those routes"), so no coruscant-side change closes this.
 
-After deploying, verify from a device *off* the LAN (macOS/iOS/Android
-accept routes by default; Linux needs `tailscale set --accept-routes`):
-`tailscale status` should show the route, and e.g. the LAN gateway
-should answer. The `tailscaled-set` oneshot note from the exit-node setup
-applies here too: the first switch that adds the flag does not start it on
-an already-running daemon — run `sudo systemctl start tailscaled-set` once,
-or reboot. If the route was already awaiting approval in the console before
-the policy landed, approve it there once; auto-approval only catches the
-first advertisement.
+Order matters: apply the policy **before** the first switch advertises
+the route (`just -f infra/justfile tf apply` from the laptop, then deploy
+coruscant). autoApprovers only catch the first advertisement — a route
+that landed before the policy must be approved in the console once.
+The `tailscaled-set` oneshot note from the exit-node setup applies here
+too: the first switch that adds the flag does not start it on an
+already-running daemon — run `sudo systemctl start tailscaled-set` once,
+or reboot.
+
+Then verify from a device *off* the LAN (macOS/iOS/Android accept routes
+by default; Linux needs `tailscale set --accept-routes`): `tailscale
+status` should show the route, and e.g. the LAN gateway should answer.
 
 ## Closed by absence (no grant = denied)
 
