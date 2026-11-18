@@ -71,23 +71,46 @@ TF_VAR_tailscale_oauth_client_secret="$TS_CLIENT_SECRET" \
   tofu plan   # then: tofu apply
 ```
 
-The `tailscaled-set` oneshot note from the exit-node setup applies here
-too: the first switch that adds the flag does not start it on an
-already-running daemon — run `sudo systemctl start tailscaled-set` once,
-or reboot.
+`tailscaled-set` does **not** re-run when a switch restarts `tailscaled`, so
+a deploy that changes `extraSetFlags` leaves the old advertisement in place
+(observed 2026-11-18: a switch to `/22` still advertised `/24` until the
+unit was started by hand). After any deploy that touches the flags:
+
+```bash
+ssh root@coruscant 'systemctl start tailscaled-set; tailscale debug prefs'
+```
+
+Expect the new routes in `AdvertiseRoutes` and then, once approved, in
+`tailscale status --json` → `.Self.PrimaryRoutes`.
+
+Deploy over the tailnet address, not the mDNS name: `just nixos-deploy
+100.66.226.84`. Once a route covering the home LAN is installed on endor,
+coruscant's own LAN IP can fall inside the tunnel and hairpin through
+SNAT — `nix copy --to ssh://root@coruscant.local` was failing with
+"Connection closed by 192.168.4.53 port 22" while the tailnet address
+copied fine. The LAN address keeps working for plain SSH; it is the store
+copy that is unreliable.
 
 Then verify from a device *off* the LAN (macOS/iOS/Android accept routes
 by default; Linux needs `tailscale set --accept-routes`): `tailscale
 status` should show the route, and e.g. the LAN gateway should answer.
 
-Live test targets on this LAN (verified from coruscant's neighbour table
-and port probes): `192.168.4.1` gateway (ICMP only — eero exposes no web
-admin, so an `:80` test there proves nothing), `192.168.4.35:80` Samsung
-TV HTTP API, `192.168.4.26` Fire TV (ADB 5555, Cast 8009), `192.168.4.37`
-Kasa plug, `192.168.4.53` coruscant itself (HA `:8123` raw), and
-`192.168.6.51`/`.52` eero nodes / `192.168.6.73` above the old /24
-boundary to prove the widened route. Do not test `192.168.4.20` — that is
-endor's own LAN IP, so the packet leaves and returns to the same machine.
+Live test targets, re-probed 2026-11-18 (all inside the routed /22):
+
+| Target | What answers |
+|---|---|
+| `192.168.4.1` | eero gateway — ICMP only (`:80` closed: no local web admin, so an `:80` test there proves nothing) |
+| `192.168.4.31`, `.35`, `.38` | Samsung TVs — `curl http://<ip>/` returns HTTP 200, `Server: SHIP 2.0` |
+| `192.168.4.94` | camera/NVR-class device — HTTP 404 on `/` |
+| `192.168.4.37` | Kasa plug — ICMP only (no `:80`) |
+| `192.168.4.53` | coruscant — `:22` open; HA `:8123` is firewalled from the LAN and only reachable over tailscale0 |
+| `192.168.6.51`, `.52` | eero nodes above the old /24 boundary — ICMP |
+| `192.168.6.73` | live host above the old /24 boundary |
+
+Do not test `192.168.4.20`: it is endor's own LAN IP. And from *home* the
+check proves nothing anyway — macOS keeps the LAN traffic on `en0` (the
+advertised /22 equals the on-link prefix), so run the test from a device
+that is off the LAN.
 
 ## Closed by absence (no grant = denied)
 
