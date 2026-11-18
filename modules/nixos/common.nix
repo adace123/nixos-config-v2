@@ -133,9 +133,12 @@ in
     # needs to route LAN traffic. Advertising alone does nothing until
     # the tailnet policy approves the route (autoApprovers in
     # infra/tailscale/tailscale.tf) and grants members access to it.
-    extraSetFlags = [ "--advertise-exit-node" ]
-      ++ lib.optional (host.tailscaleSubnetRoutes or [ ] != [ ])
-        "--advertise-routes=${lib.concatStringsSep "," host.tailscaleSubnetRoutes}";
+    extraSetFlags = [
+      "--advertise-exit-node"
+    ]
+    ++ lib.optional (
+      host.tailscaleSubnetRoutes or [ ] != [ ]
+    ) "--advertise-routes=${lib.concatStringsSep "," host.tailscaleSubnetRoutes}";
   };
 
   # ZRAM swap configuration
