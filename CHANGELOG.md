@@ -133,6 +133,7 @@ commit kinds that are exempt, live in
 - fix(just): verify a deploy against the flake's build, not the host's own profile
 - fix(ha): make the restic jobs wait for the repo lock instead of failing
 - fix(beszel): give the hub an APP_URL so alert links do not point at localhost
+- fix(coruscant): advertise the home LAN as a /22, not a /24
 - fix(pi): harden the USB root path and add a storage canary that reboots on write failure
 - fix(pi): disable the reboot watchdog explicitly instead of inheriting systemd's 10 min default
 - fix(pi): keep automatic updates, backups and GC off the boot clock step, and verify the store weekly

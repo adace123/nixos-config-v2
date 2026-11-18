@@ -355,9 +355,11 @@ ssh root@coruscant.<tailnet-name>.ts.net
 
 ### Subnet router (home LAN)
 
-coruscant also advertises the home LAN (`192.168.4.0/24`) as a Tailscale
-subnet route, via `host.tailscaleSubnetRoutes` in
-`hosts/coruscant/default.nix`. Tailnet members can then reach LAN devices
+coruscant also advertises the home LAN (`192.168.4.0/22`) as a Tailscale
+subnet route via `host.tailscaleSubnetRoutes` in
+`hosts/coruscant/default.nix`. The eero LAN is a /22 (`end0` is
+`192.168.4.53/22`), so the route has to be a /22 too — the eero nodes at
+`192.168.6.51`/`.52` sit outside a /24. Tailnet members can then reach LAN devices
 that do not run Tailscale by their LAN IP, from anywhere. The route is
 auto-approved for `tag:server-ha` and granted to members in
 `infra/tailscale/tailscale.tf`; see `infra/tailscale/NOTES.md` for the
