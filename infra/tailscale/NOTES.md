@@ -18,8 +18,54 @@ flow below fails silently at the filter — the server never sees the packet.
 | `tag:server-ha` (coruscant 100.66.226.84) | → dathomir `tcp:443` (beszel agent out) | Home Assistant via Caddy :443. Exit-node offer (`0.0.0.0/0`) approved in console. |
 | `tag:server-infra` (dathomir 100.89.136.120) | → coruscant `tcp:443` (liveness); → self `tcp:443` (hairpin) | Beszel hub + Pocket ID via Caddy :443. |
 | `tag:agent-muse` (muse 100.82.236.107) | → servers `tcp:443` only | Meta Muse agent. No :22, no internet. |
+| Home LAN `192.168.4.0/24` via coruscant | members → LAN `*` (all ports) | Subnet route advertised by coruscant (`hosts/coruscant/default.nix`); auto-approved for `tag:server-ha`. Servers and muse have no path in. **Known edge:** coruscant's own services at its LAN IP are now member-reachable too — see below. |
 | cachyos (UNTAGGED, 100.110.142.85) | members → cachyos `tcp:22`; `dale` via Tailscale SSH (`check`, 12h) | Personal CachyOS box, same owner as endor. Untagged, so the ssh rule rides `autogroup:self` — Tailscale refuses a hostname or IP in an ssh `dst`. `dale` is `wheel`, hence check mode. No server-side path in. |
 | `tag:machine` / `tag:nixos-machine` | legacy | Both servers still carry `tag:nixos-machine` (console). Strip in console, then drop from policy (follow-up). |
+
+## Subnet route (home LAN)
+
+coruscant advertises `192.168.4.0/24` (the eero LAN) as a subnet route, so
+personal devices can reach LAN devices that do not run Tailscale — router,
+printers, cameras, ESPHome nodes, smart plugs — by their LAN IP, from
+anywhere on the tailnet. Three pieces, all in this PR: the Nix flag in
+`hosts/coruscant/default.nix` / `modules/nixos/common.nix`, the
+`autoApprovers.routes` entry in `tailscale.tf`, and the member grant to the
+`/24`. Advertising alone does nothing without the other two.
+
+### coruscant's own LAN IP is a member destination
+
+Granting the whole `/24` also grants coruscant's own LAN IP, so member
+devices reach coruscant's node services there and the closures below only
+hold on the tailnet IP, not the LAN IP:
+
+- `:8123` — Home Assistant listens on `0.0.0.0` (device discovery needs it,
+  see `modules/nixos/home-assistant/default.nix`), so members hit HA raw,
+  bypassing the Caddy/Pocket-ID path.
+- `:22` — coruscant's sshd is reachable from every member device over the
+  LAN IP; the `endor`-only `tcp:22` grant is enforced at the tailnet IP
+  only. Auth still gates it (key-only, no shared logins), and the deny
+  tests that pin `coruscant:22` test the tailnet IP, not this one.
+
+Accepted for now: the LAN grant is the feature (router admin, printers,
+cameras, ESPHome, plugs), coruscant sits inside that /24, and members are
+the owner's own devices. Follow-up if this ever matters: bind HA to
+`127.0.0.1` (Caddy already proxies it), or narrow the grant below the
+router's own address. Note the ACL is enforced on the *sender's* filter
+(Tailscale docs: "To restrict access to a subnet, make sure that no ACL
+grants access to those routes"), so no coruscant-side change closes this.
+
+Order matters: apply the policy **before** the first switch advertises
+the route (`just -f infra/justfile tf apply` from the laptop, then deploy
+coruscant). autoApprovers only catch the first advertisement — a route
+that landed before the policy must be approved in the console once.
+The `tailscaled-set` oneshot note from the exit-node setup applies here
+too: the first switch that adds the flag does not start it on an
+already-running daemon — run `sudo systemctl start tailscaled-set` once,
+or reboot.
+
+Then verify from a device *off* the LAN (macOS/iOS/Android accept routes
+by default; Linux needs `tailscale set --accept-routes`): `tailscale
+status` should show the route, and e.g. the LAN gateway should answer.
 
 ## Closed by absence (no grant = denied)
 

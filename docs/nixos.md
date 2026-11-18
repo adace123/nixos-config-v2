@@ -353,6 +353,20 @@ Once authenticated, SSH is available over Tailscale from anywhere:
 ssh root@coruscant.<tailnet-name>.ts.net
 ```
 
+### Subnet router (home LAN)
+
+coruscant also advertises the home LAN (`192.168.4.0/24`) as a Tailscale
+subnet route, via `host.tailscaleSubnetRoutes` in
+`hosts/coruscant/default.nix`. Tailnet members can then reach LAN devices
+that do not run Tailscale by their LAN IP, from anywhere. The route is
+auto-approved for `tag:server-ha` and granted to members in
+`infra/tailscale/tailscale.tf`; see `infra/tailscale/NOTES.md` for the
+runbook (apply the policy **before** the first switch — autoApprovers
+only catch the first advertisement), verification steps, and the caveat
+that this grant also exposes coruscant's own services (`:8123`, `:22`)
+at its LAN IP. macOS/iOS/Android accept routes by default; Linux clients
+need `tailscale set --accept-routes`.
+
 ## Podman
 
 `modules/nixos/podman.nix` enables daemonless Podman as a Docker-compatible
