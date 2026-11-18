@@ -19,11 +19,11 @@
     "audiobookshelf-fork": {
       "flake": false,
       "locked": {
-        "lastModified": 1794977373,
-        "narHash": "sha256-sWCBF/V8Rfo5VUESKV7xRQ0N2YLKKTpuOQs5hrSsFNU=",
+        "lastModified": 1794978911,
+        "narHash": "sha256-BFR4h8f4He6wLZNn0jIj7a/KUlCb3sPx2Njbundp4OU=",
         "owner": "adace123",
         "repo": "audiobookshelf",
-        "rev": "752d04f387ed8d6843bd1122802f9827ef794137",
+        "rev": "52216f3d3301a75faf4c707228b8f9a284297d9e",
         "type": "github"
       },
       "original": {
