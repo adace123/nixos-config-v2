@@ -70,6 +70,18 @@
       url = "github:NousResearch/hermes-agent/44ec783afd1193afb7576d9c01d7fe9d18c87339";
     };
 
+    # Audiobookshelf fork with per-episode cover artwork (advplyr #1573, server
+    # from #5699 plus the web-client half and cover upload endpoints). Consumed
+    # as fetchFromGitHub source for services.audiobookshelf.package in
+    # modules/nixos/audiobookshelf.nix. Branch input, so `nix flake update
+    # audiobookshelf-fork` (and the weekly dependabot run) picks up new commits
+    # on the branch without a rev/hash edit here. See docs/dathomir.md for the
+    # update procedure and its migration caveat.
+    audiobookshelf-fork = {
+      url = "github:adace123/audiobookshelf/fork-2.37.2-episode-covers";
+      flake = false;
+    };
+
     # The herdr kanban board plugin. It has its own repo because the Nix
     # packaging is *about the plugin* — it enumerates the plugin's modules and
     # asserts nothing ships unimported — so it belongs next to the code it

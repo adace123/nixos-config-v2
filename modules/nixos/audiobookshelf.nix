@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ inputs, pkgs, ... }:
 # Audiobookshelf: self-hosted audiobook and podcast server on dathomir,
 # published tailnet-only as <audiobookshelf-domain> via the shared Caddy.
 #
@@ -63,12 +63,14 @@
   # `finalAttrs`, so the client derivation is rebuilt from the same source.
   services.audiobookshelf.package = pkgs.audiobookshelf.overrideAttrs (old: {
     version = "2.38.0";
-    src = pkgs.fetchFromGitHub {
-      owner = "adace123";
-      repo = "audiobookshelf";
-      rev = "752d04f387ed8d6843bd1122802f9827ef794137";
-      hash = "sha256-sWCBF/V8Rfo5VUESKV7xRQ0N2YLKKTpuOQs5hrSsFNU=";
-    };
+    # Source from the audiobookshelf-fork flake input (flake.lock pins the
+    # resolved rev and narHash), so updating is `just update-input
+    # audiobookshelf-fork` after pushing commits to the branch — no rev/hash
+    # edits here. client.nix reads src.name (for sourceRoot "${src.name}/client"),
+    # which a fetched-source input lacks: name it without adding a hash to it.
+    src = pkgs.runCommand "audiobookshelf-fork-source" { } ''
+      cp -r ${inputs.audiobookshelf-fork} $out
+    '';
     # Upstream's changelog link interpolates src.tag, which a rev-based fetch
     # does not carry.
     meta = (old.meta or { }) // {

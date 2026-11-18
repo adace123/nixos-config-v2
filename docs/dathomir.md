@@ -662,10 +662,27 @@ Two things to know before touching it:
   the columns, which is safe but means the fork must be re-deployed to get the
   artwork again). First start backs the database up to
   `config/absdatabase.backup.sqlite` automatically.
-- **Updating the fork** means bumping the `rev` and `hash` on the package
-  override in `modules/nixos/audiobookshelf.nix`, then reapplying the branch on
-  the new upstream tag. Both `npmDepsHash` pins stay valid as long as the fork
-  touches neither `package-lock.json`.
+- **Updating the fork** is two steps:
+
+  1. Merge the upstream tag into the branch and push it:
+     `git checkout fork-2.37.2-episode-covers && git merge --no-ff v<newtag>`
+     (or cherry-pick fixes). Both `npmDepsHash` pins stay valid as long as the
+     fork touches neither `package-lock.json` — check that in the merge diff.
+  2. `just update-input audiobookshelf-fork`, then build/switch. `flake.lock`
+     pins the resolved rev and narHash; dependabot's weekly
+     `flake-input-updates` run also picks up branch movement, so branch pushes
+     are build-validated by CI before they reach a manual update.
+
+  **The migration rule that goes with each update:** the recorded database
+  version is whatever the fork last reported (`2.38.0` today), and
+  `MigrationManager` only runs migrations strictly newer than that. So when an
+  upstream release ships migrations numbered `<= 2.38.0`, they would be
+  skipped on this database — check the release's
+  `server/migrations/` against the recorded version and rename (or port) those
+  files above it, then confirm the boot log lists them under
+  `[MigrationManager] Migrations to run`. Our own
+  `v2.38.0-add-episode-cover.js` gets dropped from the branch once upstream
+  absorbs the episode-cover code.
 
 Art comes from the file: an episode shows its own image when the uploaded MP3
 carries embedded art (`APIC`), and the show cover otherwise. The official
