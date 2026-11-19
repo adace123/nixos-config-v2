@@ -255,8 +255,19 @@ Add a skill by appending its `skills/<path>` to `commonSkills` in `skills.nix`.
 - **PostToolUse hook** — auto-formats edited files by extension (`nix fmt`,
   `ruff format`, `dprint`/`prettier`, `markdownlint`, `yamlfmt`).
 - **Git worktree rule** — Claude-only rule (defined in `claude.nix`, not
-  `shared.nix`): implement features/fixes in a dedicated worktree, never
-  commit directly on the default branch.
+  `shared.nix`): implement features/fixes in a dedicated worktree under
+  `<repo>/.claude/worktrees/<type>+<slug>` (overriding repo docs that say
+  `../<repo>-<slug>`), never commit directly on the default branch.
+  `.claude/worktrees/` is in the global git ignore (`git.nix`).
+- **Worktree cleanup** (`worktree-gc.nix`, `git-worktree-gc.sh`) — a daily
+  launchd job (10:00, `~/Library/Logs/git-worktree-gc.log`) sweeps every repo
+  directly under `~/Projects/work` and `~/Projects/personal`. It removes a
+  linked worktree, and deletes its branch, when the branch is merged into
+  origin's default branch or its upstream is gone, the tree is clean, and HEAD
+  has not moved for 24 h (`GRACE_HOURS`). Worktrees outside those roots
+  (`~/.herdr/worktrees`, `/tmp`), locked or detached ones, and ones with
+  changes are kept. It never fetches; `fetch.prune = true` in `git.nix` keeps
+  `[gone]` current. Preview with `git-worktree-gc --dry-run`.
 - **No `Read(*)` allow** — auto mode covers reads; the `deny` list still blocks
   the sops identities and rendered API keys.
 - Config is Nix-managed at `~/.claude/settings.json` (`force = true`).

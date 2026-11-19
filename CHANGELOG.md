@@ -89,6 +89,7 @@ commit kinds that are exempt, live in
 - feat(dathomir): offer a Tailscale exit node with cloud egress independent of the home uplink
 - feat(darwin): replace Docker Desktop and colima with Kiri
 - feat(omniwm): show Kiri's engine state and containers in the OmniShell bar
+- feat(claude): keep worktrees under .claude/worktrees and sweep merged ones daily
 
 ### Changed
 

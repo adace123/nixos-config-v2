@@ -20,6 +20,12 @@
         rebase = false;
       };
 
+      # Drop remote-tracking refs of deleted (merged) branches on every fetch,
+      # so `[gone]` upstreams show up for git-worktree-gc without it fetching.
+      fetch = {
+        prune = true;
+      };
+
       core = {
         excludesfile = "~/.config/git/ignore";
       };
@@ -153,6 +159,7 @@
       # AI agent artifacts (transient, repo-local, never committed)
       .pi/plans/
       .pi/tasks/
+      .claude/worktrees/
 
       # Logs
       logs/

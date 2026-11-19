@@ -15,6 +15,7 @@ in
     ./pi.nix
     ./herdr/herdr.nix
     ./omp.nix
+    ./worktree-gc.nix
   ];
 
   # The headless half of the browser routing in omp.nix: a native binary plus

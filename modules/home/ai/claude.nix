@@ -216,11 +216,18 @@ in
 
       ## Workflow
       - Before starting a new feature or bug fix, create a worktree
+      - Create worktrees ONLY under `<repo>/.claude/worktrees/`, never as sibling
+        directories next to the repo or anywhere else. Name the directory after the
+        branch with `/` replaced by `+`:
+        `git worktree add .claude/worktrees/feature+<short-name> -b feature/<short-name>`
+        This location wins over a repo's CLAUDE.md, AGENTS.md or skill that puts
+        worktrees in `../<repo>-<name>`; follow the rest of those instructions.
       - Use descriptive branch names (e.g. `feature/<short-name>`, `fix/<short-name>`)
       - Do all implementation, commits, and tests inside the worktree
       - Never commit directly on the default branch (main/master)
       - After the work is merged, clean up with `git worktree remove <path>`
-        and delete the branch
+        and delete the branch. A daily `git-worktree-gc` job also removes clean
+        worktrees whose branch has merged, so an unmerged one left behind is fine.
     '';
 
     skills = {
