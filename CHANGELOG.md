@@ -113,6 +113,7 @@ commit kinds that are exempt, live in
 - refactor(dathomir): replace Collie with the official Herdr mobile app over herdr-core
 - refactor(zed): remove the Zed editor module, flake input, overlay and project config
 - feat(omp): move the vision role to muse-spark-1.3
+- chore(claude): drop the Read(*) allow, which auto mode makes redundant
 
 ### Fixed
 

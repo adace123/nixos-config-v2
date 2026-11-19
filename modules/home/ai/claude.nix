@@ -93,7 +93,6 @@ in
           "Bash(command -v *)"
           "Bash(readlink *)"
           "Bash(herdr *)"
-          "Read(*)"
           "WebFetch(domain:github.com)"
           "WebFetch(domain:raw.githubusercontent.com)"
           "WebFetch(domain:pypi.org)"
@@ -103,9 +102,9 @@ in
         ];
         # Never readable, even in auto mode: the age identities (endor's own
         # and the admin key, which decrypts every host's secrets and the CI
-        # secrets) and the API keys rendered at activation. `Read(*)` above
-        # would otherwise cover them, and an injected instruction only needs one
-        # read to exfiltrate everything. Run env dumps through `ask`, not allow.
+        # secrets) and the API keys rendered at activation. Auto mode would
+        # otherwise let a read through, and an injected instruction only needs
+        # one read to exfiltrate everything. Run env dumps through `ask`, not allow.
         deny = [
           "Read(~/.config/sops/**)"
           "Read(~/.hermes/.env)"

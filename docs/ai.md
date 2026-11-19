@@ -257,6 +257,8 @@ Add a skill by appending its `skills/<path>` to `commonSkills` in `skills.nix`.
 - **Git worktree rule** — Claude-only rule (defined in `claude.nix`, not
   `shared.nix`): implement features/fixes in a dedicated worktree, never
   commit directly on the default branch.
+- **No `Read(*)` allow** — auto mode covers reads; the `deny` list still blocks
+  the sops identities and rendered API keys.
 - Config is Nix-managed at `~/.claude/settings.json` (`force = true`).
 
 ## Pi — `pi-coding-agent` (`pi.nix`)
