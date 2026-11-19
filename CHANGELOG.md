@@ -87,6 +87,9 @@ commit kinds that are exempt, live in
 - feat(dathomir): install git so agents can work on a checkout
 - feat(omp): add GOAT-tuned model roles for task, plan, design, commit, tiny and vision
 - feat(dathomir): offer a Tailscale exit node with cloud egress independent of the home uplink
+- feat(dathomir): add Audiobookshelf (tailnet-only podcast/audiobook server)
+- feat(dathomir): build audiobookshelf from the episode-covers fork
+- feat(coruscant): advertise home LAN as Tailscale subnet route
 - feat(darwin): replace Docker Desktop and colima with Kiri
 - feat(omniwm): show Kiri's engine state and containers in the OmniShell bar
 - feat(claude): keep worktrees under .claude/worktrees and sweep merged ones daily
@@ -118,6 +121,7 @@ commit kinds that are exempt, live in
 
 ### Fixed
 
+- fix(dathomir): create the audiobookshelf media directory under its own group
 - fix(omniwm): show the charging bolt beside the battery percentage inside the cell
 - fix(nixos): stabilise the Pi hosts with an LTS kernel, chrony, a watchdog and no esphome
 - fix(omniwm): put the TV workspace on the TV when the monitor is away
@@ -133,6 +137,7 @@ commit kinds that are exempt, live in
 - fix(just): verify a deploy against the flake's build, not the host's own profile
 - fix(ha): make the restic jobs wait for the repo lock instead of failing
 - fix(beszel): give the hub an APP_URL so alert links do not point at localhost
+- fix(coruscant): advertise the home LAN as a /22, not a /24
 - fix(pi): harden the USB root path and add a storage canary that reboots on write failure
 - fix(pi): disable the reboot watchdog explicitly instead of inheriting systemd's 10 min default
 - fix(pi): keep automatic updates, backups and GC off the boot clock step, and verify the store weekly

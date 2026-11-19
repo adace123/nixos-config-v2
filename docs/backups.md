@@ -17,6 +17,7 @@ Each host writes to its **own repository** inside the bucket (`coruscant`,
 | Home Assistant data | coruscant | `/var/lib/hass` | `coruscant` |
 | Beszel hub state | dathomir | `/var/lib/private/beszel-hub` | `dathomir` |
 | OpenKnowledge project | dathomir | `/var/lib/open-knowledge` | `dathomir` |
+| Audiobookshelf | dathomir | `/var/lib/audiobookshelf` (`config/`, `metadata/`, media) | `dathomir` |
 
 The backup **excludes** `deps`, `logs`, and `tts` (regenerable/cache data)
 under `/var/lib/hass`.
@@ -32,6 +33,13 @@ During a backup, the Home Assistant Podman container is **stopped** so the
 snapshot is consistent, then started again (restart is guaranteed via a trap
 even if the backup fails).
 
+Audiobookshelf is the one job that stops for only *part* of the run. Its SQLite
+database and metadata are copied while `audiobookshelf.service` is stopped
+(seconds, same as the other jobs); the media directories are copied afterwards
+with the service running, because an upload of new episodes can take minutes
+and the podcast server must not be offline for it. That is two snapshots per
+run under one tag — a restore needs both.
+
 ## Where it goes
 
 Restic writes to:
@@ -46,7 +54,8 @@ s3:<cloudflare-endpoint>/<cloudflare-bucket>/dathomir    # beszel hub
 - R2 credentials, bucket name, endpoint, and the `restic-password` live in
   `secrets/cloudflare.yaml` (see [docs/secrets.md](secrets.md)). Every host that
   backs up is listed as an age recipient of that file.
-- Snapshots are tagged `home-assistant`, `beszel-hub` or `open-knowledge`.
+- Snapshots are tagged `home-assistant`, `beszel-hub`, `open-knowledge` or
+  `audiobookshelf`.
 
 ## Schedule
 
@@ -61,6 +70,8 @@ Defined in `modules/nixos/home-assistant/restic.nix` (Home Assistant) and
 | Hub repository check | Weekly Sunday 05:00 (+30 min randomized delay) | `restic check` |
 | Wiki backup + prune | Daily 04:15 (`Persistent`, +15 min randomized delay) | `restic backup` then `restic forget --prune` |
 | Wiki repository check | Weekly Sunday 06:00 (+30 min randomized delay) | `restic check` |
+| Audiobookshelf backup + prune | Daily 04:30 (`Persistent`, +15 min randomized delay) | `restic backup` (database, service stopped) then `restic backup` (media, service up) then `restic forget --prune` |
+| Audiobookshelf repository check | Weekly Sunday 06:30 (+30 min randomized delay) | `restic check` |
 
 Both hosts pass `--retry-lock` and wait for the repository lock instead of failing.
 This matters because the Pi hosts boot without an RTC: when the clock is stepped

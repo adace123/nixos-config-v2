@@ -16,6 +16,23 @@
         "type": "github"
       }
     },
+    "audiobookshelf-fork": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1794978911,
+        "narHash": "sha256-BFR4h8f4He6wLZNn0jIj7a/KUlCb3sPx2Njbundp4OU=",
+        "owner": "adace123",
+        "repo": "audiobookshelf",
+        "rev": "52216f3d3301a75faf4c707228b8f9a284297d9e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "adace123",
+        "ref": "fork-2.37.2-episode-covers",
+        "repo": "audiobookshelf",
+        "type": "github"
+      }
+    },
     "bun2nix": {
       "inputs": {
         "flake-parts": [
@@ -464,11 +481,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1792664215,
-        "narHash": "sha256-89U++Pnz9kb8a5Vdx8xAq9z3V172S7A9Surz8mgjGrM=",
+        "lastModified": 1793527794,
+        "narHash": "sha256-ZCz0zE+Lgb3hBn+u3n39Txegdw3jI/SVkQjR+TjClh4=",
         "owner": "ryoppippi",
         "repo": "nix-bun",
-        "rev": "0db08e3d1db83272822209ab82f34b399080494e",
+        "rev": "4170f2a531122ac75aa45d823bd69e6e9a77563f",
         "type": "github"
       },
       "original": {
@@ -624,11 +641,11 @@
     },
     "nixpkgs_5": {
       "locked": {
-        "lastModified": 1786384358,
-        "narHash": "sha256-RzPPiWeUtuvymnpuEWsdtzli5w4kjZs49FqEs3/1u+I=",
+        "lastModified": 1794042290,
+        "narHash": "sha256-ziZn2PvCJE5JEEpqTdxXwJpPB+L3YqoCpTAMCzyaP3U=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "2fcb964de67fcf60b43471c55d5d99e61a9ccb5a",
+        "rev": "f4a03c008967841f2a0b3cb7c436fc6fc31671f6",
         "type": "github"
       },
       "original": {
@@ -710,16 +727,16 @@
         "rust-overlay": "rust-overlay"
       },
       "locked": {
-        "lastModified": 1793648373,
-        "narHash": "sha256-hnb0yuRuuBY/DK+bLUNKFQkmBfPfAN67xOrycDL6OmA=",
+        "lastModified": 1794525722,
+        "narHash": "sha256-8kH6okLYH3HCyJhHfkgUQ7CJUPBmhSSI4FxKjazXexo=",
         "owner": "can1357",
         "repo": "oh-my-pi",
-        "rev": "650f3a108229ee11bf68ba3377f4e8c3391cd424",
+        "rev": "c308970263ae13744ea15ab67302e3dac840e266",
         "type": "github"
       },
       "original": {
         "owner": "can1357",
-        "ref": "v18.16.0",
+        "ref": "v18.20.0",
         "repo": "oh-my-pi",
         "type": "github"
       }
@@ -818,6 +835,7 @@
     },
     "root": {
       "inputs": {
+        "audiobookshelf-fork": "audiobookshelf-fork",
         "darwin": "darwin",
         "disko": "disko",
         "flake-parts": "flake-parts",
@@ -845,11 +863,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1791276535,
-        "narHash": "sha256-iwqAmHTX1IgzTumJR3JayNAQAo5xEmmOuGzB6b2pT/Q=",
+        "lastModified": 1794127728,
+        "narHash": "sha256-QhZ104DwHvvMxWxmI13zdppISE27UmdqhRI2VwBg/yU=",
         "owner": "oxalica",
         "repo": "rust-overlay",
-        "rev": "b962e5d0c8cd97196c6a882d659fe451b52ad989",
+        "rev": "51c6dc40d18552701f7c5c62e3f7a5fc899f7132",
         "type": "github"
       },
       "original": {

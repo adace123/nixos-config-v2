@@ -194,6 +194,7 @@ uniq -c | sort -rn | head` narrows down before the cap hides the evidence.
 | ESPHome | — | disabled — upstream removed the built-in dashboard, see `home-assistant/` |
 | Beszel agent | 45876 | `nixos/beszel-agent.nix` (hub runs on dathomir) |
 | OpenKnowledge (wiki) | 8080 (loopback, via Caddy) | `nixos/open-knowledge.nix` (dathomir only) |
+| Audiobookshelf (audiobooks, podcasts) | 8000 (loopback, via Caddy) | `nixos/audiobookshelf.nix` (dathomir only) |
 | Herdr core (mobile app) | — (SSH only) | `nixos/herdr-core.nix` (dathomir only) |
 | Caddy (HTTPS proxy) | 443 (tailnet only) | `caddy.nix` |
 | Podman (container engine) | socket | `podman.nix` |
@@ -351,6 +352,22 @@ Once authenticated, SSH is available over Tailscale from anywhere:
 ```bash
 ssh root@coruscant.<tailnet-name>.ts.net
 ```
+
+### Subnet router (home LAN)
+
+coruscant also advertises the home LAN (`192.168.4.0/22`) as a Tailscale
+subnet route via `host.tailscaleSubnetRoutes` in
+`hosts/coruscant/default.nix`. The eero LAN is a /22 (`end0` is
+`192.168.4.53/22`), so the route has to be a /22 too — the eero nodes at
+`192.168.6.51`/`.52` sit outside a /24. Tailnet members can then reach LAN devices
+that do not run Tailscale by their LAN IP, from anywhere. The route is
+auto-approved for `tag:server-ha` and granted to members in
+`infra/tailscale/tailscale.tf`; see `infra/tailscale/NOTES.md` for the
+runbook (apply the policy **before** the first switch — autoApprovers
+only catch the first advertisement), verification steps, and the caveat
+that this grant also exposes coruscant's own services (`:8123`, `:22`)
+at its LAN IP. macOS/iOS/Android accept routes by default; Linux clients
+need `tailscale set --accept-routes`.
 
 ## Podman
 

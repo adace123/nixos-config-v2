@@ -583,6 +583,124 @@ write the notes. If that ever needs to change, the fix belongs at the edge
 (Cloudflare Access, `oauth2-proxy`) — the server has no authentication of its
 own, and `OK_ALLOW_EXTERNAL=1` is what makes it accept proxied requests at all.
 
+## Audiobookshelf (audiobooks and podcasts, tailnet-only)
+
+`audiobookshelf.<domain>` serves [Audiobookshelf](https://www.audiobookshelf.org)
+— a self-hosted audiobook and podcast server with its own Android and iOS apps,
+progress sync, offline downloads and background playback — from this host.
+Same tailnet-only posture as the hub, Pocket ID, Gatus and the wiki: the A
+record (`cloudflare_dns_record.audiobookshelf` in `infra/dns.tf`) points at
+dathomir's tailnet address, Caddy terminates TLS via the same Cloudflare
+DNS-01 setup, and the server itself listens only on `127.0.0.1:8000`
+(`services.audiobookshelf` in `modules/nixos/audiobookshelf.nix`, NixOS
+default port 8000).
+
+The point of it here is the private podcast series: the episodes are made
+elsewhere and uploaded to Audiobookshelf, which becomes the listening library.
+It is **not** a public podcast host. Because the address is only routable on
+the tailnet, a server-side fetcher such as Pocket Casts cannot reach it at all,
+and its RSS feed (opened per library item in Audiobookshelf) is only usable
+from a client already on the tailnet — the Audiobookshelf app itself, or
+AntennaPod on a phone with Tailscale running. If a public feed is ever wanted,
+that is a different design (public IP or tunnel), not a flag on this one.
+
+Two steps are manual, and the order matters:
+
+1. Add the domain in **both** secrets files, with the same value
+   (for example `audiobookshelf.figtreelab.dev`): `audiobookshelf-domain` in
+   `secrets/dathomir.yaml` (what Caddy reads) and `audiobookshelf-domain` in
+   `secrets/oci.yaml` (what `infra/tofu-env.sh` turns into
+   `TF_VAR_audiobookshelf_domain` for the DNS record). A missing sops secret
+   fails activation, so do this before deploying. On the DNS side a missing
+   key is caught earlier: `infra/tofu-env.sh` refuses to run when the key is
+   absent or `null`, because `yq` would otherwise hand OpenTofu the literal
+   string `null` and apply a record named after it.
+2. Apply the DNS record (`just -f infra/justfile tf apply`), then deploy
+   (`NHOST=dathomir just nixos-deploy dathomir`).
+
+First run, in the web UI at `https://<audiobookshelf-domain>`:
+
+1. Create the root admin account (first account becomes admin).
+2. Add a **Podcast** library pointing at `/var/lib/audiobookshelf/podcasts`
+   (created by the module, owned by the `audiobookshelf` user). Podcast
+   libraries are flat: one folder per show, episodes directly inside it, e.g.
+   `<show>/Episode 1.mp3` under that path — no season folders.
+3. Upload episodes either in the UI (**Upload Media**), via the API
+   (`POST /api/upload`, with an API key from Settings), or by copying the
+   MP3s into the library folder over SSH and scanning the library. The two
+   media directories are `0750 audiobookshelf:audiobookshelf`, so an SSH copy
+   has to run as root and end with
+   `chown -R audiobookshelf:audiobookshelf` on what was copied — otherwise the
+   scanner cannot read the files.
+   Juno uploads this way once the server is up: it needs the server URL and
+   an API key (or SSH access to the library folder), not a new Nix change.
+
+### Per-episode cover artwork (local fork)
+
+Upstream has no per-episode artwork — one image per show, tracked in
+[advplyr/audiobookshelf#1573](https://github.com/advplyr/audiobookshelf/issues/1573)
+— so `modules/nixos/audiobookshelf.nix` builds
+[adace123/audiobookshelf](https://github.com/adace123/audiobookshelf) branch
+`fork-2.37.2-episode-covers` instead of the official package. That branch is
+upstream `v2.37.2` plus
+[#5699](https://github.com/advplyr/audiobookshelf/pull/5699) (server:
+`podcastEpisodes.coverPath`/`imageURL`, embedded-art extraction in the podcast
+scanner, `GET /api/podcasts/:id/episode/:episodeId/cover` which 302s to the show
+cover when an episode has none) plus the web-client half that PR leaves out:
+the episode view, the episode rows and the player show the episode's own image.
+
+Two things to know before touching it:
+
+- **The version bump is load-bearing.** The fork reports `2.38.0` because
+  `MigrationManager` skips migrations when the server version equals the recorded
+  database version; at `2.37.2` the bundled `v2.38.0-add-episode-cover` migration
+  would never run and the podcast tables would lack the new columns. The cost is
+  that the database is then at `2.38.0`, ahead of upstream — when upstream ships
+  its own `2.38.0`, compare its migrations with
+  `v2.38.0-add-episode-cover.js` before switching back to the official package
+  (switching back while `2.38.0` is "newer" runs the down migration and drops
+  the columns, which is safe but means the fork must be re-deployed to get the
+  artwork again). First start backs the database up to
+  `config/absdatabase.backup.sqlite` automatically.
+- **Updating the fork** is two steps:
+
+  1. Merge the upstream tag into the branch and push it:
+     `git checkout fork-2.37.2-episode-covers && git merge --no-ff v<newtag>`
+     (or cherry-pick fixes). Both `npmDepsHash` pins stay valid as long as the
+     fork touches neither `package-lock.json` — check that in the merge diff.
+  2. `just update-input audiobookshelf-fork`, then build/switch. `flake.lock`
+     pins the resolved rev and narHash; dependabot's weekly
+     `flake-input-updates` run also picks up branch movement, so branch pushes
+     are build-validated by CI before they reach a manual update.
+
+  **The migration rule that goes with each update:** the recorded database
+  version is whatever the fork last reported (`2.38.0` today), and
+  `MigrationManager` only runs migrations strictly newer than that. So when an
+  upstream release ships migrations numbered `<= 2.38.0`, they would be
+  skipped on this database — check the release's
+  `server/migrations/` against the recorded version and rename (or port) those
+  files above it, then confirm the boot log lists them under
+  `[MigrationManager] Migrations to run`. Our own
+  `v2.38.0-add-episode-cover.js` gets dropped from the branch once upstream
+  absorbs the episode-cover code.
+
+Art comes from the file: an episode shows its own image when the uploaded MP3
+carries embedded art (`APIC`), and the show cover otherwise. The official
+Android and iOS apps are separate projects and still show one image per show.
+
+State is `/var/lib/audiobookshelf`: the SQLite database (users, libraries,
+progress) in `config/`, metadata, and the MP3s under `podcasts/` and
+`audiobooks/`. `modules/nixos/audiobookshelf-restic.nix` backs it up nightly
+to the R2 `dathomir` repository under its own `audiobookshelf` tag, as two
+snapshots: `config/` and `metadata/` while the service is stopped (seconds,
+like the other jobs), then the media directories with it running, because a
+media upload to R2 can take minutes and the app must not be offline for it.
+Restoring therefore means restoring both snapshots: stop
+`audiobookshelf.service`, restore into `/var/lib/audiobookshelf`, start it
+again. The backup grows with the library, since it includes the MP3s — if the
+library ever gets large, revisit whether media belongs in the backup or only
+the database does.
+
 ## Pocket ID (passkey login for the hub)
 
 `id.<domain>` serves [Pocket ID](https://pocket-id.org) from dathomir — a
