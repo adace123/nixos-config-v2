@@ -345,6 +345,35 @@ let
     text = builtins.readFile ./omniwm/herdr-agents-watcher.sh;
   };
 
+  # Kiri's engine state and running containers for the OmniShell bar. Kiri's own
+  # menu bar item is an NSStatusItem inside the app, which macOS has no way to
+  # place in another bar, so the watcher polls the daemon's own status endpoints
+  # (`/kiri/resources`, `/containers/json`) over its unix socket and pushes them
+  # as OmniShell runtime values. The `X-Kiri-Background: 1` header keeps that
+  # polling out of Kiri's idle timer, so the VM still sleeps and gives its
+  # memory back. See modules/home/omniwm/kiri/ for the widget.
+  kiriWatcher = pkgs.writeShellApplication {
+    name = "omniwm-kiri";
+    runtimeInputs = [
+      omniwm
+      pkgs.curl
+      pkgs.jq
+    ];
+    text = builtins.readFile ./omniwm/kiri-watcher.sh;
+  };
+
+  # The stop button in a container row. A widget cannot run a process or open a
+  # unix socket, so this loopback HTTP server makes the Docker API call on
+  # Kiri's socket (`/containers/<name>/stop`). The widget declares `127.0.0.1`
+  # and `shellPermissions` below approves it.
+  kiriBridge = pkgs.writeShellApplication {
+    name = "kiri-bridge";
+    runtimeInputs = [ pkgs.python3 ];
+    text = ''
+      exec python3 ${./omniwm/kiri-bridge.py}
+    '';
+  };
+
   # Bluetooth accessory batteries for the battery widget. The watcher polls
   # `bluetooth-battery` (the IOKit helper above) and pushes one runtime value,
   # `bluetooth.batteries`, the same way the Herdr watcher does — widgets cannot
@@ -626,11 +655,19 @@ in
     # approval is declared here so it works on the first click. This owns the
     # whole `shellPermissions.widgets` list — an approval the GUI adds for
     # another widget has to be added here too, or the next activation drops it.
+    # The kiri widget's stop buttons POST to the same pattern's bridge.
     settings.shellPermissions.widgets = [
       {
         role = "bar";
         name = "tailscale";
         source = "${config.xdg.configHome}/omniwm/shell/widgets/tailscale";
+        allowed = [ "127.0.0.1" ];
+        denied = [ ];
+      }
+      {
+        role = "bar";
+        name = "kiri";
+        source = "${config.xdg.configHome}/omniwm/shell/widgets/kiri";
         allowed = [ "127.0.0.1" ];
         denied = [ ];
       }
@@ -684,6 +721,12 @@ in
       "omniwm/shell/widgets/tailscale/init.luau".source = ./omniwm/tailscale/init.luau;
       "omniwm/shell/widgets/tailscale/settings.toml".source = ./omniwm/tailscale/settings.toml;
 
+      # Kiri's engine state and containers. The `kiri-watcher` agent below polls
+      # the daemon and pushes the values; the widget only draws them, so it
+      # declares no capabilities.
+      "omniwm/shell/widgets/kiri/init.luau".source = ./omniwm/kiri/init.luau;
+      "omniwm/shell/widgets/kiri/settings.toml".source = ./omniwm/kiri/settings.toml;
+
       # The now-playing player. OmniShell resolves this as the island root named
       # in `island.toml`, so it is not in a bar lane; the bundled `media`
       # widget it replaces is removed from the trailing lane at activation.
@@ -734,6 +777,7 @@ in
   # activation. It pins the `herdr-agents` lane entry, drops the bundled `media`
   # widget the now-playing player replaces, adds the player as a regular trailing
   # widget for the notched built-in display (the island runs on the others),
+  # adds Kiri's engine state beside it,
   # pins the theme, the bar surface
   # (opacity and height), the weather and Tailscale widgets on the leading lane
   # with the weather location, the island root and envelope, and the per-widget
@@ -747,7 +791,7 @@ in
         ${lib.escapeShellArg "${config.xdg.configHome}/omniwm/shell"} herdr-agents \
         ${lib.escapeShellArg shellTheme} --bar-opacity 1.0 --bar-height 28 --item-backgrounds \
         --leading-widgets weather,tailscale --remove-widgets media \
-        --trailing-widgets now-playing \
+        --trailing-widgets now-playing,kiri \
         --weather ${lib.escapeShellArg "${./omniwm/weather.toml}"} \
         --island ${lib.escapeShellArg "${./omniwm/island.toml}"} \
         --widgets ${lib.escapeShellArg "${./omniwm/shell-widgets.toml}"}
@@ -808,6 +852,43 @@ in
       KeepAlive = true;
       StandardOutPath = "${config.home.homeDirectory}/Library/Logs/herdr-agents.log";
       StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/herdr-agents.err.log";
+    };
+  };
+
+  # Kiri's engine state and containers: polls the daemon over its unix socket
+  # and pushes the values the widget draws. KeepAlive restarts it at login and
+  # after a crash; Kiri's own daemon answers the endpoints, so nothing here has
+  # to wait for it — an unreachable socket just hides the bar item until the
+  # next tick.
+  launchd.agents.kiri-watcher = {
+    enable = config.programs.omniwm.enable;
+
+    config = {
+      ProgramArguments = [ "${kiriWatcher}/bin/omniwm-kiri" ];
+
+      EnvironmentVariables.HOME = config.home.homeDirectory;
+
+      RunAtLoad = true;
+      KeepAlive = true;
+      StandardOutPath = "${config.home.homeDirectory}/Library/Logs/kiri-watcher.log";
+      StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/kiri-watcher.err.log";
+    };
+  };
+
+  # The kiri widget's Stop buttons. Runs beside the watcher; a failed POST just
+  # leaves the container running and the widget shows why.
+  launchd.agents.kiri-bridge = {
+    enable = config.programs.omniwm.enable;
+
+    config = {
+      ProgramArguments = [ "${kiriBridge}/bin/kiri-bridge" ];
+
+      EnvironmentVariables.HOME = config.home.homeDirectory;
+
+      RunAtLoad = true;
+      KeepAlive = true;
+      StandardOutPath = "${config.home.homeDirectory}/Library/Logs/kiri-bridge.log";
+      StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/kiri-bridge.err.log";
     };
   };
 

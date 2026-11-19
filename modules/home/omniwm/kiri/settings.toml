@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# The bar item itself reads only the values the `kiri-watcher` agent pushes.
+# Its stop buttons POST to the watcher's loopback bridge, so the widget
+# declares loopback and OmniWM records the approval in `shellPermissions`,
+# which the module declares for this widget's principal.
+
+[capabilities]
+network = ["127.0.0.1"]
+purpose = "Stop a container through the local kiri-bridge"
+
+[options.showCount]
+type = "boolean"
+title = "Show the running container count"
+default = true

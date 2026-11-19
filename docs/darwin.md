@@ -274,6 +274,25 @@ Compose and buildx, links them into `~/.kiri/bin`, and self-updates.
   and run `docker login` again for any private registry. Uninstalling `colima`
   does not stop its VM — run `colima stop` and delete `~/.colima` by hand
   (a running container keeps the VM busy until then).
+- **The bar** — the OmniShell `kiri` widget (`modules/home/omniwm/kiri/`) draws
+  a box and the running-container count, and its popout shows the engine state,
+  the VM's CPUs and memory, and the containers. A container row and the
+  "Open Kiri" row bring Kiri's window forward. Each row's trailing button stops
+  that container: a widget cannot run a process, so the click POSTs to the
+  `kiri-bridge` launchd service (`kiri-bridge.py`, loopback-only), which makes
+  the `/containers/<name>/stop` call on Kiri's own socket. The module declares
+  the `127.0.0.1` capability and approval for it. A row cannot open that
+  container's own page: Kiri has no URL scheme, and `kiri ui` takes only `--view`
+  (`open ~/Kiri/<name>` answers "Kiri cannot open files in the 'Folder'
+  format"), so a per-container deep link needs an upstream change first.
+  Kiri's own menu bar item is an
+  `NSStatusItem` inside its app, which macOS gives no way to place in another
+  bar, so the widget cannot reuse it. The `kiri-watcher` launchd agent polls
+  `/kiri/resources` and `/containers/json` on the daemon's unix socket and
+  pushes the values over OmniWM's IPC. It sends `X-Kiri-Background: 1`, the
+  header Kiri's own window uses for its periodic checks: those skip the idle
+  timer, so the widget does not keep the VM up, and containers are only listed
+  while the VM is awake (asking boots it).
 - **Remote podman** — the `podman` brew stays; it is the client for coruscant's
   socket (see [docs/nixos.md](nixos.md#podman)).
 
